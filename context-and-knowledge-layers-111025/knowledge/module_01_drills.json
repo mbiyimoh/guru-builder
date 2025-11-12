@@ -1,0 +1,2216 @@
+{
+  "moduleId": 1,
+  "moduleName": "Basic Opening Rolls",
+  "totalDrills": 24,
+  "note": "Doubles are impossible on opening rolls (players reroll if they tie), so only 15 unique opening rolls exist (2-1 through 6-5). This module has 24 drills covering all opening rolls plus variations.",
+  "drills": [
+    {
+      "id": 1,
+      "difficulty": "easy",
+      "category": "mandatory-points",
+      "position": {
+        "black": "24(2), 13(5), 8(3), 6(5)",
+        "white": "1(2), 12(5), 17(3), 19(5)",
+        "description": "Standard opening position"
+      },
+      "boardSetup": {
+        "points": {
+          "24": {
+            "color": "black",
+            "checkers": 2
+          },
+          "13": {
+            "color": "black",
+            "checkers": 5
+          },
+          "8": {
+            "color": "black",
+            "checkers": 3
+          },
+          "6": {
+            "color": "black",
+            "checkers": 5
+          },
+          "1": {
+            "color": "white",
+            "checkers": 2
+          },
+          "12": {
+            "color": "white",
+            "checkers": 5
+          },
+          "17": {
+            "color": "white",
+            "checkers": 3
+          },
+          "19": {
+            "color": "white",
+            "checkers": 5
+          }
+        },
+        "bar": {
+          "black": 0,
+          "white": 0
+        },
+        "off": {
+          "black": 0,
+          "white": 0
+        },
+        "summary": "Black: 2 checkers on point 24, 5 on point 13, 3 on point 8, 5 on point 6 (total 15). White: 2 checkers on point 1, 5 on point 12, 3 on point 17, 5 on point 19 (total 15). Bar: empty. Off: none."
+      },
+      "toPlay": "black",
+      "roll": [3, 1],
+      "previousMove": null,
+      "question": "Black to play 3-1. What's your best opening move?",
+      "options": [
+        {
+          "move": "8/5, 6/5",
+          "isCorrect": true,
+          "explanation": "Makes the golden 5-point, the most valuable point on the board. This is the strongest play available, worth approximately +12% equity compared to alternatives."
+        },
+        {
+          "move": "24/21, 13/12",
+          "isCorrect": false,
+          "explanation": "Splitting and building is a solid approach that creates flexibility. However, the opportunity to make the 5-point outright is worth about 12% more equity, making it the superior choice here."
+        },
+        {
+          "move": "13/10, 13/12",
+          "isCorrect": false,
+          "explanation": "Creating builders is usually a strong strategy. In this case though, you have a chance to make the most valuable point on the board - an opportunity worth taking."
+        },
+        {
+          "move": "24/23, 13/10",
+          "isCorrect": false,
+          "explanation": "This safe, conservative approach keeps your checkers flexible. The 3-1 roll offers an even better opportunity by letting you make the golden 5-point."
+        },
+        {
+          "move": "8/5, 13/12",
+          "isCorrect": false,
+          "explanation": "Slotting the 5-point shows good aggression and point-making instinct. Since you can actually make the point outright with both checkers, that's the stronger play."
+        }
+      ],
+      "principle": "When you can make the 5-point on the opening roll with 3-1, it's the strongest option available.",
+      "hintsAvailable": [
+        "Think about which point is most valuable to control",
+        "Can you make a key point with this roll?",
+        "The 5-point is called 'golden' for a reason"
+      ]
+    },
+    {
+      "id": 2,
+      "difficulty": "easy",
+      "category": "mandatory-points",
+      "position": {
+        "black": "24(2), 13(5), 8(3), 6(5)",
+        "white": "1(2), 12(5), 17(3), 19(5)",
+        "description": "Standard opening position"
+      },
+      "boardSetup": {
+        "points": {
+          "24": {
+            "color": "black",
+            "checkers": 2
+          },
+          "13": {
+            "color": "black",
+            "checkers": 5
+          },
+          "8": {
+            "color": "black",
+            "checkers": 3
+          },
+          "6": {
+            "color": "black",
+            "checkers": 5
+          },
+          "1": {
+            "color": "white",
+            "checkers": 2
+          },
+          "12": {
+            "color": "white",
+            "checkers": 5
+          },
+          "17": {
+            "color": "white",
+            "checkers": 3
+          },
+          "19": {
+            "color": "white",
+            "checkers": 5
+          }
+        },
+        "bar": {
+          "black": 0,
+          "white": 0
+        },
+        "off": {
+          "black": 0,
+          "white": 0
+        },
+        "summary": "Black: 2 checkers on point 24, 5 on point 13, 3 on point 8, 5 on point 6 (total 15). White: 2 checkers on point 1, 5 on point 12, 3 on point 17, 5 on point 19 (total 15). Bar: empty. Off: none."
+      },
+      "toPlay": "black",
+      "roll": [6, 1],
+      "previousMove": null,
+      "question": "Black to play 6-1. How should you play this opening roll?",
+      "options": [
+        {
+          "move": "13/7, 8/7",
+          "isCorrect": true,
+          "explanation": "Makes the bar-point, the second most valuable opening point. This controls the outfield and creates strong defensive structure, worth approximately +8% equity."
+        },
+        {
+          "move": "24/18, 13/7",
+          "isCorrect": false,
+          "explanation": "Splitting and making the bar-point is creative thinking. Making the bar-point with both checkers from your midpoint and 8-point gives you a stronger, safer position."
+        },
+        {
+          "move": "13/7, 13/12",
+          "isCorrect": false,
+          "explanation": "Building in the outfield has merit for flexibility. The bar-point is so valuable that securing it immediately offers better long-term prospects."
+        },
+        {
+          "move": "24/18, 8/7",
+          "isCorrect": false,
+          "explanation": "Splitting to the 18-point and slotting the bar has some aggressive appeal. Completing the bar-point with two checkers gives you more immediate strength."
+        },
+        {
+          "move": "8/2, 6/5",
+          "isCorrect": false,
+          "explanation": "Bringing checkers home early is an interesting idea. The bar-point offers more strategic value for controlling the game's direction."
+        }
+      ],
+      "principle": "Making the bar-point with 6-1 is nearly mandatory - it's the second most valuable opening play.",
+      "hintsAvailable": [
+        "Which point helps you control the outfield?",
+        "Think about blocking opponent's 6's",
+        "The 7-point (bar-point) is a key strategic point"
+      ]
+    },
+    {
+      "id": 3,
+      "difficulty": "easy",
+      "category": "mandatory-points",
+      "position": {
+        "black": "24(2), 13(5), 8(3), 6(5)",
+        "white": "1(2), 12(5), 17(3), 19(5)",
+        "description": "Standard opening position"
+      },
+      "boardSetup": {
+        "points": {
+          "24": {
+            "color": "black",
+            "checkers": 2
+          },
+          "13": {
+            "color": "black",
+            "checkers": 5
+          },
+          "8": {
+            "color": "black",
+            "checkers": 3
+          },
+          "6": {
+            "color": "black",
+            "checkers": 5
+          },
+          "1": {
+            "color": "white",
+            "checkers": 2
+          },
+          "12": {
+            "color": "white",
+            "checkers": 5
+          },
+          "17": {
+            "color": "white",
+            "checkers": 3
+          },
+          "19": {
+            "color": "white",
+            "checkers": 5
+          }
+        },
+        "bar": {
+          "black": 0,
+          "white": 0
+        },
+        "off": {
+          "black": 0,
+          "white": 0
+        },
+        "summary": "Black: 2 checkers on point 24, 5 on point 13, 3 on point 8, 5 on point 6 (total 15). White: 2 checkers on point 1, 5 on point 12, 3 on point 17, 5 on point 19 (total 15). Bar: empty. Off: none."
+      },
+      "toPlay": "black",
+      "roll": [4, 2],
+      "previousMove": null,
+      "question": "Black to play 4-2. What's the best opening play?",
+      "options": [
+        {
+          "move": "8/4, 6/4",
+          "isCorrect": true,
+          "explanation": "Makes the 4-point, a key home board point. This creates immediate strength and is the standard play 99% of the time, establishing solid defensive structure."
+        },
+        {
+          "move": "24/20, 13/11",
+          "isCorrect": false,
+          "explanation": "Splitting and building creates flexibility and forward momentum. Making the 4-point offers more immediate strategic value for your home board."
+        },
+        {
+          "move": "13/9, 13/11",
+          "isCorrect": false,
+          "explanation": "Creating two builders shows good tactical thinking. The opportunity to make a strong home board point immediately is worth seizing."
+        },
+        {
+          "move": "24/22, 24/20",
+          "isCorrect": false,
+          "explanation": "Double-splitting shows aggressive intent. Making the 4-point gives you a concrete asset that strengthens your position more reliably."
+        },
+        {
+          "move": "6/4, 6/2",
+          "isCorrect": false,
+          "explanation": "This makes the 4-point and slots the 2-point, showing bold play. Using both numbers to secure the 4-point is cleaner and stronger."
+        }
+      ],
+      "principle": "Making the 4-point with 4-2 is standard - it's a key home board point worth securing immediately.",
+      "hintsAvailable": [
+        "Which home board point can you make?",
+        "Think about building defensive strength early",
+        "The 4-point is third in the point value hierarchy"
+      ]
+    },
+    {
+      "id": 4,
+      "difficulty": "easy",
+      "category": "flexible-builders",
+      "position": {
+        "black": "24(2), 13(5), 8(3), 6(5)",
+        "white": "1(2), 12(5), 17(3), 19(5)",
+        "description": "Standard opening position"
+      },
+      "boardSetup": {
+        "points": {
+          "24": {
+            "color": "black",
+            "checkers": 2
+          },
+          "13": {
+            "color": "black",
+            "checkers": 5
+          },
+          "8": {
+            "color": "black",
+            "checkers": 3
+          },
+          "6": {
+            "color": "black",
+            "checkers": 5
+          },
+          "1": {
+            "color": "white",
+            "checkers": 2
+          },
+          "12": {
+            "color": "white",
+            "checkers": 5
+          },
+          "17": {
+            "color": "white",
+            "checkers": 3
+          },
+          "19": {
+            "color": "white",
+            "checkers": 5
+          }
+        },
+        "bar": {
+          "black": 0,
+          "white": 0
+        },
+        "off": {
+          "black": 0,
+          "white": 0
+        },
+        "summary": "Black: 2 checkers on point 24, 5 on point 13, 3 on point 8, 5 on point 6 (total 15). White: 2 checkers on point 1, 5 on point 12, 3 on point 17, 5 on point 19 (total 15). Bar: empty. Off: none."
+      },
+      "toPlay": "black",
+      "roll": [5, 3],
+      "previousMove": null,
+      "question": "Black to play 5-3. What's the recommended opening play?",
+      "options": [
+        {
+          "move": "8/3, 6/3",
+          "isCorrect": true,
+          "explanation": "Makes the 3-point, establishing a home board anchor. While not as valuable as the 5-point or 4-point, it's the standard solid play that gives you immediate defensive structure."
+        },
+        {
+          "move": "13/8, 13/10",
+          "isCorrect": false,
+          "explanation": "Bringing two builders down creates flexibility for future point-making. Making the 3-point immediately is the time-tested approach for this roll."
+        },
+        {
+          "move": "24/16",
+          "isCorrect": false,
+          "explanation": "Running with a back checker is bold. While this has some merit in modern play, making the 3-point is the standard choice for building your home board."
+        },
+        {
+          "move": "24/21, 13/8",
+          "isCorrect": false,
+          "explanation": "Splitting and building shows good positional awareness. The solid play of making the 3-point gives you a concrete asset right away."
+        },
+        {
+          "move": "13/5",
+          "isCorrect": false,
+          "explanation": "Slotting the golden 5-point with both numbers is aggressive. Making the 3-point safely is the conventional wisdom that's stood the test of time."
+        }
+      ],
+      "principle": "5-3 opening roll should make the 3-point - the standard, solid choice for this roll.",
+      "hintsAvailable": [
+        "Which point can you make safely with these numbers?",
+        "Think about building your home board early",
+        "The 3-point is a solid anchor to establish"
+      ]
+    },
+    {
+      "id": 5,
+      "difficulty": "medium",
+      "category": "flexible-builders",
+      "position": {
+        "black": "24(2), 13(5), 8(3), 6(5)",
+        "white": "1(2), 12(5), 17(3), 19(5)",
+        "description": "Standard opening position"
+      },
+      "toPlay": "black",
+      "roll": [6, 4],
+      "previousMove": null,
+      "question": "Black to play 6-4. What's your preferred opening strategy?",
+      "options": [
+        {
+          "move": "24/14",
+          "isCorrect": true,
+          "explanation": "Running with one back checker escapes to the safety of your midpoint area. This is the modern preferred play, getting a checker to relative safety while maintaining flexibility."
+        },
+        {
+          "move": "24/18, 13/9",
+          "isCorrect": false,
+          "explanation": "Splitting and building creates active play with two advanced checkers. The running play (24/14) is slightly preferred as it accomplishes more with one checker movement."
+        },
+        {
+          "move": "13/7, 13/9",
+          "isCorrect": false,
+          "explanation": "Creating two strong builders in your outfield shows solid positional thinking. The escaping play offers slightly more value by improving your worst checkers."
+        },
+        {
+          "move": "8/2, 6/2",
+          "isCorrect": false,
+          "explanation": "Making the 2-point early is very conservative. The 2-point is low value, and running with 24/14 uses your roll more productively."
+        },
+        {
+          "move": "24/18, 24/20",
+          "isCorrect": false,
+          "explanation": "Aggressive double-splitting creates immediate contact. Running one checker all the way to safety (24/14) is the preferred modern approach."
+        }
+      ],
+      "principle": "6-4 opening: running to the 14-point is the modern preference, escaping one back checker to safety.",
+      "hintsAvailable": [
+        "Can you improve your back checkers' position?",
+        "Think about escaping to safety versus splitting",
+        "Getting one checker to midfield has value"
+      ],
+      "boardSetup": {
+        "points": {
+          "24": {
+            "color": "black",
+            "checkers": 2
+          },
+          "13": {
+            "color": "black",
+            "checkers": 5
+          },
+          "8": {
+            "color": "black",
+            "checkers": 3
+          },
+          "6": {
+            "color": "black",
+            "checkers": 5
+          },
+          "1": {
+            "color": "white",
+            "checkers": 2
+          },
+          "12": {
+            "color": "white",
+            "checkers": 5
+          },
+          "17": {
+            "color": "white",
+            "checkers": 3
+          },
+          "19": {
+            "color": "white",
+            "checkers": 5
+          }
+        },
+        "bar": {
+          "black": 0,
+          "white": 0
+        },
+        "off": {
+          "black": 0,
+          "white": 0
+        },
+        "summary": "Black: 2 checkers on point 24, 5 on point 13, 3 on point 8, 5 on point 6 (total 15). White: 2 checkers on point 1, 5 on point 12, 3 on point 17, 5 on point 19 (total 15). Bar: empty. Off: none."
+      }
+    },
+    {
+      "id": 6,
+      "difficulty": "medium",
+      "category": "flexible-builders",
+      "position": {
+        "black": "24(2), 13(5), 8(3), 6(5)",
+        "white": "1(2), 12(5), 17(3), 19(5)",
+        "description": "Standard opening position"
+      },
+      "toPlay": "black",
+      "roll": [5, 2],
+      "previousMove": null,
+      "question": "Black to play 5-2. How should you approach this opening roll?",
+      "options": [
+        {
+          "move": "13/8, 13/11",
+          "isCorrect": true,
+          "explanation": "Bringing down two builders from your midpoint creates excellent flexibility for making key points on your next roll. This is the standard play, positioning you well for future development."
+        },
+        {
+          "move": "24/22, 13/8",
+          "isCorrect": false,
+          "explanation": "Splitting to the 22-point and building is a reasonable alternative with more risk. The safe two-builder approach offers better flexibility without exposure."
+        },
+        {
+          "move": "24/19, 13/11",
+          "isCorrect": false,
+          "explanation": "Bringing a back checker out while building has merit. The dual-builder approach from the midpoint creates stronger covering chances for valuable points."
+        },
+        {
+          "move": "13/6",
+          "isCorrect": false,
+          "explanation": "Making the 6-point with a third checker is very safe. Creating two separate builders (13/8, 13/11) gives you better point-making flexibility."
+        },
+        {
+          "move": "24/17",
+          "isCorrect": false,
+          "explanation": "Running one checker to your opponent's bar-point is bold. Building with 13/8, 13/11 creates better tactical opportunities for your next turn."
+        }
+      ],
+      "principle": "5-2 opening: create two builders with 13/8, 13/11 for maximum flexibility.",
+      "hintsAvailable": [
+        "Think about positioning checkers to make key points later",
+        "How many builders would each play create?",
+        "Flexibility for next roll matters"
+      ],
+      "boardSetup": {
+        "points": {
+          "24": {
+            "color": "black",
+            "checkers": 2
+          },
+          "13": {
+            "color": "black",
+            "checkers": 5
+          },
+          "8": {
+            "color": "black",
+            "checkers": 3
+          },
+          "6": {
+            "color": "black",
+            "checkers": 5
+          },
+          "1": {
+            "color": "white",
+            "checkers": 2
+          },
+          "12": {
+            "color": "white",
+            "checkers": 5
+          },
+          "17": {
+            "color": "white",
+            "checkers": 3
+          },
+          "19": {
+            "color": "white",
+            "checkers": 5
+          }
+        },
+        "bar": {
+          "black": 0,
+          "white": 0
+        },
+        "off": {
+          "black": 0,
+          "white": 0
+        },
+        "summary": "Black: 2 checkers on point 24, 5 on point 13, 3 on point 8, 5 on point 6 (total 15). White: 2 checkers on point 1, 5 on point 12, 3 on point 17, 5 on point 19 (total 15). Bar: empty. Off: none."
+      }
+    },
+    {
+      "id": 7,
+      "difficulty": "medium",
+      "category": "splitting-plays",
+      "position": {
+        "black": "24(2), 13(5), 8(3), 6(5)",
+        "white": "1(2), 12(5), 17(3), 19(5)",
+        "description": "Standard opening position"
+      },
+      "toPlay": "black",
+      "roll": [6, 2],
+      "previousMove": null,
+      "question": "Black to play 6-2. What's your recommended opening approach?",
+      "options": [
+        {
+          "move": "24/18, 13/11",
+          "isCorrect": true,
+          "explanation": "This aggressive double-slot creates immediate threats on two valuable points. With weak opponent board, the 18-point slot and 11-point builder set up strong point-making chances."
+        },
+        {
+          "move": "24/16",
+          "isCorrect": false,
+          "explanation": "Running to safety is the conservative choice. The aggressive double-slot (24/18, 13/11) creates more dynamic winning chances in the opening."
+        },
+        {
+          "move": "13/7, 13/11",
+          "isCorrect": false,
+          "explanation": "Slotting the bar-point and creating a builder is solid positional play. The dual threat of 24/18, 13/11 creates more immediate pressure."
+        },
+        {
+          "move": "24/22, 24/18",
+          "isCorrect": false,
+          "explanation": "Double-splitting both back checkers shows maximum aggression. The combination of splitting to 18 and building on 11 creates better balance."
+        },
+        {
+          "move": "13/11, 13/7",
+          "isCorrect": false,
+          "explanation": "Creating a builder and slotting the bar-point is reasonable. The split to 18 plus builder on 11 creates more diverse threats."
+        }
+      ],
+      "principle": "6-2 opening: the aggressive 24/18, 13/11 double-slot is the modern fighting approach.",
+      "hintsAvailable": [
+        "Think about creating multiple threats",
+        "Aggressive opening play works when opponent's board is weak",
+        "Consider slotting valuable points"
+      ],
+      "boardSetup": {
+        "points": {
+          "24": {
+            "color": "black",
+            "checkers": 2
+          },
+          "13": {
+            "color": "black",
+            "checkers": 5
+          },
+          "8": {
+            "color": "black",
+            "checkers": 3
+          },
+          "6": {
+            "color": "black",
+            "checkers": 5
+          },
+          "1": {
+            "color": "white",
+            "checkers": 2
+          },
+          "12": {
+            "color": "white",
+            "checkers": 5
+          },
+          "17": {
+            "color": "white",
+            "checkers": 3
+          },
+          "19": {
+            "color": "white",
+            "checkers": 5
+          }
+        },
+        "bar": {
+          "black": 0,
+          "white": 0
+        },
+        "off": {
+          "black": 0,
+          "white": 0
+        },
+        "summary": "Black: 2 checkers on point 24, 5 on point 13, 3 on point 8, 5 on point 6 (total 15). White: 2 checkers on point 1, 5 on point 12, 3 on point 17, 5 on point 19 (total 15). Bar: empty. Off: none."
+      }
+    },
+    {
+      "id": 8,
+      "difficulty": "medium",
+      "category": "flexible-builders",
+      "position": {
+        "black": "24(2), 13(5), 8(3), 6(5)",
+        "white": "1(2), 12(5), 17(3), 19(5)",
+        "description": "Standard opening position"
+      },
+      "toPlay": "black",
+      "roll": [4, 3],
+      "previousMove": null,
+      "question": "Black to play 4-3. How should you play this opening roll?",
+      "options": [
+        {
+          "move": "13/9, 13/10",
+          "isCorrect": true,
+          "explanation": "Creating two builders positioned to make the 5-point or 4-point is the standard play. This gives excellent flexibility for making key points on future rolls."
+        },
+        {
+          "move": "24/20, 13/10",
+          "isCorrect": false,
+          "explanation": "Splitting and building is a reasonable alternative. The pure building approach (13/9, 13/10) creates stronger covering potential for valuable inner points."
+        },
+        {
+          "move": "24/21, 13/9",
+          "isCorrect": false,
+          "explanation": "This split-and-build combination has merit. Two builders from the midpoint position you better for making the crucial 5-point or 4-point."
+        },
+        {
+          "move": "13/6",
+          "isCorrect": false,
+          "explanation": "Making the 6-point with a third checker is ultra-safe. The builders on 9 and 10 create better opportunities for making more valuable points."
+        },
+        {
+          "move": "24/20, 24/21",
+          "isCorrect": false,
+          "explanation": "Double-splitting both back checkers is aggressive. The building approach creates better tactical chances for securing key points."
+        }
+      ],
+      "principle": "4-3 opening: build with 13/9, 13/10 to create flexibility for making the 5-point or 4-point.",
+      "hintsAvailable": [
+        "Which points do you want to make most?",
+        "Position builders to cover valuable points",
+        "Think about 5-point and 4-point coverage"
+      ],
+      "boardSetup": {
+        "points": {
+          "24": {
+            "color": "black",
+            "checkers": 2
+          },
+          "13": {
+            "color": "black",
+            "checkers": 5
+          },
+          "8": {
+            "color": "black",
+            "checkers": 3
+          },
+          "6": {
+            "color": "black",
+            "checkers": 5
+          },
+          "1": {
+            "color": "white",
+            "checkers": 2
+          },
+          "12": {
+            "color": "white",
+            "checkers": 5
+          },
+          "17": {
+            "color": "white",
+            "checkers": 3
+          },
+          "19": {
+            "color": "white",
+            "checkers": 5
+          }
+        },
+        "bar": {
+          "black": 0,
+          "white": 0
+        },
+        "off": {
+          "black": 0,
+          "white": 0
+        },
+        "summary": "Black: 2 checkers on point 24, 5 on point 13, 3 on point 8, 5 on point 6 (total 15). White: 2 checkers on point 1, 5 on point 12, 3 on point 17, 5 on point 19 (total 15). Bar: empty. Off: none."
+      }
+    },
+    {
+      "id": 9,
+      "difficulty": "medium",
+      "category": "splitting-plays",
+      "position": {
+        "black": "24(2), 13(5), 8(3), 6(5)",
+        "white": "1(2), 12(5), 17(3), 19(5)",
+        "description": "Standard opening position"
+      },
+      "toPlay": "black",
+      "roll": [5, 4],
+      "previousMove": null,
+      "question": "Black to play 5-4. What's your opening strategy?",
+      "options": [
+        {
+          "move": "13/8, 13/9",
+          "isCorrect": true,
+          "explanation": "Creating two builders in your outer board gives flexibility for making valuable points. This is the standard safe approach that positions you well."
+        },
+        {
+          "move": "24/20, 13/8",
+          "isCorrect": false,
+          "explanation": "Splitting to the 20-point and building shows balanced aggression. The pure building play offers slightly better point-making flexibility without risk."
+        },
+        {
+          "move": "24/15",
+          "isCorrect": false,
+          "explanation": "Running one checker deep into opponent territory is bold. Building with 13/8, 13/9 creates better tactical opportunities."
+        },
+        {
+          "move": "13/4",
+          "isCorrect": false,
+          "explanation": "Slotting deep into your board is very aggressive. The safer building approach creates better long-term prospects."
+        },
+        {
+          "move": "24/19, 13/9",
+          "isCorrect": false,
+          "explanation": "Bringing a back checker out and building has some merit. The dual-builder approach from 13 creates stronger covering chances."
+        }
+      ],
+      "principle": "5-4 opening: build with 13/8, 13/9 for solid development and flexibility.",
+      "hintsAvailable": [
+        "Think about safe versus aggressive approaches",
+        "Creating builders gives future flexibility",
+        "Position checkers for point-making chances"
+      ],
+      "boardSetup": {
+        "points": {
+          "24": {
+            "color": "black",
+            "checkers": 2
+          },
+          "13": {
+            "color": "black",
+            "checkers": 5
+          },
+          "8": {
+            "color": "black",
+            "checkers": 3
+          },
+          "6": {
+            "color": "black",
+            "checkers": 5
+          },
+          "1": {
+            "color": "white",
+            "checkers": 2
+          },
+          "12": {
+            "color": "white",
+            "checkers": 5
+          },
+          "17": {
+            "color": "white",
+            "checkers": 3
+          },
+          "19": {
+            "color": "white",
+            "checkers": 5
+          }
+        },
+        "bar": {
+          "black": 0,
+          "white": 0
+        },
+        "off": {
+          "black": 0,
+          "white": 0
+        },
+        "summary": "Black: 2 checkers on point 24, 5 on point 13, 3 on point 8, 5 on point 6 (total 15). White: 2 checkers on point 1, 5 on point 12, 3 on point 17, 5 on point 19 (total 15). Bar: empty. Off: none."
+      }
+    },
+    {
+      "id": 10,
+      "difficulty": "medium",
+      "category": "flexible-builders",
+      "position": {
+        "black": "24(2), 13(5), 8(3), 6(5)",
+        "white": "1(2), 12(5), 17(3), 19(5)",
+        "description": "Standard opening position"
+      },
+      "toPlay": "black",
+      "roll": [6, 3],
+      "previousMove": null,
+      "question": "Black to play 6-3. How do you approach this opening roll?",
+      "options": [
+        {
+          "move": "24/15",
+          "isCorrect": true,
+          "explanation": "Running one back checker to your opponent's bar-point is the standard play. This escapes a checker to relative safety while maintaining flexibility."
+        },
+        {
+          "move": "24/18, 13/10",
+          "isCorrect": false,
+          "explanation": "Splitting and building is a solid alternative. Running all the way to 15 accomplishes more with one checker while keeping options open."
+        },
+        {
+          "move": "13/7, 13/10",
+          "isCorrect": false,
+          "explanation": "Slotting the bar-point and building shows good tactical thinking. The running play improves your worst checkers more effectively."
+        },
+        {
+          "move": "24/21, 13/7",
+          "isCorrect": false,
+          "explanation": "Splitting conservatively and slotting the bar is reasonable. Running to 15 is the preferred way to improve your back position."
+        },
+        {
+          "move": "13/10, 13/7",
+          "isCorrect": false,
+          "explanation": "Creating a builder and slotting the bar-point has merit. Escaping a back checker to 15 uses the roll more productively."
+        }
+      ],
+      "principle": "6-3 opening: running to the 15-point escapes one checker and is the standard play.",
+      "hintsAvailable": [
+        "Think about improving your back checkers",
+        "Can you escape one checker to safety?",
+        "The 15-point is opponent's bar-point - relatively safe"
+      ],
+      "boardSetup": {
+        "points": {
+          "24": {
+            "color": "black",
+            "checkers": 2
+          },
+          "13": {
+            "color": "black",
+            "checkers": 5
+          },
+          "8": {
+            "color": "black",
+            "checkers": 3
+          },
+          "6": {
+            "color": "black",
+            "checkers": 5
+          },
+          "1": {
+            "color": "white",
+            "checkers": 2
+          },
+          "12": {
+            "color": "white",
+            "checkers": 5
+          },
+          "17": {
+            "color": "white",
+            "checkers": 3
+          },
+          "19": {
+            "color": "white",
+            "checkers": 5
+          }
+        },
+        "bar": {
+          "black": 0,
+          "white": 0
+        },
+        "off": {
+          "black": 0,
+          "white": 0
+        },
+        "summary": "Black: 2 checkers on point 24, 5 on point 13, 3 on point 8, 5 on point 6 (total 15). White: 2 checkers on point 1, 5 on point 12, 3 on point 17, 5 on point 19 (total 15). Bar: empty. Off: none."
+      }
+    },
+    {
+      "id": 11,
+      "difficulty": "medium",
+      "category": "splitting-plays",
+      "position": {
+        "black": "24(2), 13(5), 8(3), 6(5)",
+        "white": "1(2), 12(5), 17(3), 19(5)",
+        "description": "Standard opening position"
+      },
+      "toPlay": "black",
+      "roll": [5, 1],
+      "previousMove": null,
+      "question": "Black to play 5-1. What's your opening move?",
+      "options": [
+        {
+          "move": "13/8, 13/12",
+          "isCorrect": true,
+          "explanation": "Creating two builders from your midpoint is the standard safe play. This positions you well for making key points without taking risks."
+        },
+        {
+          "move": "24/23, 13/8",
+          "isCorrect": false,
+          "explanation": "Splitting minimally to the 23-point and building is a reasonable alternative. The pure building approach creates slightly better covering flexibility."
+        },
+        {
+          "move": "13/7",
+          "isCorrect": false,
+          "explanation": "Slotting the valuable bar-point with both numbers shows aggression. The safer two-builder approach gives better flexibility for future rolls."
+        },
+        {
+          "move": "24/19, 13/12",
+          "isCorrect": false,
+          "explanation": "Splitting farther and creating a builder has some appeal. Building with both numbers from 13 creates stronger point-making chances."
+        },
+        {
+          "move": "8/3, 6/5",
+          "isCorrect": false,
+          "explanation": "Slotting the 3-point and 5-point is extremely aggressive. The standard building play offers better risk-reward balance."
+        }
+      ],
+      "principle": "5-1 opening: build safely with 13/8, 13/12 for solid development.",
+      "hintsAvailable": [
+        "Think about safe versus risky approaches",
+        "Creating builders without exposure is valuable",
+        "Position for making points on future rolls"
+      ],
+      "boardSetup": {
+        "points": {
+          "24": {
+            "color": "black",
+            "checkers": 2
+          },
+          "13": {
+            "color": "black",
+            "checkers": 5
+          },
+          "8": {
+            "color": "black",
+            "checkers": 3
+          },
+          "6": {
+            "color": "black",
+            "checkers": 5
+          },
+          "1": {
+            "color": "white",
+            "checkers": 2
+          },
+          "12": {
+            "color": "white",
+            "checkers": 5
+          },
+          "17": {
+            "color": "white",
+            "checkers": 3
+          },
+          "19": {
+            "color": "white",
+            "checkers": 5
+          }
+        },
+        "bar": {
+          "black": 0,
+          "white": 0
+        },
+        "off": {
+          "black": 0,
+          "white": 0
+        },
+        "summary": "Black: 2 checkers on point 24, 5 on point 13, 3 on point 8, 5 on point 6 (total 15). White: 2 checkers on point 1, 5 on point 12, 3 on point 17, 5 on point 19 (total 15). Bar: empty. Off: none."
+      }
+    },
+    {
+      "id": 12,
+      "difficulty": "hard",
+      "category": "splitting-plays",
+      "position": {
+        "black": "24(2), 13(5), 8(3), 6(5)",
+        "white": "1(2), 12(5), 17(3), 19(5)",
+        "description": "Standard opening position"
+      },
+      "toPlay": "black",
+      "roll": [6, 5],
+      "previousMove": null,
+      "question": "Black to play 6-5. What's your preferred opening strategy?",
+      "options": [
+        {
+          "move": "24/13",
+          "isCorrect": true,
+          "explanation": "Running one back checker all the way to your midpoint is the modern standard. This escapes a checker completely while building up your midpoint to 6 checkers."
+        },
+        {
+          "move": "24/18, 18/13",
+          "isCorrect": false,
+          "explanation": "This is the same play as option A (24/13), just showing the intermediate point. Both descriptions represent the identical move."
+        },
+        {
+          "move": "24/18, 13/8",
+          "isCorrect": false,
+          "explanation": "Splitting and building creates a more distributed position. Running all the way to safety (24/13) is the preferred modern approach."
+        },
+        {
+          "move": "13/8, 13/7",
+          "isCorrect": false,
+          "explanation": "Building and slotting the bar-point shows aggressive intent. Escaping a back checker completely offers more strategic value."
+        },
+        {
+          "move": "24/13*",
+          "isCorrect": false,
+          "explanation": "Note: There's no White checker on the 13-point in the opening position, so this move isn't possible. The correct play is simply 24/13."
+        }
+      ],
+      "principle": "6-5 opening: running to your midpoint (24/13) escapes a checker and is standard.",
+      "hintsAvailable": [
+        "Can you escape a back checker completely?",
+        "Think about getting a checker to safety",
+        "Your midpoint can hold more checkers effectively"
+      ],
+      "boardSetup": {
+        "points": {
+          "24": {
+            "color": "black",
+            "checkers": 2
+          },
+          "13": {
+            "color": "black",
+            "checkers": 5
+          },
+          "8": {
+            "color": "black",
+            "checkers": 3
+          },
+          "6": {
+            "color": "black",
+            "checkers": 5
+          },
+          "1": {
+            "color": "white",
+            "checkers": 2
+          },
+          "12": {
+            "color": "white",
+            "checkers": 5
+          },
+          "17": {
+            "color": "white",
+            "checkers": 3
+          },
+          "19": {
+            "color": "white",
+            "checkers": 5
+          }
+        },
+        "bar": {
+          "black": 0,
+          "white": 0
+        },
+        "off": {
+          "black": 0,
+          "white": 0
+        },
+        "summary": "Black: 2 checkers on point 24, 5 on point 13, 3 on point 8, 5 on point 6 (total 15). White: 2 checkers on point 1, 5 on point 12, 3 on point 17, 5 on point 19 (total 15). Bar: empty. Off: none."
+      }
+    },
+    {
+      "id": 13,
+      "difficulty": "hard",
+      "category": "flexible-builders",
+      "position": {
+        "black": "24(2), 13(5), 8(3), 6(5)",
+        "white": "1(2), 12(5), 17(3), 19(5)",
+        "description": "Standard opening position"
+      },
+      "toPlay": "black",
+      "roll": [4, 1],
+      "previousMove": null,
+      "question": "Black to play 4-1. How should you play this opening roll?",
+      "options": [
+        {
+          "move": "13/9, 13/12",
+          "isCorrect": true,
+          "explanation": "Creating two builders from your midpoint is the standard safe approach. This positions you well for making valuable points on future rolls."
+        },
+        {
+          "move": "24/23, 13/9",
+          "isCorrect": false,
+          "explanation": "Splitting minimally and building has merit. The pure building approach (13/9, 13/12) creates slightly better covering chances for key points."
+        },
+        {
+          "move": "24/20, 13/12",
+          "isCorrect": false,
+          "explanation": "Splitting farther to the 20-point and building is reasonable. Dual builders from the midpoint offer stronger point-making potential."
+        },
+        {
+          "move": "8/4, 6/5",
+          "isCorrect": false,
+          "explanation": "Making the 4-point and slotting the 5-point is very aggressive. The safer building approach creates better long-term prospects."
+        },
+        {
+          "move": "13/8",
+          "isCorrect": false,
+          "explanation": "Bringing one checker down to the 8-point is safe but passive. Using both numbers to create separate builders (13/9, 13/12) gives better flexibility."
+        }
+      ],
+      "principle": "4-1 opening: build with 13/9, 13/12 for flexibility and point-making chances.",
+      "hintsAvailable": [
+        "Think about creating multiple builders",
+        "Position checkers to make the 5-point or other key points",
+        "Safe development creates future opportunities"
+      ],
+      "boardSetup": {
+        "points": {
+          "24": {
+            "color": "black",
+            "checkers": 2
+          },
+          "13": {
+            "color": "black",
+            "checkers": 5
+          },
+          "8": {
+            "color": "black",
+            "checkers": 3
+          },
+          "6": {
+            "color": "black",
+            "checkers": 5
+          },
+          "1": {
+            "color": "white",
+            "checkers": 2
+          },
+          "12": {
+            "color": "white",
+            "checkers": 5
+          },
+          "17": {
+            "color": "white",
+            "checkers": 3
+          },
+          "19": {
+            "color": "white",
+            "checkers": 5
+          }
+        },
+        "bar": {
+          "black": 0,
+          "white": 0
+        },
+        "off": {
+          "black": 0,
+          "white": 0
+        },
+        "summary": "Black: 2 checkers on point 24, 5 on point 13, 3 on point 8, 5 on point 6 (total 15). White: 2 checkers on point 1, 5 on point 12, 3 on point 17, 5 on point 19 (total 15). Bar: empty. Off: none."
+      }
+    },
+    {
+      "id": 14,
+      "difficulty": "hard",
+      "category": "flexible-builders",
+      "position": {
+        "black": "24(2), 13(5), 8(3), 6(5)",
+        "white": "1(2), 12(5), 17(3), 19(5)",
+        "description": "Standard opening position"
+      },
+      "toPlay": "black",
+      "roll": [3, 2],
+      "previousMove": null,
+      "question": "Black to play 3-2. What's your opening move choice?",
+      "options": [
+        {
+          "move": "13/11, 13/10",
+          "isCorrect": true,
+          "explanation": "Creating two builders from your midpoint is the standard play. This positions you excellently for making the 5-point on your next roll with good covering chances."
+        },
+        {
+          "move": "24/22, 13/10",
+          "isCorrect": false,
+          "explanation": "Splitting to the 22-point and building is a reasonable alternative. The pure building approach creates stronger 5-point covering chances."
+        },
+        {
+          "move": "24/21, 13/11",
+          "isCorrect": false,
+          "explanation": "Splitting and building shows balanced play. Dual builders from the midpoint (13/11, 13/10) position better for making the golden 5-point."
+        },
+        {
+          "move": "13/10, 6/4",
+          "isCorrect": false,
+          "explanation": "Building and slotting the 4-point has some aggressive appeal. The safer two-builder approach offers better flexibility."
+        },
+        {
+          "move": "24/22, 24/21",
+          "isCorrect": false,
+          "explanation": "Double-splitting both back checkers is very aggressive. Building from the midpoint creates better tactical opportunities."
+        }
+      ],
+      "principle": "3-2 opening: build with 13/11, 13/10 for optimal 5-point making chances.",
+      "hintsAvailable": [
+        "Which point is most valuable to make?",
+        "Position builders to cover the 5-point",
+        "Think about flexibility for your next roll"
+      ],
+      "boardSetup": {
+        "points": {
+          "24": {
+            "color": "black",
+            "checkers": 2
+          },
+          "13": {
+            "color": "black",
+            "checkers": 5
+          },
+          "8": {
+            "color": "black",
+            "checkers": 3
+          },
+          "6": {
+            "color": "black",
+            "checkers": 5
+          },
+          "1": {
+            "color": "white",
+            "checkers": 2
+          },
+          "12": {
+            "color": "white",
+            "checkers": 5
+          },
+          "17": {
+            "color": "white",
+            "checkers": 3
+          },
+          "19": {
+            "color": "white",
+            "checkers": 5
+          }
+        },
+        "bar": {
+          "black": 0,
+          "white": 0
+        },
+        "off": {
+          "black": 0,
+          "white": 0
+        },
+        "summary": "Black: 2 checkers on point 24, 5 on point 13, 3 on point 8, 5 on point 6 (total 15). White: 2 checkers on point 1, 5 on point 12, 3 on point 17, 5 on point 19 (total 15). Bar: empty. Off: none."
+      }
+    },
+    {
+      "id": 15,
+      "difficulty": "hard",
+      "category": "splitting-plays",
+      "position": {
+        "black": "24(2), 13(5), 8(3), 6(5)",
+        "white": "1(2), 12(5), 17(3), 19(5)",
+        "description": "Standard opening position"
+      },
+      "toPlay": "black",
+      "roll": [2, 1],
+      "previousMove": null,
+      "question": "Black to play 2-1. How do you approach this opening roll?",
+      "options": [
+        {
+          "move": "13/11, 6/5",
+          "isCorrect": true,
+          "explanation": "Creating a builder on 11 and slotting the golden 5-point is the aggressive standard play. This creates the best chance to make the most valuable point."
+        },
+        {
+          "move": "24/23, 13/11",
+          "isCorrect": false,
+          "explanation": "Splitting and building is the safer alternative. The bold slot of the 5-point (13/11, 6/5) creates better winning chances despite the risk."
+        },
+        {
+          "move": "13/11, 13/12",
+          "isCorrect": false,
+          "explanation": "Creating two builders is very safe. Slotting the 5-point (13/11, 6/5) is the more dynamic choice that fights for the key point."
+        },
+        {
+          "move": "24/22, 6/5",
+          "isCorrect": false,
+          "explanation": "Splitting and slotting the 5-point shows aggression. The builder on 11 (13/11, 6/5) creates better covering chances for the slotted 5-point."
+        },
+        {
+          "move": "8/6, 6/5",
+          "isCorrect": false,
+          "explanation": "This makes the 6-point and slots the 5-point, showing bold play. Using 13/11, 6/5 creates a builder that can cover the 5-point."
+        }
+      ],
+      "principle": "2-1 opening: the aggressive 13/11, 6/5 slots the 5-point with a builder to cover it.",
+      "hintsAvailable": [
+        "Think about slotting the most valuable point",
+        "Can you create a builder to cover your slot?",
+        "The 5-point is worth fighting for"
+      ],
+      "boardSetup": {
+        "points": {
+          "24": {
+            "color": "black",
+            "checkers": 2
+          },
+          "13": {
+            "color": "black",
+            "checkers": 5
+          },
+          "8": {
+            "color": "black",
+            "checkers": 3
+          },
+          "6": {
+            "color": "black",
+            "checkers": 5
+          },
+          "1": {
+            "color": "white",
+            "checkers": 2
+          },
+          "12": {
+            "color": "white",
+            "checkers": 5
+          },
+          "17": {
+            "color": "white",
+            "checkers": 3
+          },
+          "19": {
+            "color": "white",
+            "checkers": 5
+          }
+        },
+        "bar": {
+          "black": 0,
+          "white": 0
+        },
+        "off": {
+          "black": 0,
+          "white": 0
+        },
+        "summary": "Black: 2 checkers on point 24, 5 on point 13, 3 on point 8, 5 on point 6 (total 15). White: 2 checkers on point 1, 5 on point 12, 3 on point 17, 5 on point 19 (total 15). Bar: empty. Off: none."
+      }
+    },
+    {
+      "id": 16,
+      "difficulty": "hard",
+      "category": "understanding-principles",
+      "position": {
+        "black": "24(2), 13(5), 8(3), 6(5)",
+        "white": "1(2), 12(5), 17(3), 19(5)",
+        "description": "Standard opening position"
+      },
+      "toPlay": "black",
+      "roll": [5, 3],
+      "previousMove": null,
+      "question": "Black to play 5-3. Is there an alternative to making the 3-point?",
+      "options": [
+        {
+          "move": "8/3, 6/3",
+          "isCorrect": true,
+          "explanation": "Making the 3-point is the time-tested standard play. While 24/16 (running) has gained popularity in modern play, the solid 3-point remains the recommended choice for most players."
+        },
+        {
+          "move": "24/16",
+          "isCorrect": false,
+          "explanation": "Running to the 16-point is a modern alternative that's gained traction. However, making the 3-point (8/3, 6/3) remains the standard solid choice."
+        },
+        {
+          "move": "13/8, 13/10",
+          "isCorrect": false,
+          "explanation": "Creating two builders offers flexibility. The concrete asset of the 3-point is generally preferred to speculative building."
+        },
+        {
+          "move": "24/21, 13/8",
+          "isCorrect": false,
+          "explanation": "Splitting and building creates a balanced position. Making the 3-point gives you an immediate anchor."
+        },
+        {
+          "move": "13/5",
+          "isCorrect": false,
+          "explanation": "Slotting the 5-point with both numbers is very bold. The safe 3-point is the proven approach."
+        }
+      ],
+      "principle": "5-3: while modern theory offers 24/16 as an alternative, making the 3-point remains standard.",
+      "hintsAvailable": [
+        "What's the traditional play for this roll?",
+        "Think about concrete points versus flexibility",
+        "The 3-point is a solid anchor"
+      ],
+      "boardSetup": {
+        "points": {
+          "24": {
+            "color": "black",
+            "checkers": 2
+          },
+          "13": {
+            "color": "black",
+            "checkers": 5
+          },
+          "8": {
+            "color": "black",
+            "checkers": 3
+          },
+          "6": {
+            "color": "black",
+            "checkers": 5
+          },
+          "1": {
+            "color": "white",
+            "checkers": 2
+          },
+          "12": {
+            "color": "white",
+            "checkers": 5
+          },
+          "17": {
+            "color": "white",
+            "checkers": 3
+          },
+          "19": {
+            "color": "white",
+            "checkers": 5
+          }
+        },
+        "bar": {
+          "black": 0,
+          "white": 0
+        },
+        "off": {
+          "black": 0,
+          "white": 0
+        },
+        "summary": "Black: 2 checkers on point 24, 5 on point 13, 3 on point 8, 5 on point 6 (total 15). White: 2 checkers on point 1, 5 on point 12, 3 on point 17, 5 on point 19 (total 15). Bar: empty. Off: none."
+      }
+    },
+    {
+      "id": 17,
+      "difficulty": "hard",
+      "category": "understanding-principles",
+      "position": {
+        "black": "24(2), 13(5), 8(3), 6(5)",
+        "white": "1(2), 12(5), 17(3), 19(5)",
+        "description": "Standard opening position"
+      },
+      "toPlay": "black",
+      "roll": [6, 4],
+      "previousMove": null,
+      "question": "Black to play 6-4. What makes running the preferred choice over other options?",
+      "options": [
+        {
+          "move": "24/14",
+          "isCorrect": true,
+          "explanation": "Running gets your worst-positioned checker to relative safety in one move. This is more efficient than splitting, as it improves your position dramatically while maintaining flexibility."
+        },
+        {
+          "move": "24/18, 13/9",
+          "isCorrect": false,
+          "explanation": "Splitting and building is a valid alternative that creates activity. Running (24/14) accomplishes more with a single checker movement."
+        },
+        {
+          "move": "8/2, 6/2",
+          "isCorrect": false,
+          "explanation": "Making the 2-point early is overly conservative. The 2-point has low value, while running improves your worst checkers significantly."
+        },
+        {
+          "move": "13/7, 13/9",
+          "isCorrect": false,
+          "explanation": "Pure building from the midpoint is safe. Improving your trapped back checkers (24/14) addresses a more pressing positional need."
+        },
+        {
+          "move": "24/18, 24/20",
+          "isCorrect": false,
+          "explanation": "Aggressive double-splitting creates immediate contact. The running play offers better risk-reward by getting one checker to safety."
+        }
+      ],
+      "principle": "6-4: running to safety is more efficient than splitting - it dramatically improves one checker.",
+      "hintsAvailable": [
+        "Compare escaping versus splitting",
+        "Which play improves your position most?",
+        "Think about efficiency of checker movement"
+      ],
+      "boardSetup": {
+        "points": {
+          "24": {
+            "color": "black",
+            "checkers": 2
+          },
+          "13": {
+            "color": "black",
+            "checkers": 5
+          },
+          "8": {
+            "color": "black",
+            "checkers": 3
+          },
+          "6": {
+            "color": "black",
+            "checkers": 5
+          },
+          "1": {
+            "color": "white",
+            "checkers": 2
+          },
+          "12": {
+            "color": "white",
+            "checkers": 5
+          },
+          "17": {
+            "color": "white",
+            "checkers": 3
+          },
+          "19": {
+            "color": "white",
+            "checkers": 5
+          }
+        },
+        "bar": {
+          "black": 0,
+          "white": 0
+        },
+        "off": {
+          "black": 0,
+          "white": 0
+        },
+        "summary": "Black: 2 checkers on point 24, 5 on point 13, 3 on point 8, 5 on point 6 (total 15). White: 2 checkers on point 1, 5 on point 12, 3 on point 17, 5 on point 19 (total 15). Bar: empty. Off: none."
+      }
+    },
+    {
+      "id": 18,
+      "difficulty": "hard",
+      "category": "understanding-principles",
+      "position": {
+        "black": "24(2), 13(5), 8(3), 6(5)",
+        "white": "1(2), 12(5), 17(3), 19(5)",
+        "description": "Standard opening position"
+      },
+      "toPlay": "black",
+      "roll": [6, 2],
+      "previousMove": null,
+      "question": "Black to play 6-2. Why is the aggressive double-slot preferred over safer alternatives?",
+      "options": [
+        {
+          "move": "24/18, 13/11",
+          "isCorrect": true,
+          "explanation": "The double-slot creates immediate threats on two valuable points. With opponent's weak opening board, the risks are acceptable for the potential rewards of making either point."
+        },
+        {
+          "move": "24/16",
+          "isCorrect": false,
+          "explanation": "Running to safety is perfectly safe. However, the opening is the time to fight for key points - the double-slot creates more dynamic winning chances."
+        },
+        {
+          "move": "13/7, 13/11",
+          "isCorrect": false,
+          "explanation": "Slotting the bar and creating a builder is reasonable. The dual threat of 24/18, 13/11 creates more pressure and better winning chances."
+        },
+        {
+          "move": "13/11, 13/7",
+          "isCorrect": false,
+          "explanation": "This is similar to option C (just reversed). The split to 18 adds more value than a second slot from the midpoint."
+        },
+        {
+          "move": "24/22, 13/7",
+          "isCorrect": false,
+          "explanation": "Conservative splitting and bar-slotting is balanced. The full commitment to dual threats (24/18, 13/11) offers stronger winning prospects."
+        }
+      ],
+      "principle": "6-2: opening is the time for aggression - double-slotting creates winning chances against weak boards.",
+      "hintsAvailable": [
+        "When is the best time to take risks?",
+        "How strong is opponent's board in the opening?",
+        "Multiple threats create more opportunities"
+      ],
+      "boardSetup": {
+        "points": {
+          "24": {
+            "color": "black",
+            "checkers": 2
+          },
+          "13": {
+            "color": "black",
+            "checkers": 5
+          },
+          "8": {
+            "color": "black",
+            "checkers": 3
+          },
+          "6": {
+            "color": "black",
+            "checkers": 5
+          },
+          "1": {
+            "color": "white",
+            "checkers": 2
+          },
+          "12": {
+            "color": "white",
+            "checkers": 5
+          },
+          "17": {
+            "color": "white",
+            "checkers": 3
+          },
+          "19": {
+            "color": "white",
+            "checkers": 5
+          }
+        },
+        "bar": {
+          "black": 0,
+          "white": 0
+        },
+        "off": {
+          "black": 0,
+          "white": 0
+        },
+        "summary": "Black: 2 checkers on point 24, 5 on point 13, 3 on point 8, 5 on point 6 (total 15). White: 2 checkers on point 1, 5 on point 12, 3 on point 17, 5 on point 19 (total 15). Bar: empty. Off: none."
+      }
+    },
+    {
+      "id": 19,
+      "difficulty": "hard",
+      "category": "understanding-principles",
+      "position": {
+        "black": "24(2), 13(5), 8(3), 6(5)",
+        "white": "1(2), 12(5), 17(3), 19(5)",
+        "description": "Standard opening position"
+      },
+      "toPlay": "black",
+      "roll": [4, 3],
+      "previousMove": null,
+      "question": "Black to play 4-3. Why create builders rather than split aggressively?",
+      "options": [
+        {
+          "move": "13/9, 13/10",
+          "isCorrect": true,
+          "explanation": "Builders on 9 and 10 create excellent chances to make the 5-point (15 numbers) or 4-point on future rolls. This patient approach builds strength for key point-making opportunities."
+        },
+        {
+          "move": "24/20, 13/10",
+          "isCorrect": false,
+          "explanation": "Splitting and building creates some activity. The dual-builder approach (13/9, 13/10) positions you better for making the crucial 5-point."
+        },
+        {
+          "move": "24/21, 13/9",
+          "isCorrect": false,
+          "explanation": "This split-and-build has merit. Pure building creates stronger covering potential for the most valuable points."
+        },
+        {
+          "move": "24/20, 24/21",
+          "isCorrect": false,
+          "explanation": "Double-splitting is very aggressive. Building from the midpoint creates better opportunities for making key points safely."
+        },
+        {
+          "move": "13/6",
+          "isCorrect": false,
+          "explanation": "Making the 6-point is ultra-safe. Builders on 9 and 10 create much better chances for making more valuable points."
+        }
+      ],
+      "principle": "4-3: builders on 9 and 10 create 15 numbers to make the 5-point - patience creates opportunity.",
+      "hintsAvailable": [
+        "Count how many rolls would make the 5-point from this position",
+        "Which points are most valuable to make?",
+        "Good builders create great opportunities"
+      ],
+      "boardSetup": {
+        "points": {
+          "24": {
+            "color": "black",
+            "checkers": 2
+          },
+          "13": {
+            "color": "black",
+            "checkers": 5
+          },
+          "8": {
+            "color": "black",
+            "checkers": 3
+          },
+          "6": {
+            "color": "black",
+            "checkers": 5
+          },
+          "1": {
+            "color": "white",
+            "checkers": 2
+          },
+          "12": {
+            "color": "white",
+            "checkers": 5
+          },
+          "17": {
+            "color": "white",
+            "checkers": 3
+          },
+          "19": {
+            "color": "white",
+            "checkers": 5
+          }
+        },
+        "bar": {
+          "black": 0,
+          "white": 0
+        },
+        "off": {
+          "black": 0,
+          "white": 0
+        },
+        "summary": "Black: 2 checkers on point 24, 5 on point 13, 3 on point 8, 5 on point 6 (total 15). White: 2 checkers on point 1, 5 on point 12, 3 on point 17, 5 on point 19 (total 15). Bar: empty. Off: none."
+      }
+    },
+    {
+      "id": 20,
+      "difficulty": "hard",
+      "category": "understanding-principles",
+      "position": {
+        "black": "24(2), 13(5), 8(3), 6(5)",
+        "white": "1(2), 12(5), 17(3), 19(5)",
+        "description": "Standard opening position"
+      },
+      "toPlay": "black",
+      "roll": [3, 2],
+      "previousMove": null,
+      "question": "Black to play 3-2. Why is this the best builder combination for making the 5-point?",
+      "options": [
+        {
+          "move": "13/11, 13/10",
+          "isCorrect": true,
+          "explanation": "Builders on 11 and 10 create the maximum number of combinations (16 numbers) to make the golden 5-point on your next roll. This is optimal positioning for the most important point."
+        },
+        {
+          "move": "24/22, 13/10",
+          "isCorrect": false,
+          "explanation": "Splitting and building is reasonable. The dual builders from 13 (creating 16 numbers to make the 5-point) is more focused on the key objective."
+        },
+        {
+          "move": "24/21, 13/11",
+          "isCorrect": false,
+          "explanation": "This split-and-build approach has merit. Positioning both builders from the midpoint creates maximum 5-point making chances."
+        },
+        {
+          "move": "13/10, 6/4",
+          "isCorrect": false,
+          "explanation": "Building and slotting the 4-point shows aggression. The patient builder approach creates better 5-point opportunities."
+        },
+        {
+          "move": "24/22, 24/21",
+          "isCorrect": false,
+          "explanation": "Double-splitting is aggressive. Building for the 5-point is the superior strategic choice."
+        }
+      ],
+      "principle": "3-2: builders on 11 and 10 create 16 numbers to make the 5-point - optimal positioning.",
+      "hintsAvailable": [
+        "Count combinations that make the 5-point from different positions",
+        "Which builder positions give maximum 5-point making chances?",
+        "The 5-point is the primary objective"
+      ],
+      "boardSetup": {
+        "points": {
+          "24": {
+            "color": "black",
+            "checkers": 2
+          },
+          "13": {
+            "color": "black",
+            "checkers": 5
+          },
+          "8": {
+            "color": "black",
+            "checkers": 3
+          },
+          "6": {
+            "color": "black",
+            "checkers": 5
+          },
+          "1": {
+            "color": "white",
+            "checkers": 2
+          },
+          "12": {
+            "color": "white",
+            "checkers": 5
+          },
+          "17": {
+            "color": "white",
+            "checkers": 3
+          },
+          "19": {
+            "color": "white",
+            "checkers": 5
+          }
+        },
+        "bar": {
+          "black": 0,
+          "white": 0
+        },
+        "off": {
+          "black": 0,
+          "white": 0
+        },
+        "summary": "Black: 2 checkers on point 24, 5 on point 13, 3 on point 8, 5 on point 6 (total 15). White: 2 checkers on point 1, 5 on point 12, 3 on point 17, 5 on point 19 (total 15). Bar: empty. Off: none."
+      }
+    },
+    {
+      "id": 21,
+      "difficulty": "hard",
+      "category": "style-variations",
+      "position": {
+        "black": "24(2), 13(5), 8(3), 6(5)",
+        "white": "1(2), 12(5), 17(3), 19(5)",
+        "description": "Standard opening position"
+      },
+      "toPlay": "black",
+      "roll": [5, 2],
+      "previousMove": null,
+      "question": "Black to play 5-2. When might splitting (24/22, 13/8) be preferred over dual builders?",
+      "options": [
+        {
+          "move": "13/8, 13/11",
+          "isCorrect": true,
+          "explanation": "The dual-builder approach is standard and recommended. However, if you prefer a more aggressive, contact-oriented style, splitting (24/22, 13/8) is a viable alternative that creates more immediate pressure."
+        },
+        {
+          "move": "24/22, 13/8",
+          "isCorrect": false,
+          "explanation": "Splitting to the 22-point while building is the aggressive alternative. Both plays have merit - this is more aggressive, while 13/8, 13/11 is safer and more flexible."
+        },
+        {
+          "move": "24/19, 13/11",
+          "isCorrect": false,
+          "explanation": "Bringing a back checker farther out while building is creative. The standard plays (either dual builders or 24/22, 13/8) are generally stronger."
+        },
+        {
+          "move": "13/6",
+          "isCorrect": false,
+          "explanation": "Making the 6-point is very conservative. Creating builders (or splitting) offers more dynamic play."
+        },
+        {
+          "move": "24/17",
+          "isCorrect": false,
+          "explanation": "Running one checker deep is bold. The standard approaches create better positional balance."
+        }
+      ],
+      "principle": "5-2: while 13/8, 13/11 is standard, playing style influences the choice between safe and aggressive.",
+      "hintsAvailable": [
+        "What's your preferred playing style?",
+        "Safe builders versus aggressive contact?",
+        "Both approaches can work based on style"
+      ],
+      "boardSetup": {
+        "points": {
+          "24": {
+            "color": "black",
+            "checkers": 2
+          },
+          "13": {
+            "color": "black",
+            "checkers": 5
+          },
+          "8": {
+            "color": "black",
+            "checkers": 3
+          },
+          "6": {
+            "color": "black",
+            "checkers": 5
+          },
+          "1": {
+            "color": "white",
+            "checkers": 2
+          },
+          "12": {
+            "color": "white",
+            "checkers": 5
+          },
+          "17": {
+            "color": "white",
+            "checkers": 3
+          },
+          "19": {
+            "color": "white",
+            "checkers": 5
+          }
+        },
+        "bar": {
+          "black": 0,
+          "white": 0
+        },
+        "off": {
+          "black": 0,
+          "white": 0
+        },
+        "summary": "Black: 2 checkers on point 24, 5 on point 13, 3 on point 8, 5 on point 6 (total 15). White: 2 checkers on point 1, 5 on point 12, 3 on point 17, 5 on point 19 (total 15). Bar: empty. Off: none."
+      }
+    },
+    {
+      "id": 22,
+      "difficulty": "hard",
+      "category": "style-variations",
+      "position": {
+        "black": "24(2), 13(5), 8(3), 6(5)",
+        "white": "1(2), 12(5), 17(3), 19(5)",
+        "description": "Standard opening position"
+      },
+      "toPlay": "black",
+      "roll": [2, 1],
+      "previousMove": null,
+      "question": "Black to play 2-1. Is there a safer alternative to slotting the 5-point?",
+      "options": [
+        {
+          "move": "13/11, 6/5",
+          "isCorrect": true,
+          "explanation": "Slotting the 5-point is the aggressive standard that fights for the key point. If you prefer safer play, 24/23, 13/11 is reasonable, but the 5-point slot is recommended for its higher winning potential."
+        },
+        {
+          "move": "24/23, 13/11",
+          "isCorrect": false,
+          "explanation": "Splitting minimally and building is the safe alternative. While valid, the aggressive 5-point slot (13/11, 6/5) creates better winning chances by fighting for the most valuable point."
+        },
+        {
+          "move": "13/11, 13/12",
+          "isCorrect": false,
+          "explanation": "Creating two builders is very conservative. The fighting approach of slotting the 5-point offers stronger winning prospects."
+        },
+        {
+          "move": "24/22, 6/5",
+          "isCorrect": false,
+          "explanation": "Splitting and slotting the 5-point is aggressive. Including a builder on 11 (13/11, 6/5) creates better covering chances."
+        },
+        {
+          "move": "8/6, 6/5",
+          "isCorrect": false,
+          "explanation": "Making the 6-point and slotting the 5-point uses checkers inefficiently. The builder on 11 is better positioned to cover the 5-point."
+        }
+      ],
+      "principle": "2-1: slotting the 5-point is aggressive standard, safer alternatives exist but offer less winning potential.",
+      "hintsAvailable": [
+        "What's the most valuable point to fight for?",
+        "Aggressive versus safe - which wins more?",
+        "The 5-point slot creates winning chances"
+      ],
+      "boardSetup": {
+        "points": {
+          "24": {
+            "color": "black",
+            "checkers": 2
+          },
+          "13": {
+            "color": "black",
+            "checkers": 5
+          },
+          "8": {
+            "color": "black",
+            "checkers": 3
+          },
+          "6": {
+            "color": "black",
+            "checkers": 5
+          },
+          "1": {
+            "color": "white",
+            "checkers": 2
+          },
+          "12": {
+            "color": "white",
+            "checkers": 5
+          },
+          "17": {
+            "color": "white",
+            "checkers": 3
+          },
+          "19": {
+            "color": "white",
+            "checkers": 5
+          }
+        },
+        "bar": {
+          "black": 0,
+          "white": 0
+        },
+        "off": {
+          "black": 0,
+          "white": 0
+        },
+        "summary": "Black: 2 checkers on point 24, 5 on point 13, 3 on point 8, 5 on point 6 (total 15). White: 2 checkers on point 1, 5 on point 12, 3 on point 17, 5 on point 19 (total 15). Bar: empty. Off: none."
+      }
+    },
+    {
+      "id": 23,
+      "difficulty": "hard",
+      "category": "style-variations",
+      "position": {
+        "black": "24(2), 13(5), 8(3), 6(5)",
+        "white": "1(2), 12(5), 17(3), 19(5)",
+        "description": "Standard opening position"
+      },
+      "toPlay": "black",
+      "roll": [6, 3],
+      "previousMove": null,
+      "question": "Black to play 6-3. What's the trade-off between running (24/15) and splitting with building?",
+      "options": [
+        {
+          "move": "24/15",
+          "isCorrect": true,
+          "explanation": "Running to the 15-point escapes a checker to safety, accomplishing more in one move. Splitting (24/18, 13/10) creates activity but leaves checkers more exposed. Running is the standard safer choice."
+        },
+        {
+          "move": "24/18, 13/10",
+          "isCorrect": false,
+          "explanation": "Splitting and building creates active play with forward checkers. Running (24/15) accomplishes more with better safety - escaping a checker completely is valuable."
+        },
+        {
+          "move": "13/7, 13/10",
+          "isCorrect": false,
+          "explanation": "Slotting the bar and building from the midpoint shows tactical thinking. Improving your back checkers (24/15) addresses a more pressing positional need."
+        },
+        {
+          "move": "24/21, 13/7",
+          "isCorrect": false,
+          "explanation": "Conservative splitting and bar-slotting is creative. Running to safety is the more straightforward strong play."
+        },
+        {
+          "move": "13/10, 13/7",
+          "isCorrect": false,
+          "explanation": "Building and slotting the bar creates flexibility. Escaping a back checker has more immediate value."
+        }
+      ],
+      "principle": "6-3: running to 15 is standard for safety, but style preferences can influence split-and-build choices.",
+      "hintsAvailable": [
+        "Which play accomplishes more in one move?",
+        "Safety versus activity - which do you prefer?",
+        "Escaping a checker has long-term value"
+      ],
+      "boardSetup": {
+        "points": {
+          "24": {
+            "color": "black",
+            "checkers": 2
+          },
+          "13": {
+            "color": "black",
+            "checkers": 5
+          },
+          "8": {
+            "color": "black",
+            "checkers": 3
+          },
+          "6": {
+            "color": "black",
+            "checkers": 5
+          },
+          "1": {
+            "color": "white",
+            "checkers": 2
+          },
+          "12": {
+            "color": "white",
+            "checkers": 5
+          },
+          "17": {
+            "color": "white",
+            "checkers": 3
+          },
+          "19": {
+            "color": "white",
+            "checkers": 5
+          }
+        },
+        "bar": {
+          "black": 0,
+          "white": 0
+        },
+        "off": {
+          "black": 0,
+          "white": 0
+        },
+        "summary": "Black: 2 checkers on point 24, 5 on point 13, 3 on point 8, 5 on point 6 (total 15). White: 2 checkers on point 1, 5 on point 12, 3 on point 17, 5 on point 19 (total 15). Bar: empty. Off: none."
+      }
+    },
+    {
+      "id": 24,
+      "difficulty": "hard",
+      "category": "understanding-principles",
+      "position": {
+        "black": "24(2), 13(5), 8(3), 6(5)",
+        "white": "1(2), 12(5), 17(3), 19(5)",
+        "description": "Standard opening position"
+      },
+      "toPlay": "black",
+      "roll": [6, 5],
+      "previousMove": null,
+      "question": "Black to play 6-5. Why is running to your midpoint superior to splitting?",
+      "options": [
+        {
+          "move": "24/13",
+          "isCorrect": true,
+          "explanation": "Running all the way to your midpoint escapes a checker completely from opponent's home board. This dramatic improvement in one move is more efficient than any splitting alternative."
+        },
+        {
+          "move": "24/18, 13/8",
+          "isCorrect": false,
+          "explanation": "Splitting and building creates a distributed position. Running to complete safety (24/13) accomplishes more with a single checker and is more efficient."
+        },
+        {
+          "move": "13/8, 13/7",
+          "isCorrect": false,
+          "explanation": "Building and slotting the bar shows aggression. Escaping your worst-positioned checker (24/13) offers more strategic value."
+        },
+        {
+          "move": "24/18, 18/13",
+          "isCorrect": false,
+          "explanation": "This is actually the same move as 24/13, just showing the intermediate point. Both descriptions represent the same play."
+        },
+        {
+          "move": "24/19, 13/7",
+          "isCorrect": false,
+          "explanation": "Splitting and slotting the bar is creative. Complete escape (24/13) is the more efficient use of your large roll."
+        }
+      ],
+      "principle": "6-5: escaping completely to your midpoint is most efficient - improves worst checker dramatically.",
+      "hintsAvailable": [
+        "Which checker needs improvement most?",
+        "Can you escape a checker completely?",
+        "Large rolls should accomplish large improvements"
+      ],
+      "boardSetup": {
+        "points": {
+          "24": {
+            "color": "black",
+            "checkers": 2
+          },
+          "13": {
+            "color": "black",
+            "checkers": 5
+          },
+          "8": {
+            "color": "black",
+            "checkers": 3
+          },
+          "6": {
+            "color": "black",
+            "checkers": 5
+          },
+          "1": {
+            "color": "white",
+            "checkers": 2
+          },
+          "12": {
+            "color": "white",
+            "checkers": 5
+          },
+          "17": {
+            "color": "white",
+            "checkers": 3
+          },
+          "19": {
+            "color": "white",
+            "checkers": 5
+          }
+        },
+        "bar": {
+          "black": 0,
+          "white": 0
+        },
+        "off": {
+          "black": 0,
+          "white": 0
+        },
+        "summary": "Black: 2 checkers on point 24, 5 on point 13, 3 on point 8, 5 on point 6 (total 15). White: 2 checkers on point 1, 5 on point 12, 3 on point 17, 5 on point 19 (total 15). Bar: empty. Off: none."
+      }
+    }
+  ]
+}

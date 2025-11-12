@@ -1,0 +1,6 @@
+## Export Summary
+
+Context Layers: 4 files (7,649 chars total)
+Knowledge Files: 5 files (~152 KB total)
+
+Total: 9 files organized by type

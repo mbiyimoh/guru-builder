@@ -1,0 +1,38 @@
+# Core dependencies
+python-dotenv==1.0.0
+
+# Research dependencies (manual install to avoid md2pdf)
+beautifulsoup4
+colorama
+duckduckgo-search
+playwright
+openai
+pyyaml
+pydantic
+python-multipart
+markdown
+langchain>=0.2,<0.3
+langchain-community>=0.2,<0.3
+langchain-openai>=0.1,<0.2
+langchain-google-genai>=1,<2
+tiktoken
+tavily-python
+arxiv
+PyMuPDF
+requests
+aiofiles
+newspaper3k
+SQLAlchemy
+mistune
+python-docx
+htmldocx
+lxml
+websockets
+unstructured
+pandas
+json-repair
+langgraph
+json5
+
+# Note: Skipping md2pdf and weasyprint due to system library requirements
+# Note: gpt-researcher will be installed separately after dependencies

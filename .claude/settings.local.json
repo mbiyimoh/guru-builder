@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "SlashCommand(/spec:validate:*)",
+      "SlashCommand(/spec:execute:*)",
+      "SlashCommand(/preflight-discovery:*)",
+      "SlashCommand(/spec:create:*)",
+      "SlashCommand(/dev:cleanup)",
+      "WebSearch",
+      "WebFetch(domain:developers.cloudflare.com)",
+      "mcp__ide__getDiagnostics",
+      "SlashCommand(/task-context:*)",
+      "WebFetch(domain:ai-sdk.dev)",
+      "WebFetch(domain:sdk.vercel.ai)",
+      "Bash(npx create-next-app:*)",
+      "SlashCommand(/git:commit)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

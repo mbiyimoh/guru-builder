@@ -1,0 +1,227 @@
+// Prisma Schema for Guru Builder System
+// Database: PostgreSQL
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "darwin-arm64"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// EXISTING MODELS (from backgammon-guru foundation)
+// ============================================================================
+
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  contextLayers  ContextLayer[]
+  knowledgeFiles KnowledgeFile[]
+  researchRuns   ResearchRun[]
+  snapshots      CorpusSnapshot[]
+
+  @@index([createdAt])
+}
+
+model ContextLayer {
+  id          String   @id @default(cuid())
+  projectId   String
+  title       String
+  content     String   @db.Text
+  priority    Int      // Lower number = higher priority (loaded first)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  recommendations Recommendation[] @relation("RecommendationToLayer")
+
+  @@index([projectId, priority])
+  @@index([projectId, isActive])
+}
+
+// ============================================================================
+// NEW MODELS (Guru Builder extensions)
+// ============================================================================
+
+model KnowledgeFile {
+  id          String   @id @default(cuid())
+  projectId   String
+  title       String
+  description String?
+  content     String   @db.Text
+  category    String? // Optional categorization (e.g., "openings", "strategy")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  recommendations Recommendation[] @relation("RecommendationToFile")
+
+  @@index([projectId, isActive])
+  @@index([projectId, category])
+}
+
+model ResearchRun {
+  id             String         @id @default(cuid())
+  projectId      String
+  instructions   String         @db.Text // Research query/instructions
+  depth          ResearchDepth  @default(MODERATE) // quick, moderate, deep
+  status         ResearchStatus @default(PENDING)
+
+  // Research results
+  researchData   Json? // Raw research findings from GPT Researcher
+  errorMessage   String?        @db.Text
+
+  // Metadata
+  startedAt      DateTime?
+  completedAt    DateTime?
+  executionTime  Int? // milliseconds
+  tokensUsed     Int?
+  costEstimate   Float? // USD
+
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  // Relations
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  recommendations Recommendation[]
+
+  @@index([projectId, status])
+  @@index([projectId, createdAt])
+}
+
+model Recommendation {
+  id               String               @id @default(cuid())
+  researchRunId    String
+
+  // Recommendation type and target
+  action           RecommendationAction // ADD, EDIT, DELETE
+  targetType       TargetType           // LAYER or KNOWLEDGE_FILE
+  targetId         String? // ID of ContextLayer or KnowledgeFile (null for ADD)
+
+  // Recommendation content
+  title            String
+  content          String               @db.Text
+  reasoning        String               @db.Text // Why this recommendation matters
+
+  // Metadata
+  confidence       Float // 0.0 to 1.0
+  impactLevel      ImpactLevel // LOW, MEDIUM, HIGH
+  priority         Int // Ordering within research run
+
+  // Approval workflow
+  status           RecommendationStatus @default(PENDING) // PENDING, APPROVED, REJECTED, APPLIED
+  reviewedAt       DateTime?
+  appliedAt        DateTime?
+
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  // Relations
+  researchRun      ResearchRun          @relation(fields: [researchRunId], references: [id], onDelete: Cascade)
+  contextLayer     ContextLayer?        @relation("RecommendationToLayer", fields: [targetId], references: [id], onDelete: SetNull, map: "Recommendation_layer_fkey")
+  knowledgeFile    KnowledgeFile?       @relation("RecommendationToFile", fields: [targetId], references: [id], onDelete: SetNull, map: "Recommendation_file_fkey")
+  applyChangesLogs ApplyChangesLog[]
+
+  @@index([researchRunId, status])
+  @@index([researchRunId, priority])
+  @@index([targetType, targetId])
+}
+
+model CorpusSnapshot {
+  id          String   @id @default(cuid())
+  projectId   String
+  name        String // Auto-generated or user-provided
+  description String?  @db.Text
+
+  // Snapshot data
+  layersData  Json // Snapshot of all ContextLayers
+  filesData   Json // Snapshot of all KnowledgeFiles
+
+  // Metadata
+  createdAt   DateTime @default(now())
+  restoredAt  DateTime?
+
+  // Relations
+  project           Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  applyChangesLogs  ApplyChangesLog[]
+
+  @@index([projectId, createdAt])
+}
+
+model ApplyChangesLog {
+  id                   String   @id @default(cuid())
+  snapshotId           String // Pre-apply snapshot
+  recommendationId     String
+
+  // What was changed
+  changeType           RecommendationAction
+  targetType           TargetType
+  targetId             String? // ID of created/modified/deleted entity
+
+  // Change details
+  previousValue        Json? // For EDIT/DELETE
+  newValue             Json? // For ADD/EDIT
+
+  createdAt            DateTime @default(now())
+
+  // Relations
+  snapshot             CorpusSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  recommendation       Recommendation @relation(fields: [recommendationId], references: [id], onDelete: Cascade)
+
+  @@index([snapshotId])
+  @@index([recommendationId])
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum ResearchDepth {
+  QUICK    // 1-2 minutes, 5 sources
+  MODERATE // 3-5 minutes, 10 sources
+  DEEP     // 5-10 minutes, 20 sources
+}
+
+enum ResearchStatus {
+  PENDING    // Queued, not started
+  RUNNING    // Currently executing
+  COMPLETED  // Finished successfully
+  FAILED     // Error occurred
+  CANCELLED  // User cancelled
+}
+
+enum RecommendationAction {
+  ADD    // Create new layer or file
+  EDIT   // Modify existing
+  DELETE // Remove existing
+}
+
+enum TargetType {
+  LAYER          // ContextLayer
+  KNOWLEDGE_FILE // KnowledgeFile
+}
+
+enum ImpactLevel {
+  LOW    // Minor improvement
+  MEDIUM // Moderate improvement
+  HIGH   // Significant improvement
+}
+
+enum RecommendationStatus {
+  PENDING  // Awaiting review
+  APPROVED // Approved, ready to apply
+  REJECTED // Rejected by user
+  APPLIED  // Successfully applied
+}
