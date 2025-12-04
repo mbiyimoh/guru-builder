@@ -7,6 +7,7 @@
 import OpenAI from "openai";
 import { z } from "zod";
 import { zodResponseFormat } from "openai/helpers/zod";
+import { RESEARCH_MODEL } from './assessment/constants';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -20,7 +21,8 @@ const corpusRecommendationSchema = z.object({
       targetType: z.enum(["LAYER", "KNOWLEDGE_FILE"]),
       targetId: z.string().nullable(),
       title: z.string(),
-      content: z.string(),
+      description: z.string(),
+      fullContent: z.string(),
       reasoning: z.string(),
       confidence: z.number().min(0).max(1),
       impactLevel: z.enum(["LOW", "MEDIUM", "HIGH"]),
@@ -47,7 +49,8 @@ export type CorpusRecommendation = {
   targetType: "LAYER" | "KNOWLEDGE_FILE";
   targetId: string | null;
   title: string;
-  content: string;
+  description: string;
+  fullContent: string;
   reasoning: string;
   confidence: number;
   impactLevel: "LOW" | "MEDIUM" | "HIGH";
@@ -103,8 +106,87 @@ Review the existing corpus and suggest improvements, additions, or removals base
 Be selective - only suggest changes that add clear value based on the research.
 `;
 
-    const prompt = `You are an AI assistant helping to improve a knowledge corpus based on research findings.
+    const GURU_CONTENT_GUIDELINES = `
+## Content Generation Guidelines
+
+You are generating content for an AI "guru" system—a knowledge corpus optimized for LLM consumption.
+
+### Understanding Content Types
+
+**CONTEXT LAYERS** (Instructional/Behavioral):
+- Define HOW the AI should think, behave, and respond
+- Contain protocols, decision frameworks, and reasoning patterns
+- Use directive language: "You are...", "When X, do Y", "Always consider..."
+- Include example outputs and tone guidance
+- Reference other layers and knowledge files when appropriate
+- Length: 200-600 words typically
+
+**Example Context Layer Pattern:**
+"You are a [domain] expert who [role]. Your primary responsibility is to [core task].
+
+When [situation], you should [directive] because [reasoning].
+
+Protocol:
+1. [Step one]
+2. [Step two]
+3. [Step three]
+
+Tone: [Description of desired tone and approach]
+
+Example: [Concrete example of desired output]"
+
+**KNOWLEDGE FILES** (Reference/Informational):
+- Contain detailed INFORMATION that gets loaded conditionally
+- Provide comprehensive reference materials, examples, exercises
+- Use informational language: "This is...", "The key concepts are...", "Examples include..."
+- Structured with clear sections, examples, and practical details
+- Length: 500-2000 words typically
+
+**Example Knowledge File Pattern:**
+"# [Topic] Guide
+
+## Overview
+[Brief introduction to the topic]
+
+## Key Concepts
+1. **[Concept]**: [Explanation]
+2. **[Concept]**: [Explanation]
+
+## Examples
+- [Example with context]
+- [Example with context]
+
+## Practical Applications
+[How to apply these concepts]
+
+## Common Patterns
+[Recognizable patterns to look for]"
+
+### Critical Requirements for fullContent
+
+1. **Purpose-Driven**: Content must serve the guru's instructional goals
+2. **LLM-Optimized**: Written to be effective when loaded into context windows
+3. **Actionable**: Protocols and directives, not passive descriptions
+4. **Concise**: Information-dense without unnecessary verbosity
+5. **Well-Structured**: Clear hierarchy, sections, and formatting
+6. **Markdown Formatted**: Proper headings, lists, code blocks, emphasis
+7. **Cross-Referenced**: Mention related layers/files when appropriate
+
+### What to AVOID
+
+❌ Generic summaries without actionable guidance
+❌ Overly academic or theoretical content without practical application
+❌ Redundant content that duplicates existing layers/files
+❌ Vague directives without clear examples
+❌ Content that treats the AI as a passive database vs. active reasoner
+`;
+
+    const prompt = `You are an expert knowledge engineer creating content for an AI "guru" system.
+
+${GURU_CONTENT_GUIDELINES}
+
 ${corpusStatusGuidance}
+
 RESEARCH INSTRUCTIONS:
 ${instructions}
 
@@ -117,21 +199,37 @@ ${currentLayers.length > 0 ? currentLayers.map((l, i) => `${i + 1}. ${l.title} (
 CURRENT KNOWLEDGE FILES (${currentKnowledgeFiles.length}):
 ${currentKnowledgeFiles.length > 0 ? currentKnowledgeFiles.map((f, i) => `${i + 1}. ${f.title} (${f.id})`).join("\n") : "(none)"}
 
-Based on the research findings, generate recommendations to improve the corpus. You can:
-- ADD new context layers or knowledge files
-- EDIT existing ones (provide targetId and new content)
-- DELETE outdated ones (provide targetId)
+## Your Task
+
+Generate recommendations for improving this guru's corpus based on the research findings.
 
 For each recommendation:
-1. Determine the action (ADD/EDIT/DELETE)
-2. Specify if it's a LAYER or KNOWLEDGE_FILE
-3. Provide the targetId if editing/deleting (use null for ADD)
-4. Write a clear title and content
-5. Explain your reasoning
-6. Rate your confidence (0.0 to 1.0)
-7. Assess impact level (LOW/MEDIUM/HIGH)
 
-Focus on high-quality, actionable recommendations that directly address the research findings.
+1. **action**: ADD, EDIT, or DELETE
+2. **targetType**: LAYER (for protocols/directives) or KNOWLEDGE_FILE (for reference content)
+3. **targetId**: The ID if editing/deleting, null if adding
+4. **title**: Clear, concise title (5-10 words)
+5. **description**: 1-3 sentence summary of WHAT is changing and WHY it matters
+6. **fullContent**: The COMPLETE, PRODUCTION-READY content to insert into the corpus
+   - For LAYERS: Follow the Context Layer pattern above
+   - For KNOWLEDGE_FILES: Follow the Knowledge File pattern above
+   - Must be exceptional quality, ready to use immediately
+   - Optimized for LLM consumption
+   - 200-2000 words depending on type and complexity
+7. **reasoning**: Detailed justification connecting research findings to this recommendation
+8. **confidence**: 0.0 to 1.0
+9. **impactLevel**: LOW, MEDIUM, or HIGH
+
+## Quality Standards for fullContent
+
+- **Context Layers**: Must be directive and behavioral, not just informative
+- **Knowledge Files**: Must be comprehensive and well-structured reference material
+- **Both**: Must follow guru philosophy of teaching the AI HOW to think, not just WHAT to know
+- **Markdown**: Proper formatting with headings, lists, emphasis, code blocks
+- **Concise**: Information-dense, no fluff
+- **Actionable**: Practical and immediately useful when loaded into LLM context
+
+Focus on high-quality, transformative recommendations that elevate the guru's capabilities.
 
 IMPORTANT: If you determine that NO recommendations should be made (empty array), you MUST provide a clear explanation in the 'noRecommendationsReason' field explaining why the research findings do not warrant any changes to the existing corpus. Be specific about what was analyzed and why it doesn't require corpus updates.`;
 
@@ -142,7 +240,7 @@ IMPORTANT: If you determine that NO recommendations should be made (empty array)
     console.log(`[Corpus Recommendations] Prompt length: ${prompt.length} characters`);
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-2024-08-06",
+      model: RESEARCH_MODEL,
       messages: [
         {
           role: "system",

@@ -9,6 +9,7 @@ import OpenAI from "openai";
 import { zodResponseFormat } from "openai/helpers/zod";
 import { recommendationSchema, type Recommendation } from "./validation";
 import type { ResearchFindings } from "./types";
+import { RESEARCH_MODEL } from './assessment/constants';
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -44,7 +45,7 @@ export async function generateRecommendations(
 ): Promise<GenerateRecommendationsResult> {
   const {
     researchFindings,
-    model = "gpt-4o-2024-08-06",
+    model = RESEARCH_MODEL,
     temperature = 0.7,
   } = options;
 
