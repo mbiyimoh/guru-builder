@@ -1,11 +1,11 @@
-# Stage 1: Dependencies
-FROM node:20-slim AS deps
+# Stage 1: Dependencies (Bullseye has OpenSSL 1.1 for Prisma)
+FROM node:20-bullseye-slim AS deps
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --legacy-peer-deps
 
 # Stage 2: Build
-FROM node:20-slim AS builder
+FROM node:20-bullseye-slim AS builder
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --legacy-peer-deps
@@ -23,8 +23,8 @@ ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
 RUN npx prisma generate
 RUN npm run build
 
-# Stage 3: Runner (using slim for OpenSSL compatibility with Prisma)
-FROM node:20-slim AS runner
+# Stage 3: Runner (Bullseye has OpenSSL 1.1 for Prisma)
+FROM node:20-bullseye-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
