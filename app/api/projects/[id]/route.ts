@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireProjectOwnership } from "@/lib/auth";
 import { z } from "zod";
 
 // Validation schema for updating a project
@@ -21,15 +22,36 @@ type RouteContext = {
 };
 
 /**
- * GET /api/projects/[id]
- * Get project with full details
+ * Helper to handle auth errors consistently
  */
-export async function GET(
-  request: NextRequest,
-  context: RouteContext
-) {
+function handleAuthError(error: unknown) {
+  const message = error instanceof Error ? error.message : "Error";
+  if (message === "Unauthorized") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (message === "Forbidden") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (message === "Project not found") {
+    return NextResponse.json({ error: "Project not found" }, { status: 404 });
+  }
+  return null;
+}
+
+/**
+ * GET /api/projects/[id]
+ * Get project with full details (requires ownership)
+ */
+export async function GET(request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
+
+    try {
+      await requireProjectOwnership(id);
+    } catch (error) {
+      const authError = handleAuthError(error);
+      if (authError) return authError;
+    }
 
     const project = await prisma.project.findUnique({
       where: { id },
@@ -56,10 +78,7 @@ export async function GET(
     });
 
     if (!project) {
-      return NextResponse.json(
-        { error: "Project not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
     return NextResponse.json({ project });
@@ -77,14 +96,19 @@ export async function GET(
 
 /**
  * PATCH /api/projects/[id]
- * Update project details
+ * Update project details (requires ownership)
  */
-export async function PATCH(
-  request: NextRequest,
-  context: RouteContext
-) {
+export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
+
+    try {
+      await requireProjectOwnership(id);
+    } catch (error) {
+      const authError = handleAuthError(error);
+      if (authError) return authError;
+    }
+
     const body = await request.json();
 
     // Validate input
@@ -120,10 +144,7 @@ export async function PATCH(
     });
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "P2025") {
-      return NextResponse.json(
-        { error: "Project not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
     console.error(`[Project API] PATCH error:`, error);
@@ -139,14 +160,18 @@ export async function PATCH(
 
 /**
  * DELETE /api/projects/[id]
- * Delete project and all related data
+ * Delete project and all related data (requires ownership)
  */
-export async function DELETE(
-  request: NextRequest,
-  context: RouteContext
-) {
+export async function DELETE(request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
+
+    try {
+      await requireProjectOwnership(id);
+    } catch (error) {
+      const authError = handleAuthError(error);
+      if (authError) return authError;
+    }
 
     // Delete project (cascade will delete related data)
     await prisma.project.delete({
@@ -158,10 +183,7 @@ export async function DELETE(
     });
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "P2025") {
-      return NextResponse.json(
-        { error: "Project not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
     console.error(`[Project API] DELETE error:`, error);

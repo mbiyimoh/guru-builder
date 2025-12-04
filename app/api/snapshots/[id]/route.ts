@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -21,11 +22,24 @@ export async function GET(
   context: RouteContext
 ) {
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
     const { id } = await context.params;
 
     const snapshot = await prisma.corpusSnapshot.findUnique({
       where: { id },
       include: {
+        project: {
+          select: {
+            userId: true,
+          },
+        },
         applyChangesLogs: {
           include: {
             recommendation: {
@@ -48,6 +62,14 @@ export async function GET(
       return NextResponse.json(
         { error: "Snapshot not found" },
         { status: 404 }
+      );
+    }
+
+    // Check ownership through project
+    if (snapshot.project.userId !== user.id) {
+      return NextResponse.json(
+        { error: "Forbidden" },
+        { status: 403 }
       );
     }
 
@@ -91,18 +113,42 @@ export async function DELETE(
   context: RouteContext
 ) {
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
     const { id } = await context.params;
 
     // Check if snapshot exists
     const snapshot = await prisma.corpusSnapshot.findUnique({
       where: { id },
-      select: { id: true, name: true },
+      select: {
+        id: true,
+        name: true,
+        project: {
+          select: {
+            userId: true,
+          },
+        },
+      },
     });
 
     if (!snapshot) {
       return NextResponse.json(
         { error: "Snapshot not found" },
         { status: 404 }
+      );
+    }
+
+    // Check ownership through project
+    if (snapshot.project.userId !== user.id) {
+      return NextResponse.json(
+        { error: "Forbidden" },
+        { status: 403 }
       );
     }
 

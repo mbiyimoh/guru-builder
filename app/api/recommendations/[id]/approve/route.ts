@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -20,18 +21,45 @@ export async function POST(
   context: RouteContext
 ) {
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
     const { id } = await context.params;
 
     // Check if recommendation exists and is pending
     const recommendation = await prisma.recommendation.findUnique({
       where: { id },
-      select: { status: true },
+      select: {
+        status: true,
+        researchRun: {
+          select: {
+            project: {
+              select: {
+                userId: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!recommendation) {
       return NextResponse.json(
         { error: "Recommendation not found" },
         { status: 404 }
+      );
+    }
+
+    // Check ownership through research run's project
+    if (recommendation.researchRun.project.userId !== user.id) {
+      return NextResponse.json(
+        { error: "Forbidden" },
+        { status: 403 }
       );
     }
 

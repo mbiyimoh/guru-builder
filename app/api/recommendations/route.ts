@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
 
 /**
  * GET /api/recommendations
@@ -13,6 +14,14 @@ import { prisma } from "@/lib/db";
  */
 export async function GET(request: NextRequest) {
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const researchRunId = searchParams.get("researchRunId");
     const statusParam = searchParams.get("status");
@@ -33,6 +42,11 @@ export async function GET(request: NextRequest) {
     const where = {
       researchRunId,
       ...(status && { status }),
+      researchRun: {
+        project: {
+          userId: user.id,
+        },
+      },
     };
 
     const recommendations = await prisma.recommendation.findMany({

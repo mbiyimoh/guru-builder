@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -14,7 +15,7 @@ type RouteContext = {
 
 /**
  * GET /api/research-runs/[id]
- * Get research run with recommendations
+ * Get research run with recommendations (requires ownership)
  */
 export async function GET(
   request: NextRequest,
@@ -22,6 +23,11 @@ export async function GET(
 ) {
   try {
     const { id } = await context.params;
+    const user = await getCurrentUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     const run = await prisma.researchRun.findUnique({
       where: { id },
@@ -30,6 +36,7 @@ export async function GET(
           select: {
             id: true,
             name: true,
+            userId: true,
           },
         },
         recommendations: {
@@ -52,6 +59,11 @@ export async function GET(
       );
     }
 
+    // Check ownership through project
+    if (run.project.userId !== user.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     // Calculate recommendation stats
     const recommendationStats = {
       total: run.recommendations.length,
@@ -61,10 +73,22 @@ export async function GET(
       applied: run.recommendations.filter((r) => r.status === "APPLIED").length,
     };
 
-    return NextResponse.json({
-      run,
-      recommendationStats,
-    });
+    return NextResponse.json(
+      {
+        run,
+        recommendationStats,
+        // Include total for polling clients that check for recommendation generation completion
+        recommendations: {
+          total: run.recommendations.length,
+        },
+      },
+      {
+        headers: {
+          // Prevent caching to ensure polling gets fresh data
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
+        },
+      }
+    );
   } catch (error) {
     console.error(`[Research Run API] GET error:`, error);
     return NextResponse.json(
@@ -79,7 +103,7 @@ export async function GET(
 
 /**
  * DELETE /api/research-runs/[id]
- * Cancel/delete research run
+ * Cancel/delete research run (requires ownership)
  */
 export async function DELETE(
   request: NextRequest,
@@ -87,11 +111,21 @@ export async function DELETE(
 ) {
   try {
     const { id } = await context.params;
+    const user = await getCurrentUser();
 
-    // Check if run exists and is not completed
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Check if run exists and get project ownership
     const run = await prisma.researchRun.findUnique({
       where: { id },
-      select: { status: true },
+      select: {
+        status: true,
+        project: {
+          select: { userId: true },
+        },
+      },
     });
 
     if (!run) {
@@ -99,6 +133,11 @@ export async function DELETE(
         { error: "Research run not found" },
         { status: 404 }
       );
+    }
+
+    // Check ownership through project
+    if (run.project.userId !== user.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // If running, mark as cancelled (we can't actually stop the Inngest job)

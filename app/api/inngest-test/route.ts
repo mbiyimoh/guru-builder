@@ -10,6 +10,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { inngest } from "@/lib/inngest";
 
 export async function POST(request: NextRequest) {
+  // Disable test endpoints in production
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not Found' }, { status: 404 });
+  }
+
   const searchParams = request.nextUrl.searchParams;
   const type = searchParams.get("type") || "simple";
 

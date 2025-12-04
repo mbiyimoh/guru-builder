@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
+import { getCurrentUser } from "@/lib/auth";
 
 // Validation schema for updating
 const updateKnowledgeFileSchema = z.object({
@@ -31,6 +32,14 @@ export async function GET(
   context: RouteContext
 ) {
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
     const { id } = await context.params;
 
     const file = await prisma.knowledgeFile.findUnique({
@@ -40,6 +49,7 @@ export async function GET(
           select: {
             id: true,
             name: true,
+            userId: true,
           },
         },
       },
@@ -49,6 +59,14 @@ export async function GET(
       return NextResponse.json(
         { error: "Knowledge file not found" },
         { status: 404 }
+      );
+    }
+
+    // Check ownership through project
+    if (file.project.userId !== user.id) {
+      return NextResponse.json(
+        { error: "Forbidden" },
+        { status: 403 }
       );
     }
 
@@ -73,6 +91,14 @@ export async function PATCH(
   context: RouteContext
 ) {
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
     const { id } = await context.params;
     const body = await request.json();
 
@@ -85,6 +111,33 @@ export async function PATCH(
           details: result.error.format(),
         },
         { status: 400 }
+      );
+    }
+
+    // Check ownership before updating
+    const existingFile = await prisma.knowledgeFile.findUnique({
+      where: { id },
+      select: {
+        project: {
+          select: {
+            userId: true,
+          },
+        },
+      },
+    });
+
+    if (!existingFile) {
+      return NextResponse.json(
+        { error: "Knowledge file not found" },
+        { status: 404 }
+      );
+    }
+
+    // Check ownership through project
+    if (existingFile.project.userId !== user.id) {
+      return NextResponse.json(
+        { error: "Forbidden" },
+        { status: 403 }
       );
     }
 
@@ -125,7 +178,42 @@ export async function DELETE(
   context: RouteContext
 ) {
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
     const { id } = await context.params;
+
+    // Check ownership before deleting
+    const file = await prisma.knowledgeFile.findUnique({
+      where: { id },
+      select: {
+        project: {
+          select: {
+            userId: true,
+          },
+        },
+      },
+    });
+
+    if (!file) {
+      return NextResponse.json(
+        { error: "Knowledge file not found" },
+        { status: 404 }
+      );
+    }
+
+    // Check ownership through project
+    if (file.project.userId !== user.id) {
+      return NextResponse.json(
+        { error: "Forbidden" },
+        { status: 403 }
+      );
+    }
 
     await prisma.knowledgeFile.delete({
       where: { id },

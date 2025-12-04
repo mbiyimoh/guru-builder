@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireProjectOwnership } from "@/lib/auth";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -22,17 +23,20 @@ export async function GET(
   try {
     const { id: projectId } = await context.params;
 
-    // Verify project exists
-    const project = await prisma.project.findUnique({
-      where: { id: projectId },
-      select: { id: true },
-    });
-
-    if (!project) {
-      return NextResponse.json(
-        { error: "Project not found" },
-        { status: 404 }
-      );
+    // Auth check
+    try {
+      await requireProjectOwnership(projectId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Error";
+      if (message === "Unauthorized") {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      if (message === "Forbidden") {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      if (message === "Project not found") {
+        return NextResponse.json({ error: "Project not found" }, { status: 404 });
+      }
     }
 
     // Fetch snapshots

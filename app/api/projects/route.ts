@@ -1,12 +1,13 @@
 /**
  * Projects API - List and Create
  *
- * GET /api/projects - List all projects
+ * GET /api/projects - List user's projects
  * POST /api/projects - Create new project
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
 import { z } from "zod";
 
 // Validation schema for creating a project
@@ -17,11 +18,18 @@ const createProjectSchema = z.object({
 
 /**
  * GET /api/projects
- * List all projects with their counts
+ * List user's projects with their counts
  */
 export async function GET() {
   try {
+    const user = await getCurrentUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const projects = await prisma.project.findMany({
+      where: { userId: user.id },
       include: {
         _count: {
           select: {
@@ -54,10 +62,16 @@ export async function GET() {
 
 /**
  * POST /api/projects
- * Create a new project
+ * Create a new project for the current user
  */
 export async function POST(request: NextRequest) {
   try {
+    const user = await getCurrentUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
 
     // Validate input
@@ -74,11 +88,12 @@ export async function POST(request: NextRequest) {
 
     const { name, description } = result.data;
 
-    // Create project
+    // Create project assigned to current user
     const project = await prisma.project.create({
       data: {
         name,
         description,
+        userId: user.id,
       },
       include: {
         _count: {

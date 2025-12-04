@@ -9,7 +9,8 @@ interface Recommendation {
   targetType: string;
   targetId: string | null;
   title: string;
-  content: string;
+  description: string;
+  fullContent: string;
   reasoning: string;
   confidence: number;
   impactLevel: string;
@@ -168,7 +169,24 @@ export function RecommendationsView({ recommendations, projectId, runId }: Recom
                   </span>
                 </div>
                 <h3 className="text-lg font-medium text-gray-900 mb-2">{rec.title}</h3>
-                <p className="text-gray-700 mb-3">{rec.content}</p>
+
+                {/* Description - always visible */}
+                <p className="text-gray-700 mb-3">{rec.description}</p>
+
+                {/* Full Content Preview - expandable */}
+                <details className="mb-3">
+                  <summary className="cursor-pointer text-blue-600 hover:text-blue-800 font-medium text-sm">
+                    View Full {rec.action === 'EDIT' ? 'Proposed Changes' : 'Content'}
+                    {' '}({Math.ceil(rec.fullContent.length / 1000)}k characters)
+                  </summary>
+                  <div className="mt-3 p-4 bg-gray-50 rounded-md border border-gray-200 max-h-96 overflow-y-auto">
+                    <pre className="whitespace-pre-wrap text-sm text-gray-800 font-mono">
+                      {rec.fullContent}
+                    </pre>
+                  </div>
+                </details>
+
+                {/* Reasoning */}
                 <div className="bg-gray-50 p-3 rounded-md">
                   <p className="text-sm text-gray-600">
                     <span className="font-medium">Reasoning:</span> {rec.reasoning}

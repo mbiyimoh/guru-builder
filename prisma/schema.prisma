@@ -12,6 +12,22 @@ datasource db {
 }
 
 // ============================================================================
+// USER MODEL (for Supabase Auth)
+// ============================================================================
+
+model User {
+  id        String   @id // UUID from Supabase auth.users.id
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projects Project[]
+
+  @@index([email])
+}
+
+// ============================================================================
 // EXISTING MODELS (from backgammon-guru foundation)
 // ============================================================================
 
@@ -22,13 +38,19 @@ model Project {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // User ownership
+  userId      String?  // Nullable for migration period
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   // Relations
-  contextLayers  ContextLayer[]
-  knowledgeFiles KnowledgeFile[]
-  researchRuns   ResearchRun[]
-  snapshots      CorpusSnapshot[]
+  contextLayers    ContextLayer[]
+  knowledgeFiles   KnowledgeFile[]
+  researchRuns     ResearchRun[]
+  snapshots        CorpusSnapshot[]
+  assessmentConfig SelfAssessmentConfig?
 
   @@index([createdAt])
+  @@index([userId])
 }
 
 model ContextLayer {
@@ -112,7 +134,8 @@ model Recommendation {
 
   // Recommendation content
   title            String
-  content          String               @db.Text
+  description      String               @db.Text // Brief summary of what's changing
+  fullContent      String               @db.Text // Complete, production-ready content to apply
   reasoning        String               @db.Text // Why this recommendation matters
 
   // Metadata
@@ -182,6 +205,63 @@ model ApplyChangesLog {
 
   @@index([snapshotId])
   @@index([recommendationId])
+}
+
+// ============================================================================
+// SELF-ASSESSMENT MODELS
+// ============================================================================
+
+model SelfAssessmentConfig {
+  id        String   @id @default(cuid())
+  projectId String   @unique
+
+  engineUrl String  @default("https://gnubg-mcp-d1c3c7a814e8.herokuapp.com")
+  isEnabled Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project  Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sessions AssessmentSession[]
+
+  @@index([projectId])
+}
+
+model AssessmentSession {
+  id       String @id @default(cuid())
+  configId String
+
+  startedAt    DateTime  @default(now())
+  endedAt      DateTime?
+  lastResultId String? // Track last result for "Continue Session" feature
+
+  config  SelfAssessmentConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+  results AssessmentResult[]
+
+  @@index([configId])
+  @@index([startedAt])
+}
+
+model AssessmentResult {
+  id        String @id @default(cuid())
+  sessionId String
+
+  diceRoll String
+  position String @default("opening")
+
+  guruResponse String @db.Text
+
+  bestMoves Json
+
+  guruMatchedBest Boolean?
+  userRating      Int? // 1-5 user satisfaction rating
+
+  createdAt DateTime @default(now())
+
+  session AssessmentSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([createdAt])
 }
 
 // ============================================================================

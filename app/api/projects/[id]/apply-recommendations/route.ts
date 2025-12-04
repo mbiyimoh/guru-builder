@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { applyRecommendations } from "@/lib/applyRecommendations";
+import { requireProjectOwnership } from "@/lib/auth";
 import { z } from "zod";
 
 type RouteContext = {
@@ -29,6 +30,23 @@ export async function POST(
 ) {
   try {
     const { id: projectId } = await context.params;
+
+    // Auth check
+    try {
+      await requireProjectOwnership(projectId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Error";
+      if (message === "Unauthorized") {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      if (message === "Forbidden") {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      if (message === "Project not found") {
+        return NextResponse.json({ error: "Project not found" }, { status: 404 });
+      }
+    }
+
     const body = await request.json();
 
     // Validate input

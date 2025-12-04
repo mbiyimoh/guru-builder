@@ -1,9 +1,21 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
+import { getCurrentUser } from '@/lib/auth';
 import { CreateProjectButton } from './CreateProjectButton';
 
+// Force dynamic rendering to ensure fresh data
+export const dynamic = 'force-dynamic';
+
 export default async function ProjectsPage() {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    redirect('/login');
+  }
+
   const projects = await prisma.project.findMany({
+    where: { userId: user.id },
     include: {
       _count: {
         select: {

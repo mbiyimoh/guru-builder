@@ -1,6 +1,10 @@
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
+import { getCurrentUser } from '@/lib/auth';
+
+// Force dynamic rendering to ensure fresh data
+export const dynamic = 'force-dynamic';
 
 export default async function SnapshotsPage({
   params,
@@ -9,13 +13,24 @@ export default async function SnapshotsPage({
 }) {
   const { id: projectId } = await params;
 
+  // Check authentication
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect('/login');
+  }
+
   const project = await prisma.project.findUnique({
     where: { id: projectId },
-    select: { id: true, name: true },
+    select: { id: true, name: true, userId: true },
   });
 
   if (!project) {
     notFound();
+  }
+
+  // Check ownership
+  if (project.userId !== user.id) {
+    redirect('/projects');
   }
 
   const snapshots = await prisma.corpusSnapshot.findMany({

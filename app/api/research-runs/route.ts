@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { inngest } from "@/lib/inngest";
+import { requireProjectOwnership } from "@/lib/auth";
 import { z } from "zod";
 
 // Validation schema
@@ -19,7 +20,7 @@ const createResearchRunSchema = z.object({
 
 /**
  * GET /api/research-runs
- * List research runs for a project
+ * List research runs for a project (requires ownership)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -32,6 +33,22 @@ export async function GET(request: NextRequest) {
         { error: "projectId query parameter is required" },
         { status: 400 }
       );
+    }
+
+    // Check ownership
+    try {
+      await requireProjectOwnership(projectId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Error";
+      if (message === "Unauthorized") {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      if (message === "Forbidden") {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      if (message === "Project not found") {
+        return NextResponse.json({ error: "Project not found" }, { status: 404 });
+      }
     }
 
     // Validate status if provided
@@ -86,7 +103,7 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/research-runs
- * Create new research run and trigger background job
+ * Create new research run and trigger background job (requires ownership)
  */
 export async function POST(request: NextRequest) {
   try {
@@ -106,17 +123,20 @@ export async function POST(request: NextRequest) {
 
     const { projectId, instructions, depth } = result.data;
 
-    // Verify project exists
-    const project = await prisma.project.findUnique({
-      where: { id: projectId },
-      select: { id: true, name: true },
-    });
-
-    if (!project) {
-      return NextResponse.json(
-        { error: "Project not found" },
-        { status: 404 }
-      );
+    // Check ownership
+    try {
+      await requireProjectOwnership(projectId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Error";
+      if (message === "Unauthorized") {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      if (message === "Forbidden") {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      if (message === "Project not found") {
+        return NextResponse.json({ error: "Project not found" }, { status: 404 });
+      }
     }
 
     // Create research run

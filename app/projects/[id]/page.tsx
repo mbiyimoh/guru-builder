@@ -1,8 +1,13 @@
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
+import { getCurrentUser } from '@/lib/auth';
 import { ContextLayerManager } from '@/components/context-layers/ContextLayerManager';
 import { KnowledgeFileManager } from '@/components/knowledge-files/KnowledgeFileManager';
+import { SelfAssessmentToggle } from '@/components/assessment/SelfAssessmentToggle';
+
+// Force dynamic rendering to ensure fresh data
+export const dynamic = 'force-dynamic';
 
 export default async function ProjectDetailPage({
   params,
@@ -10,6 +15,11 @@ export default async function ProjectDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const user = await getCurrentUser();
+
+  if (!user) {
+    redirect('/login');
+  }
 
   const project = await prisma.project.findUnique({
     where: { id },
@@ -36,6 +46,11 @@ export default async function ProjectDetailPage({
 
   if (!project) {
     notFound();
+  }
+
+  // Check ownership
+  if (project.userId !== user.id) {
+    redirect('/projects');
   }
 
   return (
@@ -104,6 +119,11 @@ export default async function ProjectDetailPage({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Self-Assessment */}
+      <div className="mb-8">
+        <SelfAssessmentToggle projectId={id} />
       </div>
 
       {/* Recent Research Runs */}

@@ -18,6 +18,11 @@ import { executeResearch } from "@/lib/researchOrchestrator";
 import type { ResearchDepth } from "@/lib/types";
 
 export async function POST(request: NextRequest) {
+  // Disable test endpoints in production
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not Found' }, { status: 404 });
+  }
+
   try {
     const body = await request.json();
     const { instructions, depth = "quick" } = body;

@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
+import { getCurrentUser } from "@/lib/auth";
 
 // Validation schema
 const createKnowledgeFileSchema = z.object({
@@ -25,6 +26,14 @@ const createKnowledgeFileSchema = z.object({
  */
 export async function GET(request: NextRequest) {
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const projectId = searchParams.get("projectId");
 
@@ -36,7 +45,12 @@ export async function GET(request: NextRequest) {
     }
 
     const files = await prisma.knowledgeFile.findMany({
-      where: { projectId },
+      where: {
+        projectId,
+        project: {
+          userId: user.id,
+        },
+      },
       orderBy: [
         { category: "asc" },
         { createdAt: "desc" },
@@ -77,6 +91,14 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
 
     // Validate input
@@ -88,6 +110,26 @@ export async function POST(request: NextRequest) {
           details: result.error.format(),
         },
         { status: 400 }
+      );
+    }
+
+    // Check project ownership
+    const project = await prisma.project.findUnique({
+      where: { id: result.data.projectId },
+      select: { userId: true },
+    });
+
+    if (!project) {
+      return NextResponse.json(
+        { error: "Project not found" },
+        { status: 404 }
+      );
+    }
+
+    if (project.userId !== user.id) {
+      return NextResponse.json(
+        { error: "Forbidden" },
+        { status: 403 }
       );
     }
 

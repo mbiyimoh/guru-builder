@@ -1,7 +1,11 @@
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
+import { getCurrentUser } from '@/lib/auth';
 import { parseSnapshotLayersData, parseSnapshotFilesData, parseChangeLogValue } from '@/lib/validation';
+
+// Force dynamic rendering to ensure fresh data
+export const dynamic = 'force-dynamic';
 
 export default async function SnapshotDetailPage({
   params,
@@ -10,6 +14,12 @@ export default async function SnapshotDetailPage({
 }) {
   const { snapshotId } = await params;
 
+  // Check authentication
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect('/login');
+  }
+
   const snapshot = await prisma.corpusSnapshot.findUnique({
     where: { id: snapshotId },
     include: {
@@ -17,6 +27,7 @@ export default async function SnapshotDetailPage({
         select: {
           id: true,
           name: true,
+          userId: true,
         },
       },
       applyChangesLogs: {
@@ -39,6 +50,11 @@ export default async function SnapshotDetailPage({
 
   if (!snapshot) {
     notFound();
+  }
+
+  // Check ownership
+  if (snapshot.project.userId !== user.id) {
+    redirect('/projects');
   }
 
   const changeTypeColors = {
