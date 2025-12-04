@@ -142,14 +142,14 @@ async function applySingleRecommendationWithTx(
     targetType: string;
     targetId: string | null;
     title: string;
-    content: string;
+    fullContent: string;
     researchRun: {
       projectId: string;
     };
   },
   snapshotId: string
 ) {
-  const { action, targetType, targetId, title, content, researchRun } = recommendation;
+  const { action, targetType, targetId, title, fullContent, researchRun } = recommendation;
   const projectId = researchRun.projectId;
 
   if (targetType === "LAYER") {
@@ -159,7 +159,7 @@ async function applySingleRecommendationWithTx(
         data: {
           projectId,
           title,
-          content,
+          content: fullContent,
           priority: 999, // Add at end, user can reorder
           isActive: true,
         },
@@ -187,7 +187,7 @@ async function applySingleRecommendationWithTx(
         where: { id: targetId },
         data: {
           title,
-          content,
+          content: fullContent,
         },
       });
 
@@ -233,7 +233,7 @@ async function applySingleRecommendationWithTx(
         data: {
           projectId,
           title,
-          content,
+          content: fullContent,
           isActive: true,
         },
       });
@@ -260,7 +260,7 @@ async function applySingleRecommendationWithTx(
         where: { id: targetId },
         data: {
           title,
-          content,
+          content: fullContent,
         },
       });
 
