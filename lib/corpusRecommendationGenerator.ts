@@ -9,9 +9,14 @@ import { z } from "zod";
 import { zodResponseFormat } from "openai/helpers/zod";
 import { RESEARCH_MODEL } from './assessment/constants';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Lazy-loaded OpenAI client (avoids build-time initialization errors)
+let _openai: OpenAI | null = null;
+function getOpenAI(): OpenAI {
+  if (!_openai) {
+    _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+  return _openai;
+}
 
 // Schema for corpus recommendations
 const corpusRecommendationSchema = z.object({
@@ -239,7 +244,7 @@ IMPORTANT: If you determine that NO recommendations should be made (empty array)
     console.log(`[Corpus Recommendations] === PROMPT END ===`);
     console.log(`[Corpus Recommendations] Prompt length: ${prompt.length} characters`);
 
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAI().chat.completions.create({
       model: RESEARCH_MODEL,
       messages: [
         {

@@ -3,7 +3,14 @@ import OpenAI from 'openai';
 import { z } from 'zod';
 import { getCurrentUser } from '@/lib/auth';
 
-const openai = new OpenAI();
+// Lazy-loaded OpenAI client (avoids build-time initialization errors)
+let _openai: OpenAI | null = null;
+function getOpenAI(): OpenAI {
+  if (!_openai) {
+    _openai = new OpenAI();
+  }
+  return _openai;
+}
 
 const requestSchema = z.object({
   roughInstructions: z.string()
@@ -73,7 +80,7 @@ export async function POST(request: NextRequest) {
       inputLength: roughInstructions.length,
     });
 
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAI().chat.completions.create({
       model: 'gpt-4o',
       messages: [
         { role: 'system', content: PROMPT_ENGINEER_SYSTEM },

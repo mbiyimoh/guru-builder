@@ -11,10 +11,14 @@ import { recommendationSchema, type Recommendation } from "./validation";
 import type { ResearchFindings } from "./types";
 import { RESEARCH_MODEL } from './assessment/constants';
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Lazy-loaded OpenAI client (avoids build-time initialization errors)
+let _openai: OpenAI | null = null;
+function getOpenAI(): OpenAI {
+  if (!_openai) {
+    _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+  return _openai;
+}
 
 export interface GenerateRecommendationsOptions {
   researchFindings: ResearchFindings;
@@ -75,7 +79,7 @@ Generate a comprehensive, structured learning plan that includes:
 Focus on practical, actionable recommendations that a motivated learner can follow.`;
 
     // Call OpenAI with Structured Outputs
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAI().chat.completions.create({
       model,
       messages: [
         {
