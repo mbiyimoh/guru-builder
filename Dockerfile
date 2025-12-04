@@ -28,6 +28,9 @@ FROM node:20-bullseye-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
+# CRITICAL: Bind to 0.0.0.0 for Railway healthcheck to reach container
+ENV HOSTNAME="0.0.0.0"
+ENV PORT=3000
 
 RUN groupadd --system --gid 1001 nodejs
 RUN useradd --system --uid 1001 nextjs
