@@ -236,7 +236,18 @@ For each recommendation:
 
 Focus on high-quality, transformative recommendations that elevate the guru's capabilities.
 
-IMPORTANT: If you determine that NO recommendations should be made (empty array), you MUST provide a clear explanation in the 'noRecommendationsReason' field explaining why the research findings do not warrant any changes to the existing corpus. Be specific about what was analyzed and why it doesn't require corpus updates.`;
+${isEmptyCorpus ? `
+CRITICAL INSTRUCTION FOR EMPTY PROJECT:
+This project has ZERO content. You MUST generate foundational recommendations.
+DO NOT return an empty recommendations array.
+Generate 4-8 ADD recommendations:
+- 2-3 Context Layers (behavioral/instructional)
+- 3-5 Knowledge Files (reference content)
+Base these on the research findings. Every project needs a foundation.
+This is MANDATORY - empty array is NOT acceptable for empty projects.
+` : `
+NOTE: If you determine that NO recommendations should be made (empty array), you MUST provide a clear explanation in the 'noRecommendationsReason' field explaining why the research findings do not warrant any changes to the existing corpus. Be specific about what was analyzed and why it doesn't require corpus updates.
+`}`;
 
     // Log the full prompt for debugging
     console.log(`[Corpus Recommendations] === PROMPT START ===`);
