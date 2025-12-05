@@ -36,6 +36,31 @@ type Events = {
       message: string;
     };
   };
+  // Guru Teaching Function Events
+  "guru/generate-mental-model": {
+    data: {
+      projectId: string;
+      artifactId: string;
+      userNotes?: string;
+    };
+  };
+  "guru/generate-curriculum": {
+    data: {
+      projectId: string;
+      artifactId: string;
+      mentalModelArtifactId: string;
+      userNotes?: string;
+    };
+  };
+  "guru/generate-drill-series": {
+    data: {
+      projectId: string;
+      artifactId: string;
+      mentalModelArtifactId: string;
+      curriculumArtifactId: string;
+      userNotes?: string;
+    };
+  };
 };
 
 // Create Inngest client with type-safe events

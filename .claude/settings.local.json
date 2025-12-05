@@ -1,6 +1,7 @@
 {
   "permissions": {
     "allow": [
+      "Bash(claudekit:*)",
       "SlashCommand(/spec:validate:*)",
       "SlashCommand(/spec:execute:*)",
       "SlashCommand(/preflight-discovery:*)",
@@ -13,7 +14,19 @@
       "WebFetch(domain:ai-sdk.dev)",
       "WebFetch(domain:sdk.vercel.ai)",
       "Bash(npx create-next-app:*)",
-      "SlashCommand(/git:commit)"
+      "SlashCommand(/git:commit)",
+      "SlashCommand(/create-subagent)",
+      "SlashCommand(/spec:decompose:*)",
+      "SlashCommand(/spec:ideate-to-spec:*)",
+      "WebFetch(domain:guru-builder-production.up.railway.app)",
+      "SlashCommand(/research:*)",
+      "WebFetch(domain:docs.railway.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:apvarun.com)",
+      "SlashCommand(/spec:ideate:*)",
+      "WebFetch(domain:arxiv.org)",
+      "WebFetch(domain:www.inngest.com)",
+      "WebFetch(domain:docs.tavily.com)"
     ],
     "deny": [],
     "ask": []

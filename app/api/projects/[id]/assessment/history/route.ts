@@ -26,18 +26,23 @@ export async function GET(
       }
     }
 
-    // Get config first
-    const config = await prisma.selfAssessmentConfig.findUnique({
+    // Get all project assessments for this project
+    const projectAssessments = await prisma.projectAssessment.findMany({
       where: { projectId },
+      include: {
+        assessmentDefinition: true,
+      },
     })
 
-    if (!config) {
+    if (projectAssessments.length === 0) {
       return NextResponse.json({ sessions: [], config: null })
     }
 
-    // Get all sessions with their results
+    // Get all sessions from all project assessments
     const sessions = await prisma.assessmentSession.findMany({
-      where: { configId: config.id },
+      where: {
+        projectAssessmentId: { in: projectAssessments.map(pa => pa.id) },
+      },
       orderBy: { startedAt: 'desc' },
       include: {
         results: {
@@ -64,13 +69,16 @@ export async function GET(
       results: session.results,
     }))
 
+    // Return first enabled assessment config info for backward compatibility
+    const enabledAssessment = projectAssessments.find(pa => pa.isEnabled)
+
     return NextResponse.json({
       sessions: sessionsWithScores,
-      config: {
-        id: config.id,
-        isEnabled: config.isEnabled,
-        engineUrl: config.engineUrl,
-      },
+      config: enabledAssessment ? {
+        id: enabledAssessment.id,
+        isEnabled: enabledAssessment.isEnabled,
+        engineUrl: enabledAssessment.assessmentDefinition.engineUrl,
+      } : null,
     })
   } catch (error) {
     console.error('[GET /api/projects/[id]/assessment/history] Error:', error)

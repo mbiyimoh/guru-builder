@@ -249,7 +249,300 @@ export const recommendationGenerationJob = inngest.createFunction(
   }
 );
 
+// =============================================================================
+// GURU TEACHING FUNCTION JOBS
+// =============================================================================
+
+import { generateMentalModel } from './guruFunctions/generators/mentalModelGenerator';
+import { generateCurriculum } from './guruFunctions/generators/curriculumGenerator';
+import { generateDrillSeries } from './guruFunctions/generators/drillDesigner';
+import type { MentalModelOutput } from './guruFunctions/schemas/mentalModelSchema';
+import type { CurriculumOutput } from './guruFunctions/schemas/curriculumSchema';
+
+/**
+ * Mental Model generation job
+ */
+export const mentalModelGenerationJob = inngest.createFunction(
+  {
+    id: 'mental-model-generation',
+    name: 'Generate Mental Model',
+    concurrency: { limit: 3 },
+  },
+  { event: 'guru/generate-mental-model' },
+  async ({ event, step }) => {
+    const { projectId, artifactId, userNotes } = event.data;
+
+    // Fetch project with corpus
+    const project = await step.run('fetch-project', async () => {
+      return await prisma.project.findUnique({
+        where: { id: projectId },
+        include: {
+          contextLayers: { where: { isActive: true }, orderBy: { priority: 'asc' } },
+          knowledgeFiles: { where: { isActive: true } },
+        },
+      });
+    });
+
+    if (!project) {
+      await step.run('mark-failed-no-project', async () => {
+        await prisma.guruArtifact.update({
+          where: { id: artifactId },
+          data: { status: 'FAILED', errorMessage: 'Project not found' },
+        });
+      });
+      throw new Error(`Project not found: ${projectId}`);
+    }
+
+    // Generate mental model
+    let result;
+    try {
+      result = await step.run('generate-mental-model', async () => {
+        return await generateMentalModel({
+          projectId,
+          contextLayers: project.contextLayers.map(l => ({ title: l.title, content: l.content })),
+          knowledgeFiles: project.knowledgeFiles.map(f => ({ title: f.title, content: f.content })),
+          domain: project.name,
+          userNotes,
+        });
+      });
+    } catch (error) {
+      await step.run('mark-failed-generation', async () => {
+        await prisma.guruArtifact.update({
+          where: { id: artifactId },
+          data: {
+            status: 'FAILED',
+            errorMessage: error instanceof Error ? error.message : 'Generation failed',
+          },
+        });
+      });
+      throw error;
+    }
+
+    // Save artifact
+    await step.run('save-artifact', async () => {
+      await prisma.guruArtifact.update({
+        where: { id: artifactId },
+        data: {
+          content: result.content as unknown as Prisma.JsonObject,
+          markdownContent: result.markdown,
+          corpusHash: result.corpusHash,
+          status: 'COMPLETED',
+        },
+      });
+    });
+
+    return { artifactId, success: true };
+  }
+);
+
+/**
+ * Curriculum generation job
+ */
+export const curriculumGenerationJob = inngest.createFunction(
+  {
+    id: 'curriculum-generation',
+    name: 'Generate Curriculum',
+    concurrency: { limit: 3 },
+  },
+  { event: 'guru/generate-curriculum' },
+  async ({ event, step }) => {
+    const { projectId, artifactId, mentalModelArtifactId, userNotes } = event.data;
+
+    // Fetch project with corpus
+    const project = await step.run('fetch-project', async () => {
+      return await prisma.project.findUnique({
+        where: { id: projectId },
+        include: {
+          contextLayers: { where: { isActive: true }, orderBy: { priority: 'asc' } },
+          knowledgeFiles: { where: { isActive: true } },
+        },
+      });
+    });
+
+    if (!project) {
+      await step.run('mark-failed-no-project', async () => {
+        await prisma.guruArtifact.update({
+          where: { id: artifactId },
+          data: { status: 'FAILED', errorMessage: 'Project not found' },
+        });
+      });
+      throw new Error(`Project not found: ${projectId}`);
+    }
+
+    // Fetch mental model artifact
+    const mentalModelArtifact = await step.run('fetch-mental-model', async () => {
+      return await prisma.guruArtifact.findUnique({
+        where: { id: mentalModelArtifactId },
+      });
+    });
+
+    if (!mentalModelArtifact || mentalModelArtifact.status !== 'COMPLETED') {
+      await step.run('mark-failed-no-mental-model', async () => {
+        await prisma.guruArtifact.update({
+          where: { id: artifactId },
+          data: { status: 'FAILED', errorMessage: 'Mental model not found or not completed' },
+        });
+      });
+      throw new Error('Mental model required for curriculum generation');
+    }
+
+    // Generate curriculum
+    let result;
+    try {
+      result = await step.run('generate-curriculum', async () => {
+        return await generateCurriculum({
+          projectId,
+          contextLayers: project.contextLayers.map(l => ({ title: l.title, content: l.content })),
+          knowledgeFiles: project.knowledgeFiles.map(f => ({ title: f.title, content: f.content })),
+          domain: project.name,
+          userNotes,
+          mentalModel: mentalModelArtifact.content as unknown as MentalModelOutput,
+        });
+      });
+    } catch (error) {
+      await step.run('mark-failed-generation', async () => {
+        await prisma.guruArtifact.update({
+          where: { id: artifactId },
+          data: {
+            status: 'FAILED',
+            errorMessage: error instanceof Error ? error.message : 'Generation failed',
+          },
+        });
+      });
+      throw error;
+    }
+
+    // Save artifact
+    await step.run('save-artifact', async () => {
+      await prisma.guruArtifact.update({
+        where: { id: artifactId },
+        data: {
+          content: result.content as unknown as Prisma.JsonObject,
+          markdownContent: result.markdown,
+          corpusHash: result.corpusHash,
+          status: 'COMPLETED',
+        },
+      });
+    });
+
+    return { artifactId, success: true };
+  }
+);
+
+/**
+ * Drill series generation job
+ */
+export const drillSeriesGenerationJob = inngest.createFunction(
+  {
+    id: 'drill-series-generation',
+    name: 'Generate Drill Series',
+    concurrency: { limit: 3 },
+  },
+  { event: 'guru/generate-drill-series' },
+  async ({ event, step }) => {
+    const { projectId, artifactId, mentalModelArtifactId, curriculumArtifactId, userNotes } = event.data;
+
+    // Fetch project with corpus
+    const project = await step.run('fetch-project', async () => {
+      return await prisma.project.findUnique({
+        where: { id: projectId },
+        include: {
+          contextLayers: { where: { isActive: true }, orderBy: { priority: 'asc' } },
+          knowledgeFiles: { where: { isActive: true } },
+        },
+      });
+    });
+
+    if (!project) {
+      await step.run('mark-failed-no-project', async () => {
+        await prisma.guruArtifact.update({
+          where: { id: artifactId },
+          data: { status: 'FAILED', errorMessage: 'Project not found' },
+        });
+      });
+      throw new Error(`Project not found: ${projectId}`);
+    }
+
+    // Fetch prerequisite artifacts
+    const [mentalModelArtifact, curriculumArtifact] = await step.run('fetch-prerequisites', async () => {
+      return await Promise.all([
+        prisma.guruArtifact.findUnique({ where: { id: mentalModelArtifactId } }),
+        prisma.guruArtifact.findUnique({ where: { id: curriculumArtifactId } }),
+      ]);
+    });
+
+    if (!mentalModelArtifact || mentalModelArtifact.status !== 'COMPLETED') {
+      await step.run('mark-failed-no-mental-model', async () => {
+        await prisma.guruArtifact.update({
+          where: { id: artifactId },
+          data: { status: 'FAILED', errorMessage: 'Mental model not found or not completed' },
+        });
+      });
+      throw new Error('Mental model required for drill series generation');
+    }
+
+    if (!curriculumArtifact || curriculumArtifact.status !== 'COMPLETED') {
+      await step.run('mark-failed-no-curriculum', async () => {
+        await prisma.guruArtifact.update({
+          where: { id: artifactId },
+          data: { status: 'FAILED', errorMessage: 'Curriculum not found or not completed' },
+        });
+      });
+      throw new Error('Curriculum required for drill series generation');
+    }
+
+    // Generate drill series
+    let result;
+    try {
+      result = await step.run('generate-drill-series', async () => {
+        return await generateDrillSeries({
+          projectId,
+          contextLayers: project.contextLayers.map(l => ({ title: l.title, content: l.content })),
+          knowledgeFiles: project.knowledgeFiles.map(f => ({ title: f.title, content: f.content })),
+          domain: project.name,
+          userNotes,
+          mentalModel: mentalModelArtifact.content as unknown as MentalModelOutput,
+          curriculum: curriculumArtifact.content as unknown as CurriculumOutput,
+        });
+      });
+    } catch (error) {
+      await step.run('mark-failed-generation', async () => {
+        await prisma.guruArtifact.update({
+          where: { id: artifactId },
+          data: {
+            status: 'FAILED',
+            errorMessage: error instanceof Error ? error.message : 'Generation failed',
+          },
+        });
+      });
+      throw error;
+    }
+
+    // Save artifact
+    await step.run('save-artifact', async () => {
+      await prisma.guruArtifact.update({
+        where: { id: artifactId },
+        data: {
+          content: result.content as unknown as Prisma.JsonObject,
+          markdownContent: result.markdown,
+          corpusHash: result.corpusHash,
+          status: 'COMPLETED',
+        },
+      });
+    });
+
+    return { artifactId, success: true };
+  }
+);
+
 /**
  * Export all functions as an array for registration
  */
-export const inngestFunctions = [testSimpleJob, researchJob, recommendationGenerationJob];
+export const inngestFunctions = [
+  testSimpleJob,
+  researchJob,
+  recommendationGenerationJob,
+  mentalModelGenerationJob,
+  curriculumGenerationJob,
+  drillSeriesGenerationJob,
+];

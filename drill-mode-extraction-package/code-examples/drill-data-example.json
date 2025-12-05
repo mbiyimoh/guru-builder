@@ -1,0 +1,103 @@
+{
+  "moduleId": 1,
+  "moduleName": "Basic Opening Rolls",
+  "totalDrills": 3,
+  "note": "Example drill data structure - adapt for your domain (chess, Go, poker, etc.)",
+  "drills": [
+    {
+      "id": 1,
+      "difficulty": "easy",
+      "category": "mandatory-points",
+      "position": {
+        "black": "24(2), 13(5), 8(3), 6(5)",
+        "white": "1(2), 12(5), 17(3), 19(5)",
+        "description": "Standard opening position"
+      },
+      "boardSetup": {
+        "points": {
+          "24": { "color": "black", "checkers": 2 },
+          "13": { "color": "black", "checkers": 5 },
+          "8": { "color": "black", "checkers": 3 },
+          "6": { "color": "black", "checkers": 5 },
+          "1": { "color": "white", "checkers": 2 },
+          "12": { "color": "white", "checkers": 5 },
+          "17": { "color": "white", "checkers": 3 },
+          "19": { "color": "white", "checkers": 5 }
+        },
+        "bar": { "black": 0, "white": 0 },
+        "off": { "black": 0, "white": 0 },
+        "summary": "Black: 2 on 24, 5 on 13, 3 on 8, 5 on 6. White: 2 on 1, 5 on 12, 3 on 17, 5 on 19."
+      },
+      "toPlay": "black",
+      "roll": [3, 1],
+      "question": "Black to play 3-1. What's your best opening move?",
+      "options": [
+        {
+          "move": "8/5, 6/5",
+          "isCorrect": true,
+          "explanation": "Makes the golden 5-point, the most valuable point on the board. This is worth approximately +12% equity."
+        },
+        {
+          "move": "24/21, 13/12",
+          "isCorrect": false,
+          "explanation": "Splitting and building is solid but making the 5-point is worth about 12% more equity."
+        },
+        {
+          "move": "13/10, 13/12",
+          "isCorrect": false,
+          "explanation": "Creating builders is usually strong but the 5-point opportunity is too valuable to pass up."
+        }
+      ],
+      "principle": "When you can make the 5-point on opening roll with 3-1, it's mandatory.",
+      "hintsAvailable": [
+        "Think about which point is most valuable to control",
+        "Can you make a key point with this roll?",
+        "The 5-point is called 'golden' for a reason"
+      ]
+    }
+  ],
+  "_adaptation_notes": {
+    "for_chess": {
+      "position": "FEN string (e.g., 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')",
+      "toPlay": "white or black",
+      "question": "Best move in this position?",
+      "options": [
+        {
+          "move": "e4 (UCI format)",
+          "evaluation": "+0.5 (from engine)",
+          "isCorrect": true,
+          "explanation": "Controls center, opens lines for pieces..."
+        }
+      ]
+    },
+    "for_go": {
+      "position": "SGF format or coordinate list",
+      "toPlay": "black or white",
+      "question": "Best move in this fuseki?",
+      "options": [
+        {
+          "move": "Q16 (coordinate)",
+          "isCorrect": true,
+          "explanation": "Standard 3-4 point approach..."
+        }
+      ]
+    },
+    "for_poker": {
+      "position": {
+        "hero_hand": ["As", "Kd"],
+        "board": ["Qh", "Jc", "10s"],
+        "pot": 150,
+        "stack": 500,
+        "opponents": 2
+      },
+      "question": "Best action on the flop?",
+      "options": [
+        {
+          "move": "Bet 100",
+          "isCorrect": true,
+          "explanation": "Semi-bluff with straight draw, fold equity..."
+        }
+      ]
+    }
+  }
+}

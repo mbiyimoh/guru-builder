@@ -4,7 +4,8 @@ import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { ContextLayerManager } from '@/components/context-layers/ContextLayerManager';
 import { KnowledgeFileManager } from '@/components/knowledge-files/KnowledgeFileManager';
-import { SelfAssessmentToggle } from '@/components/assessment/SelfAssessmentToggle';
+import { ProjectAssessmentManager } from '@/components/assessment/ProjectAssessmentManager';
+import { GuruTeachingManager } from '@/components/guru/GuruTeachingManager';
 
 // Force dynamic rendering to ensure fresh data
 export const dynamic = 'force-dynamic';
@@ -123,7 +124,12 @@ export default async function ProjectDetailPage({
 
       {/* Self-Assessment */}
       <div className="mb-8">
-        <SelfAssessmentToggle projectId={id} />
+        <ProjectAssessmentManager projectId={id} />
+      </div>
+
+      {/* Guru Teaching Pipeline */}
+      <div className="mb-8">
+        <GuruTeachingManager projectId={id} />
       </div>
 
       {/* Recent Research Runs */}

@@ -47,3 +47,13 @@ __pycache__/
 # prisma
 prisma/*.db
 prisma/*.db-journal
+
+# database backups (local only)
+backups/
+
+# Simple Task Master - User tasks are git-ignored
+.simple-task-master/tasks/
+.simple-task-master/lock
+
+# Quick checks (ephemeral tests)
+.quick-checks/

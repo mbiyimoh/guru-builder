@@ -22,7 +22,8 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  projects Project[]
+  projects              Project[]
+  assessmentDefinitions AssessmentDefinition[]
 
   @@index([email])
 }
@@ -43,11 +44,13 @@ model Project {
   user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Relations
-  contextLayers    ContextLayer[]
-  knowledgeFiles   KnowledgeFile[]
-  researchRuns     ResearchRun[]
-  snapshots        CorpusSnapshot[]
-  assessmentConfig SelfAssessmentConfig?
+  contextLayers      ContextLayer[]
+  knowledgeFiles     KnowledgeFile[]
+  researchRuns       ResearchRun[]
+  snapshots          CorpusSnapshot[]
+  assessmentConfig   SelfAssessmentConfig?  // DEPRECATED: kept for migration
+  projectAssessments ProjectAssessment[]
+  guruArtifacts      GuruArtifact[]
 
   @@index([createdAt])
   @@index([userId])
@@ -208,7 +211,47 @@ model ApplyChangesLog {
 }
 
 // ============================================================================
-// SELF-ASSESSMENT MODELS
+// SELF-ASSESSMENT MODELS (New Library Architecture)
+// ============================================================================
+
+// Reusable assessment definitions owned by users (the "library")
+model AssessmentDefinition {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  description String?  @db.Text
+  domain      String   // e.g., "backgammon", "chess", "poker"
+  engineType  String?  // e.g., "gnubg", "stockfish", null for manual
+  engineUrl   String?  // MCP server URL for engine integration
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectAssessments ProjectAssessment[]
+
+  @@index([userId])
+  @@index([domain])
+}
+
+// Junction table: links AssessmentDefinitions to Projects
+model ProjectAssessment {
+  id                     String   @id @default(cuid())
+  projectId              String
+  assessmentDefinitionId String
+  isEnabled              Boolean  @default(true)
+  createdAt              DateTime @default(now())
+
+  project              Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assessmentDefinition AssessmentDefinition @relation(fields: [assessmentDefinitionId], references: [id], onDelete: Cascade)
+  sessions             AssessmentSession[]
+
+  @@unique([projectId, assessmentDefinitionId])
+  @@index([projectId])
+  @@index([assessmentDefinitionId])
+}
+
+// ============================================================================
+// SELF-ASSESSMENT MODELS (Legacy - DEPRECATED, kept for migration)
 // ============================================================================
 
 model SelfAssessmentConfig {
@@ -229,16 +272,23 @@ model SelfAssessmentConfig {
 
 model AssessmentSession {
   id       String @id @default(cuid())
-  configId String
+  configId String?  // DEPRECATED: legacy reference, nullable for new sessions
+
+  // New architecture reference
+  projectAssessmentId String?
 
   startedAt    DateTime  @default(now())
   endedAt      DateTime?
   lastResultId String? // Track last result for "Continue Session" feature
 
-  config  SelfAssessmentConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
-  results AssessmentResult[]
+  // Legacy relation (kept for migration)
+  config            SelfAssessmentConfig? @relation(fields: [configId], references: [id], onDelete: Cascade)
+  // New relation
+  projectAssessment ProjectAssessment?    @relation(fields: [projectAssessmentId], references: [id], onDelete: Cascade)
+  results           AssessmentResult[]
 
   @@index([configId])
+  @@index([projectAssessmentId])
   @@index([startedAt])
 }
 
@@ -265,8 +315,61 @@ model AssessmentResult {
 }
 
 // ============================================================================
+// GURU TEACHING ARTIFACTS
+// ============================================================================
+
+// Generated teaching artifact (mental models, curricula, drill series)
+model GuruArtifact {
+  id          String           @id @default(cuid())
+  projectId   String
+
+  type        GuruArtifactType
+  version     Int              @default(1)
+
+  // Structured content (JSON)
+  content     Json
+
+  // Human-readable version (Markdown with ASCII wireframes for drills)
+  markdownContent String?      @db.Text
+
+  // Generation metadata
+  corpusHash      String?      // Hash of corpus state when generated
+  generatedAt     DateTime     @default(now())
+
+  // For tracking dependencies
+  dependsOnArtifactId String?  // ID of artifact this one builds on
+
+  // Status tracking
+  status      ArtifactStatus   @default(COMPLETED)
+
+  // Error message if failed
+  errorMessage String?         @db.Text
+
+  // Relations
+  project     Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  dependsOn   GuruArtifact?    @relation("ArtifactDependency", fields: [dependsOnArtifactId], references: [id])
+  dependents  GuruArtifact[]   @relation("ArtifactDependency")
+
+  @@index([projectId, type])
+  @@index([projectId, type, version])
+  @@index([generatedAt])
+}
+
+// ============================================================================
 // ENUMS
 // ============================================================================
+
+enum GuruArtifactType {
+  MENTAL_MODEL
+  CURRICULUM
+  DRILL_SERIES
+}
+
+enum ArtifactStatus {
+  GENERATING
+  COMPLETED
+  FAILED
+}
 
 enum ResearchDepth {
   QUICK    // 1-2 minutes, 5 sources

@@ -67,6 +67,52 @@ const DEPTH_CONFIG: Record<ResearchDepth, TavilySearchConfig> = {
   },
 };
 
+// Tavily API has a 400 character limit on queries
+const TAVILY_MAX_QUERY_LENGTH = 400;
+
+/**
+ * Optimize long research instructions into a concise search query for Tavily
+ * Tavily has a 400 character limit, so we use GPT to extract key search terms
+ */
+async function optimizeSearchQuery(instructions: string): Promise<string> {
+  // If instructions are short enough, use them directly
+  if (instructions.length <= TAVILY_MAX_QUERY_LENGTH) {
+    return instructions;
+  }
+
+  console.log(`[Research] Instructions too long (${instructions.length} chars), optimizing search query...`);
+
+  const completion = await getOpenAI().chat.completions.create({
+    model: RESEARCH_MODEL,
+    messages: [
+      {
+        role: "system",
+        content: `You are a search query optimizer. Convert detailed research instructions into a concise, effective web search query.
+
+Rules:
+- Maximum 350 characters (leave room for safety margin)
+- Extract the core research topic and key terms
+- Use natural language that works well for web search
+- Preserve domain-specific terminology
+- Do NOT include instructions like "research" or "find information about"
+- Output ONLY the optimized query, nothing else`,
+      },
+      {
+        role: "user",
+        content: `Convert these research instructions into an optimized search query:\n\n${instructions}`,
+      },
+    ],
+    temperature: 0.3,
+    max_tokens: 200,
+  });
+
+  const optimizedQuery = completion.choices[0]?.message?.content?.trim() || instructions.slice(0, TAVILY_MAX_QUERY_LENGTH);
+
+  console.log(`[Research] Optimized query (${optimizedQuery.length} chars): "${optimizedQuery.slice(0, 100)}..."`);
+
+  return optimizedQuery;
+}
+
 /**
  * Execute research using Tavily search and GPT-4o synthesis
  */
@@ -80,17 +126,20 @@ export async function executeResearch(
   console.log(`[Research] Starting ${depth} research: "${instructions.slice(0, 100)}..."`);
 
   try {
-    // Step 1: Execute Tavily search
+    // Step 1: Optimize search query if instructions are too long for Tavily
+    const searchQuery = await optimizeSearchQuery(instructions);
+
+    // Step 2: Execute Tavily search
     console.log(`[Research] Executing Tavily search with ${config.maxResults} max results`);
 
     const searchResponse = await Promise.race([
-      getTavily().search(instructions, {
+      getTavily().search(searchQuery, {
         maxResults: config.maxResults,
         includeRawContent: config.includeRawContent,
         searchDepth: config.searchDepth,
       }),
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Search timeout")), timeout / 2)
+        setTimeout(() => reject(new Error("Search timeout")), timeout / 3)
       ),
     ]);
 
@@ -102,7 +151,7 @@ export async function executeResearch(
 
     console.log(`[Research] Found ${sources.length} sources`);
 
-    // Step 2: Synthesize findings with GPT-4o
+    // Step 3: Synthesize findings with GPT-4o
     console.log(`[Research] Synthesizing with GPT-4o`);
 
     const synthesisPrompt = buildSynthesisPrompt(
@@ -132,7 +181,7 @@ Use markdown formatting for clarity. Include specific findings from the sources 
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error("Synthesis timeout")), timeout / 2)
       ),
-    ]);
+    ]); // Synthesis gets more time since it's the most important step
 
     const fullReport = completion.choices[0]?.message?.content || "";
     const summary = fullReport.slice(0, 500) + (fullReport.length > 500 ? "..." : "");

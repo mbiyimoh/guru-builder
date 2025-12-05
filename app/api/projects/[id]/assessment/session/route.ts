@@ -28,11 +28,12 @@ export async function POST(
       }
     }
 
-    const config = await prisma.selfAssessmentConfig.findUnique({
-      where: { projectId },
+    // Find an enabled project assessment
+    const projectAssessment = await prisma.projectAssessment.findFirst({
+      where: { projectId, isEnabled: true },
     })
 
-    if (!config || !config.isEnabled) {
+    if (!projectAssessment) {
       return NextResponse.json(
         { error: 'Assessment not enabled for this project' },
         { status: 400 }
@@ -40,7 +41,7 @@ export async function POST(
     }
 
     const session = await prisma.assessmentSession.create({
-      data: { configId: config.id },
+      data: { projectAssessmentId: projectAssessment.id },
     })
 
     return NextResponse.json({ session })

@@ -24,7 +24,12 @@ export default async function AssessmentPage({ params }: PageProps) {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
     include: {
-      assessmentConfig: true,
+      projectAssessments: {
+        where: { isEnabled: true },
+        include: {
+          assessmentDefinition: true,
+        },
+      },
       contextLayers: {
         where: { isActive: true },
         select: { id: true },
@@ -41,7 +46,9 @@ export default async function AssessmentPage({ params }: PageProps) {
     redirect('/projects')
   }
 
-  if (!project.assessmentConfig?.isEnabled) {
+  // Check if any assessment is enabled
+  const enabledAssessment = project.projectAssessments[0]
+  if (!enabledAssessment) {
     redirect(`/projects/${projectId}?error=assessment-not-configured`)
   }
 

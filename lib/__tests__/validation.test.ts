@@ -4,7 +4,7 @@ import {
   parseSnapshotLayersData,
   parseSnapshotFilesData,
   parseChangeLogValue,
-} from '../lib/validation';
+} from '../validation';
 
 /**
  * Validation Tests

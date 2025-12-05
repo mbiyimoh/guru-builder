@@ -15,7 +15,7 @@ export default async function AssessmentHistoryPage({ params }: PageProps) {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
     include: {
-      assessmentConfig: {
+      projectAssessments: {
         include: {
           sessions: {
             orderBy: { startedAt: 'desc' },
@@ -41,7 +41,8 @@ export default async function AssessmentHistoryPage({ params }: PageProps) {
     notFound()
   }
 
-  const sessions = project.assessmentConfig?.sessions || []
+  // Collect all sessions from all project assessments
+  const sessions = project.projectAssessments.flatMap(pa => pa.sessions)
 
   // Calculate overall stats
   const allResults = sessions.flatMap((s) => s.results)
