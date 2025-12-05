@@ -1,11 +1,11 @@
 # Research Run Functionality - Complete Guide
 
-**Component:** Full research execution system including Python integration, GPT Researcher, and UI
-**Last Updated:** 2025-11-10
+**Component:** Full research execution system including TypeScript web search, GPT-4o synthesis, and UI
+**Last Updated:** 2025-12-04
 
 ## Overview
 
-The Research Run functionality is the core feature of the Guru Builder system. It executes autonomous web research using GPT Researcher (Python) and generates actionable recommendations for improving the knowledge corpus.
+The Research Run functionality is the core feature of the Guru Builder system. It executes autonomous web research using Tavily API for search and GPT-4o for synthesis, then generates actionable recommendations for improving the knowledge corpus.
 
 ## Architecture
 
@@ -21,9 +21,9 @@ Send Inngest event: "research/requested"
 ┌─────────────────────────────────────────────────────┐
 │ researchJob (lib/inngest-functions.ts)              │
 │  1. Call executeResearch()                          │
-│  2. Spawn Python subprocess: research_agent.py      │
-│  3. GPT Researcher conducts web research            │
-│  4. Return JSON findings via stdout                 │
+│  2. Execute Tavily web search (TypeScript)          │
+│  3. Synthesize findings with GPT-4o                 │
+│  4. Return structured ResearchFindings              │
 │  5. Save results to DB (status: COMPLETED)          │
 │  6. Send "research/completed" event                 │
 └─────────────────────────────────────────────────────┘
@@ -39,164 +39,60 @@ Send Inngest event: "research/requested"
 User reviews recommendations in UI
 ```
 
-## Python-TypeScript Integration
+### CRITICAL: Async Job Race Condition
+
+**Understanding the Event Chain:**
+
+The research workflow uses TWO SEPARATE async jobs connected by events:
+
+1. `researchJob` completes and sets status to COMPLETED (Line 79 in inngest-functions.ts)
+2. Then sends `research/completed` event (Line 91)
+3. Browser may poll API at this exact moment
+4. Browser sees COMPLETED status, refreshes page
+5. BUT: `research/completed` event triggers `recommendationGenerationJob` which runs AFTER researchJob completes
+6. Recommendations are saved 10-60 seconds AFTER status becomes COMPLETED
+
+**This means:**
+- Status can be COMPLETED before recommendations exist in database
+- UI must wait for recommendations, not just status change
+- ResearchStatusPoller implements this pattern (lines 42-62)
+
+**Pattern for Future Async Workflows:**
+
+When adding new async job chains, ALWAYS:
+1. Document the event sequence in this guide
+2. Identify what client needs to wait for (final state, not intermediate)
+3. Implement polling that checks for final state (e.g., recommendations.total > 0)
+4. Add appropriate timeouts with user feedback
+5. Use `force-dynamic` rendering on pages that display async results
+6. Add `Cache-Control: no-store` headers to polling endpoints
+
+## TypeScript Research Implementation
 
 ### Architecture Decision
 
-**Design:** Research runs as isolated Python subprocess spawned by Node.js
+**Design:** Pure TypeScript implementation using Tavily API for web search and GPT-4o for synthesis.
 
-**Why subprocess model:**
-- Isolation: Each research request gets own process with isolated stdout
-- Simplicity: No need for long-running Python service
-- Clean IPC: JSON over stdout/stderr
-- Fault tolerance: Process crashes don't affect Next.js
+**Why TypeScript-only:**
+- Deployment simplicity: No Python runtime required in production
+- Single stack: All code in TypeScript for easier maintenance
+- Container-friendly: Works in any Node.js Docker container
+- Lazy-loading: API clients initialized on first use (avoids build-time errors)
 
-**Communication Protocol:**
-```typescript
-// Node.js spawns Python
-const pythonProcess = spawn('python3', [
-  '/path/to/research_agent.py',
-  instructions,
-  depth.toLowerCase()
-]);
+### Environment Variables
 
-// Python writes JSON to stdout
-{ "query": "...", "summary": "...", "fullReport": "...", "sources": [...] }
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `TAVILY_API_KEY` | Yes | Tavily API key from https://tavily.com |
+| `OPENAI_API_KEY` | Yes | OpenAI API key for GPT-4o synthesis |
 
-// Node.js reads stdout and parses JSON
-const findings = JSON.parse(output);
-```
+### Depth Levels
 
-### Python Environment Setup
-
-**Location:** `python/` directory in project root
-
-**Structure:**
-```
-python/
-├── venv/                    # Python virtual environment
-│   ├── bin/python3         # Python interpreter (arm64)
-│   └── lib/                # Installed packages
-├── research_agent.py       # Main research script
-├── requirements.txt        # Dependencies (if using)
-└── .env                    # Environment variables (symlinked from root)
-```
-
-**Setup Instructions:**
-
-1. **Create virtual environment:**
-   ```bash
-   cd python
-   python3 -m venv venv
-   ```
-
-2. **Activate venv:**
-   ```bash
-   source venv/bin/activate
-   ```
-
-3. **Upgrade pip:**
-   ```bash
-   pip install --upgrade pip
-   ```
-
-4. **Install dependencies:**
-   ```bash
-   pip install python-dotenv openai gpt-researcher
-   ```
-
-5. **Verify installation:**
-   ```bash
-   python3 -c "import gpt_researcher; print('GPT Researcher installed')"
-   ```
-
-**Architecture Note (Apple Silicon):**
-- Packages with C extensions (pydantic, httpx) must match system architecture
-- If seeing "mach-o file, but is an incompatible architecture" errors:
-  - Delete venv: `rm -rf venv`
-  - Recreate with correct architecture (as shown above)
-  - Packages will compile for arm64 automatically
-
-### research_agent.py Implementation
-
-**Location:** `python/research_agent.py`
-
-**Purpose:** Standalone script that executes GPT Researcher and returns JSON findings
-
-**Key Features:**
-
-1. **Logging Configuration (lines 26-41):**
-   - All logs go to stderr (stdout reserved for JSON)
-   - Suppresses noisy third-party loggers (httpx, langchain, etc.)
-   - Configurable via `RESEARCH_LOG_LEVEL` environment variable
-
-2. **Research Depth Configuration (lines 49-73):**
-   ```python
-   DEPTH_SETTINGS = {
-       "quick": {
-           "max_sources": 5,
-           "max_iterations": 2,
-           "report_type": "research_report",
-       },
-       "moderate": {
-           "max_sources": 10,
-           "max_iterations": 4,
-           "report_type": "research_report",
-       },
-       "deep": {
-           "max_sources": 20,
-           "max_iterations": 6,
-           "report_type": "detailed_report",
-       },
-   }
-   ```
-
-3. **Stdout Capture Architecture (lines 155-198):**
-   - Uses `StringIO` to temporarily redirect stdout during research
-   - Prevents third-party print statements from corrupting JSON output
-   - Logs captured output on errors for debugging
-   - Restores stdout in finally block
-
-   **CRITICAL:** This is safe for subprocess model but would NOT be safe for long-running service (concurrent requests would corrupt each other's output)
-
-4. **POC Fallback Mode (lines 113-147):**
-   - If GPT Researcher can't be imported, returns test data
-   - Includes clear warnings and installation instructions
-   - Useful for development without API keys
-
-5. **Data Validation (lines 200-228):**
-   - Validates report is string, sources is array
-   - Ensures URLs are strings
-   - Filters empty/None URLs
-   - Adds metadata about research configuration
-
-**Usage:**
-```bash
-# From project root
-python3 python/research_agent.py "Research backgammon strategies" "moderate"
-
-# Output (JSON to stdout)
-{
-  "query": "Research backgammon strategies",
-  "depth": "moderate",
-  "summary": "First 500 chars of report...",
-  "fullReport": "Full markdown report...",
-  "sources": [
-    {"url": "https://...", "title": "Source 1"},
-    ...
-  ],
-  "sourcesAnalyzed": 10,
-  "metadata": {
-    "maxSources": 10,
-    "maxIterations": 4,
-    "reportType": "research_report"
-  }
-}
-```
-
-**Environment Variables Required:**
-- `OPENAI_API_KEY` - For GPT Researcher
-- `TAVILY_API_KEY` - (Optional) For enhanced search
+| Depth | Sources | Content | Search Type | Expected Time |
+|-------|---------|---------|-------------|---------------|
+| quick | 5 | No | Basic | 5-15 seconds |
+| moderate | 10 | Yes (markdown) | Basic | 10-30 seconds |
+| deep | 20 | Yes (markdown) | Advanced | 20-60 seconds |
 
 ### TypeScript Research Orchestrator
 
@@ -204,23 +100,55 @@ python3 python/research_agent.py "Research backgammon strategies" "moderate"
 
 **Key Function:**
 ```typescript
-export async function executeResearch(params: {
+export async function executeResearch(options: {
   instructions: string;
-  depth: ResearchDepth;
-  timeout?: number;
+  depth?: ResearchDepth;  // "quick" | "moderate" | "deep"
+  timeout?: number;       // milliseconds, default 300000
 }): Promise<ResearchResult>
 ```
 
-**Implementation:**
-- Spawns Python subprocess with `child_process.spawn()`
-- Captures stdout and stderr separately
-- Parses JSON from stdout
-- Returns structured ResearchResult object
-- Handles errors with detailed error messages
+**Implementation Flow:**
+
+1. **Tavily Search:** Executes web search based on depth configuration
+2. **GPT-4o Synthesis:** Generates structured research report from sources
+3. **Timeout Handling:** Split timeout between search (50%) and synthesis (50%)
+
+**Key Features:**
+
+1. **Lazy-loaded clients:**
+   ```typescript
+   // Clients initialized on first use (not at import time)
+   function getTavily() {
+     if (!_tavily) {
+       _tavily = tavily({ apiKey: process.env.TAVILY_API_KEY });
+     }
+     return _tavily;
+   }
+   ```
+
+2. **Depth configuration:**
+   ```typescript
+   const DEPTH_CONFIG = {
+     quick: { maxResults: 5, includeRawContent: false, searchDepth: "basic" },
+     moderate: { maxResults: 10, includeRawContent: "markdown", searchDepth: "basic" },
+     deep: { maxResults: 20, includeRawContent: "markdown", searchDepth: "advanced" },
+   };
+   ```
+
+3. **Structured synthesis prompt:**
+   - Executive Summary
+   - Key Findings
+   - Detailed Analysis
+   - Practical Implications
+   - Source Quality Assessment
 
 **Integration Point:**
 - Called by `researchJob` in `lib/inngest-functions.ts`
 - Results saved to ResearchRun.researchData in database
+
+### Legacy Python Implementation (Deprecated)
+
+The `python/` directory contains the original Python-based research implementation using GPT Researcher. This is kept for reference but is no longer used in production. The Railway deployment does not include Python.
 
 ## UI Components
 
@@ -309,69 +237,45 @@ export async function executeResearch(params: {
 
 ## Common Issues and Solutions
 
-### Issue 1: POC/Test Data Instead of Real Research
+### Issue 1: Missing API Key Error
 
 **Symptoms:**
-- Research completes but shows "POC MODE" in summary
-- Sources are example.com URLs
-- Report mentions test data
-
-**Root Causes:**
-1. GPT Researcher not installed in Python venv
-2. ImportError when trying to import gpt_researcher
+- Research fails immediately with "TAVILY_API_KEY environment variable is not set"
+- Or "OPENAI_API_KEY environment variable is not set"
 
 **Solution:**
-```bash
-# 1. Activate venv
-cd python && source venv/bin/activate
+1. Get a Tavily API key from https://tavily.com (free tier: 1,000 searches/month)
+2. Add to local `.env` file:
+   ```bash
+   TAVILY_API_KEY="tvly-..."
+   OPENAI_API_KEY="sk-..."
+   ```
+3. For production (Railway), add both keys as environment variables
 
-# 2. Check if installed
-pip list | grep gpt-researcher
-
-# 3. If not installed or wrong architecture
-pip install gpt-researcher
-
-# 4. If architecture mismatch (x86_64 vs arm64 on Mac)
-cd .. && rm -rf python/venv
-cd python && python3 -m venv venv
-source venv/bin/activate
-pip install --upgrade pip
-pip install python-dotenv openai gpt-researcher
-
-# 5. Verify
-python3 -c "import gpt_researcher; print('OK')"
-```
-
-**Prevention:**
-- Always use virtual environment
-- Document Python setup in README
-- Add health check endpoint that tests Python imports
-
-### Issue 2: "Unexpected token" JSON Parse Error
+### Issue 2: Research Timeout
 
 **Symptoms:**
-- Research job fails with JSON parse error
-- Error mentions unexpected token at start of JSON
-- Logs show library warnings in output
+- Research fails with "Search timeout" or "Synthesis timeout"
+- Happens more often with "deep" research
 
 **Root Cause:**
-Third-party libraries (Tavily, BeautifulSoup, PyMuPDF) print to stdout, corrupting JSON
+The timeout is split 50/50 between search and synthesis. Deep research with 20 sources may exceed the default timeout.
 
 **Solution:**
-Already implemented in `research_agent.py`:
-- StringIO stdout capture during research
-- Warnings logged to stderr instead
-- Clean JSON output on stdout
-
-**If error persists:**
-1. Check Python script is using latest version with stdout capture
-2. Verify all print statements in research_agent.py go to stderr
-3. Test manually: `python3 python/research_agent.py "test" "quick" | jq .`
+Increase timeout in the research options (default is 300000ms = 5 minutes):
+```typescript
+// In inngest-functions.ts, increase timeout for deep research
+executeResearch({
+  instructions,
+  depth,
+  timeout: depth === 'deep' ? 600000 : 300000,  // 10 min for deep
+});
+```
 
 ### Issue 3: Research Runs Stuck in RUNNING Status
 
 **Symptoms:**
-- Status shows RUNNING for > 15 minutes
+- Status shows RUNNING for > 5 minutes
 - No updates in Inngest dashboard
 - No error message
 
@@ -382,39 +286,25 @@ Already implemented in `research_agent.py`:
    - Find the research job
    - Look for step failures or timeouts
 
-2. **Check Python process:**
-   ```bash
-   # See if Python process is still running
-   ps aux | grep research_agent.py
+2. **Check console logs:**
+   - Look for `[Research]` prefixed messages
+   - Should see: "Starting research", "Found X sources", "Synthesizing with GPT-4o"
 
-   # If hung, kill it
-   pkill -f research_agent.py
-   ```
-
-3. **Check logs:**
+3. **Verify API keys:**
    ```bash
-   # Look for Python errors in stderr
-   grep -A 10 "Research Job" logs/dev.log
-   ```
-
-4. **Manual test:**
-   ```bash
-   # Run research agent directly to see errors
-   cd python
-   source venv/bin/activate
-   python3 research_agent.py "test query" "quick"
+   echo $TAVILY_API_KEY  # Should show tvly-...
+   echo $OPENAI_API_KEY  # Should show sk-...
    ```
 
 **Common Causes:**
-- Python environment not activated when Next.js spawns subprocess
-- OPENAI_API_KEY not in environment
-- Network issues preventing web scraping
+- API keys not set or invalid
+- Network issues
 - Timeout too short for depth level
 
 **Solutions:**
-- Ensure .env has OPENAI_API_KEY
-- Increase timeout in inngest-functions.ts if needed
-- Check Python venv path is correct in executeResearch()
+- Verify API keys are set correctly
+- Check Tavily and OpenAI API status pages
+- Increase timeout for deep research
 
 ### Issue 4: No Recommendations Generated
 
@@ -459,6 +349,45 @@ Already implemented in `research_agent.py`:
 - Review schema in corpusRecommendationGenerator.ts
 - Add retry logic for transient errors
 
+### Issue 4a: Race Condition - 0 Recommendations Immediately After Completion
+
+**Symptoms:**
+- Research completes successfully (status: COMPLETED)
+- Page immediately refreshes but shows 0 recommendations
+- Recommendations appear if you manually refresh 30-60 seconds later
+- Database inspection shows recommendations DO exist after waiting
+
+**Root Cause:**
+This is the ASYNC JOB RACE CONDITION (see Architecture section above):
+1. Research job marks status COMPLETED
+2. Sends "research/completed" event
+3. UI polls, sees COMPLETED, refreshes immediately
+4. Recommendation generation job starts AFTER the status update
+5. Recommendations saved 10-60 seconds after status change
+
+**Solution:**
+ResearchStatusPoller now correctly waits for recommendations after COMPLETED status:
+
+```typescript
+// In ResearchStatusPoller.tsx (lines 42-62)
+if (newStatus === 'COMPLETED') {
+  if (recommendationCount > 0) {
+    // Recommendations are ready - refresh page
+    router.refresh();
+  } else {
+    // Keep polling until recommendations appear
+    recommendationPollCount.current += 1;
+    setProgressMessage('Generating recommendations...');
+  }
+}
+```
+
+**Prevention:**
+- Any async job that triggers follow-up jobs must have UI polling that waits for ALL jobs to complete
+- Add `force-dynamic` rendering to pages displaying async results
+- Add `Cache-Control: no-store` to polling API endpoints
+- Document the event chain in this guide
+
 ## Testing Research Functionality
 
 ### Manual Testing Flow
@@ -484,7 +413,8 @@ Already implemented in `research_agent.py`:
 
 4. **Monitor progress:**
    - Wait for redirect to project page
-   - Refresh page to see status changes
+   - Click on the research run to see progress page
+   - Page auto-updates every 5 seconds when research completes (no manual refresh needed)
    - Or watch Inngest dashboard: http://localhost:8288
 
 5. **Verify results:**
@@ -548,8 +478,9 @@ Already implemented in `research_agent.py`:
    - Saves time and API costs
 
 2. **Progressive Results:**
-   - Stream research findings as they're discovered
-   - Update UI with partial results
+   - **Current:** Basic auto-refresh (polls every 5 seconds for completion status)
+   - **Future:** Stream research findings as they're discovered
+   - Update UI with partial results during research (not just on completion)
    - Requires WebSocket or SSE implementation
 
 3. **Parallel Recommendation Generation:**
@@ -562,36 +493,32 @@ Already implemented in `research_agent.py`:
 ### Environment Variables
 
 **Required:**
-- `OPENAI_API_KEY` - OpenAI API key for GPT Researcher
+- `TAVILY_API_KEY` - Tavily API key for web search (https://tavily.com)
+- `OPENAI_API_KEY` - OpenAI API key for GPT-4o synthesis
 - `DATABASE_URL` - PostgreSQL connection string
-
-**Optional:**
-- `TAVILY_API_KEY` - Enhanced web search (GPT Researcher uses if available)
-- `RESEARCH_LOG_LEVEL` - Python logging level (default: WARNING)
-- `GPT_RESEARCHER_MODE` - "local" or "online" (default: local)
 
 ### Research Depth Configuration
 
-Edit in `python/research_agent.py` if needed:
+Edit in `lib/researchOrchestrator.ts` if needed:
 
-```python
-DEPTH_SETTINGS = {
-    "quick": {
-        "max_sources": 5,      # Number of web sources to analyze
-        "max_iterations": 2,    # Research refinement iterations
-        "report_type": "research_report",
-    },
-    "moderate": {
-        "max_sources": 10,
-        "max_iterations": 4,
-        "report_type": "research_report",
-    },
-    "deep": {
-        "max_sources": 20,
-        "max_iterations": 6,
-        "report_type": "detailed_report",  # More comprehensive format
-    },
-}
+```typescript
+const DEPTH_CONFIG: Record<ResearchDepth, TavilySearchConfig> = {
+  quick: {
+    maxResults: 5,
+    includeRawContent: false,
+    searchDepth: "basic",
+  },
+  moderate: {
+    maxResults: 10,
+    includeRawContent: "markdown",
+    searchDepth: "basic",
+  },
+  deep: {
+    maxResults: 20,
+    includeRawContent: "markdown",
+    searchDepth: "advanced",
+  },
+};
 ```
 
 ### Inngest Job Configuration
@@ -625,15 +552,14 @@ export const recommendationGenerationJob = inngest.createFunction(
 
 When research isn't working:
 
-- [ ] Python venv exists and has correct architecture
-- [ ] GPT Researcher installed: `pip list | grep gpt-researcher`
-- [ ] OPENAI_API_KEY set in .env
+- [ ] `TAVILY_API_KEY` set in environment
+- [ ] `OPENAI_API_KEY` set in environment
 - [ ] Next.js dev server running
 - [ ] Inngest dev server running
 - [ ] Database accessible: `npx prisma studio`
 - [ ] No port conflicts: `lsof -i :3002` and `lsof -i :8288`
-- [ ] Python script executable: `python3 python/research_agent.py "test" "quick"`
 - [ ] Logs show no errors: Check console and Inngest dashboard
+- [ ] TypeScript compiles: `npx tsc --noEmit`
 
 ---
 

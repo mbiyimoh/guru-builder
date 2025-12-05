@@ -314,7 +314,8 @@ lsof -i :3002 -P -n | grep LISTEN || echo "Available"
 **Required (Local Dev):**
 ```bash
 DATABASE_URL="postgresql://..."
-OPENAI_API_KEY="sk-..."  # For GPT-4o research
+OPENAI_API_KEY="sk-..."  # For GPT-4o synthesis
+TAVILY_API_KEY="tvly-..."  # For web search (https://tavily.com)
 NEXT_PUBLIC_SUPABASE_URL="https://xxx.supabase.co"
 NEXT_PUBLIC_SUPABASE_ANON_KEY="eyJ..."
 ```
