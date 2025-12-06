@@ -208,6 +208,7 @@ export default async function ResearchRunDetailPage({
           runId={run.id}
           projectId={run.project.id}
           initialStatus={run.status}
+          initialProgressStage={run.progressStage}
         />
       )}
 

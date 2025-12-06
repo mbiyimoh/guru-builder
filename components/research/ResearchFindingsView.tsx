@@ -55,11 +55,11 @@ export function ResearchFindingsView({ researchData, recommendationCount }: Rese
         )}
 
         {/* Summary Text */}
-        <div className="prose max-w-none mb-4">
+        <div className="mb-4">
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <pre className="whitespace-pre-wrap font-sans text-sm text-gray-700 leading-relaxed">
+            <div className="whitespace-pre-wrap font-sans text-sm text-gray-700 leading-relaxed">
               {isExpanded ? researchData.summary : previewText}
-            </pre>
+            </div>
           </div>
         </div>
 

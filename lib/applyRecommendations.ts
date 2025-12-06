@@ -140,7 +140,8 @@ async function applySingleRecommendationWithTx(
     id: string;
     action: string;
     targetType: string;
-    targetId: string | null;
+    contextLayerId: string | null;
+    knowledgeFileId: string | null;
     title: string;
     fullContent: string;
     researchRun: {
@@ -149,8 +150,11 @@ async function applySingleRecommendationWithTx(
   },
   snapshotId: string
 ) {
-  const { action, targetType, targetId, title, fullContent, researchRun } = recommendation;
+  const { action, targetType, contextLayerId, knowledgeFileId, title, fullContent, researchRun } = recommendation;
   const projectId = researchRun.projectId;
+
+  // Derive targetId from the appropriate FK field
+  const targetId = targetType === "LAYER" ? contextLayerId : knowledgeFileId;
 
   if (targetType === "LAYER") {
     if (action === "ADD") {

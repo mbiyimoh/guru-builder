@@ -37,3 +37,21 @@ export const MODEL_PRICING = {
 } as const
 
 export type ModelName = keyof typeof MODEL_PRICING
+
+/**
+ * Research Progress Stages
+ * Used by Inngest jobs and UI to show research execution progress
+ */
+export const PROGRESS_STAGES = {
+  STARTING: 'Starting research...',
+  OPTIMIZING_QUERY: 'Optimizing search query...',
+  SEARCHING: 'Searching the web for sources...',
+  ANALYZING: 'Analyzing source content...',
+  SYNTHESIZING: 'Synthesizing research report...',
+  SAVING_RESEARCH: 'Saving research findings...',
+  GENERATING_RECOMMENDATIONS: 'Generating corpus recommendations...',
+  SAVING_RECOMMENDATIONS: 'Saving recommendations...',
+  COMPLETE: 'Complete',
+} as const
+
+export type ProgressStage = (typeof PROGRESS_STAGES)[keyof typeof PROGRESS_STAGES]

@@ -388,6 +388,77 @@ if (newStatus === 'COMPLETED') {
 - Add `Cache-Control: no-store` to polling API endpoints
 - Document the event chain in this guide
 
+### Issue 5: Tavily "Query is too long" Error
+
+**Symptoms:**
+- Research fails immediately with error: "Query is too long. Max query length is 400 characters."
+- Happens when research instructions > 400 characters
+- Even after GPT optimization step
+
+**Root Cause:**
+Tavily API has a strict 400-character limit on search queries. GPT-4o doesn't always follow the 350-character limit precisely when optimizing queries, sometimes returning 500+ character queries.
+
+**Solution (CRITICAL - Already Implemented):**
+Always enforce truncation programmatically in `lib/researchOrchestrator.ts:109-112`:
+
+```typescript
+const rawOptimizedQuery = completion.choices[0]?.message?.content?.trim() || instructions;
+
+// Always enforce the max length - GPT doesn't always follow the 350 char request precisely
+const optimizedQuery = rawOptimizedQuery.slice(0, TAVILY_MAX_QUERY_LENGTH);  // TAVILY_MAX_QUERY_LENGTH = 400
+```
+
+**Why This Pattern:**
+- Never trust AI to follow character limits precisely
+- Always enforce limits programmatically as a safety net
+- Better to truncate mid-sentence than fail the entire research run
+
+**Location:** `lib/researchOrchestrator.ts:77-117`
+
+### Issue 6: FK Constraint Violation - "new row violates check constraint recommendation_target_check"
+
+**Symptoms:**
+- Research completes successfully
+- Recommendation generation job fails with:
+  ```
+  Error: new row for relation "Recommendation" violates check constraint "recommendation_target_check"
+  Detail: Failing row contains (..., , null).
+  ```
+- Happens specifically with ADD action recommendations
+
+**Root Cause:**
+For ADD recommendations, `targetId` is empty string `""` instead of `null`. PostgreSQL check constraints use `IS NULL`, which fails for empty strings. The constraint requires both `contextLayerId` and `knowledgeFileId` to be NULL for ADD actions.
+
+**Solution (CRITICAL - Already Implemented):**
+Convert empty strings to null for ADD actions in `lib/inngest-functions.ts:262-283`:
+
+```typescript
+await prisma.recommendation.createMany({
+  data: recommendationsResult.recommendations.map((rec: CorpusRecommendation, index: number) => {
+    // For ADD actions, targetId should always be null (no existing target to reference)
+    // For EDIT/DELETE, use targetId but convert empty strings to null
+    const effectiveTargetId = rec.action === "ADD" ? null : (rec.targetId || null);
+
+    return {
+      contextLayerId: rec.targetType === "LAYER" ? effectiveTargetId : null,
+      knowledgeFileId: rec.targetType === "KNOWLEDGE_FILE" ? effectiveTargetId : null,
+      // ...
+    };
+  }),
+});
+```
+
+**Key Insight:**
+Empty string `""` is NOT NULL in PostgreSQL. Always convert empty strings to `null` for nullable FK fields.
+
+**Why This Matters:**
+- ADD actions create new items (no existing target to reference)
+- EDIT/DELETE actions modify existing items (need targetId)
+- Database check constraint enforces this at the DB level
+- Application code must ensure correct null handling
+
+**Related:** See `.claude/CLAUDE.md` "Prisma Polymorphic Associations" for the full pattern.
+
 ## Testing Research Functionality
 
 ### Manual Testing Flow

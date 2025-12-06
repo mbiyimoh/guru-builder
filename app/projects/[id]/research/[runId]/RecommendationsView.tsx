@@ -7,7 +7,8 @@ interface Recommendation {
   id: string;
   action: string;
   targetType: string;
-  targetId: string | null;
+  contextLayerId: string | null;
+  knowledgeFileId: string | null;
   title: string;
   description: string;
   fullContent: string;

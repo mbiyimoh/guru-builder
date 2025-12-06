@@ -9,6 +9,7 @@ import { executeResearch } from "./researchOrchestrator";
 import { prisma } from "./db";
 import { Prisma } from "@prisma/client";
 import { generateCorpusRecommendations, type CorpusRecommendation } from "./corpusRecommendationGenerator";
+import { PROGRESS_STAGES } from "./assessment/constants";
 
 /**
  * Minimum confidence threshold for recommendations to be saved to database.
@@ -18,6 +19,18 @@ import { generateCorpusRecommendations, type CorpusRecommendation } from "./corp
  * Current: 0.4 (40% confidence minimum)
  */
 const MIN_RECOMMENDATION_CONFIDENCE = 0.4;
+
+
+/**
+ * Helper to update the progress stage of a research run
+ */
+async function updateProgressStage(researchId: string, stage: string): Promise<void> {
+  await prisma.researchRun.update({
+    where: { id: researchId },
+    data: { progressStage: stage },
+  });
+  console.log(`[Progress] ${researchId}: ${stage}`);
+}
 
 /**
  * Simple test function to verify Inngest works
@@ -54,6 +67,11 @@ export const researchJob = inngest.createFunction(
   async ({ event, step }) => {
     const { researchId, instructions, depth } = event.data;
 
+    // Update progress: Starting
+    await step.run("progress-starting", async () => {
+      await updateProgressStage(researchId, PROGRESS_STAGES.STARTING);
+    });
+
     // Execute research (can take 5-10 minutes for deep research)
     const result = await step.run("execute-research", async () => {
       console.log(`[Research Job ${researchId}] Starting: "${instructions}" (${depth})`);
@@ -62,6 +80,10 @@ export const researchJob = inngest.createFunction(
         instructions,
         depth,
         timeout: 600000, // 10 minutes max
+        onProgress: async (stage: string) => {
+          // Update progress in database during research execution
+          await updateProgressStage(researchId, stage);
+        },
       });
 
       console.log(
@@ -69,6 +91,11 @@ export const researchJob = inngest.createFunction(
       );
 
       return researchResult;
+    });
+
+    // Update progress: Saving research
+    await step.run("progress-saving", async () => {
+      await updateProgressStage(researchId, PROGRESS_STAGES.SAVING_RESEARCH);
     });
 
     // Save results to database
@@ -128,6 +155,11 @@ export const recommendationGenerationJob = inngest.createFunction(
       console.log(`[Recommendation Job] Skipping ${researchId} - research failed`);
       return { skipped: true, reason: "Research failed" };
     }
+
+    // Update progress: Generating recommendations
+    await step.run("progress-generating", async () => {
+      await updateProgressStage(researchId, PROGRESS_STAGES.GENERATING_RECOMMENDATIONS);
+    });
 
     // Fetch research run with project data
     const researchRun = await step.run("fetch-research-run", async () => {
@@ -214,6 +246,11 @@ export const recommendationGenerationJob = inngest.createFunction(
       });
     }
 
+    // Update progress: Saving recommendations
+    await step.run("progress-saving-recs", async () => {
+      await updateProgressStage(researchId, PROGRESS_STAGES.SAVING_RECOMMENDATIONS);
+    });
+
     // Save recommendations to database
     await step.run("save-recommendations", async () => {
       if (recommendationsResult.recommendations.length === 0) {
@@ -222,23 +259,36 @@ export const recommendationGenerationJob = inngest.createFunction(
       }
 
       await prisma.recommendation.createMany({
-        data: recommendationsResult.recommendations.map((rec: CorpusRecommendation, index: number) => ({
-          researchRunId: researchId,
-          action: rec.action,
-          targetType: rec.targetType,
-          targetId: rec.targetId || null,
-          title: rec.title,
-          description: rec.description,
-          fullContent: rec.fullContent,
-          reasoning: rec.reasoning,
-          confidence: rec.confidence,
-          impactLevel: rec.impactLevel,
-          priority: index, // Use index for ordering
-          status: "PENDING" as const,
-        })),
+        data: recommendationsResult.recommendations.map((rec: CorpusRecommendation, index: number) => {
+          // For ADD actions, targetId should always be null (no existing target to reference)
+          // For EDIT/DELETE, use targetId but convert empty strings to null
+          const effectiveTargetId = rec.action === "ADD" ? null : (rec.targetId || null);
+
+          return {
+            researchRunId: researchId,
+            action: rec.action,
+            targetType: rec.targetType,
+            // Route to correct FK based on targetType
+            contextLayerId: rec.targetType === "LAYER" ? effectiveTargetId : null,
+            knowledgeFileId: rec.targetType === "KNOWLEDGE_FILE" ? effectiveTargetId : null,
+            title: rec.title,
+            description: rec.description,
+            fullContent: rec.fullContent,
+            reasoning: rec.reasoning,
+            confidence: rec.confidence,
+            impactLevel: rec.impactLevel,
+            priority: index,
+            status: "PENDING" as const,
+          };
+        }),
       });
 
       console.log(`[Recommendation Job ${researchId}] Saved ${recommendationsResult.recommendations.length} recommendations to database`);
+    });
+
+    // Update progress: Complete
+    await step.run("progress-complete", async () => {
+      await updateProgressStage(researchId, PROGRESS_STAGES.COMPLETE);
     });
 
     return {

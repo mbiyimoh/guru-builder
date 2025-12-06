@@ -73,11 +73,9 @@ export function FullReportModal({
           {/* Full Report Section */}
           <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-3">Full Report</h3>
-            <div className="prose max-w-none">
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
-                <pre className="whitespace-pre-wrap font-sans text-sm text-gray-700 leading-relaxed">
-                  {fullReport}
-                </pre>
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
+              <div className="whitespace-pre-wrap font-sans text-sm text-gray-700 leading-relaxed">
+                {fullReport}
               </div>
             </div>
           </div>

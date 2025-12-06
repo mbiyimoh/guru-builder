@@ -10,6 +10,7 @@ import { prisma } from "@/lib/db";
 import { inngest } from "@/lib/inngest";
 import { requireProjectOwnership } from "@/lib/auth";
 import { z } from "zod";
+import { PROGRESS_STAGES } from "@/lib/assessment/constants";
 
 // Validation schema
 const createResearchRunSchema = z.object({
@@ -146,6 +147,7 @@ export async function POST(request: NextRequest) {
         instructions,
         depth,
         status: "PENDING",
+        progressStage: PROGRESS_STAGES.STARTING,
       },
     });
 

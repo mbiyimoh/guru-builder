@@ -106,7 +106,10 @@ Rules:
     max_tokens: 200,
   });
 
-  const optimizedQuery = completion.choices[0]?.message?.content?.trim() || instructions.slice(0, TAVILY_MAX_QUERY_LENGTH);
+  const rawOptimizedQuery = completion.choices[0]?.message?.content?.trim() || instructions;
+
+  // Always enforce the max length - GPT doesn't always follow the 350 char request precisely
+  const optimizedQuery = rawOptimizedQuery.slice(0, TAVILY_MAX_QUERY_LENGTH);
 
   console.log(`[Research] Optimized query (${optimizedQuery.length} chars): "${optimizedQuery.slice(0, 100)}..."`);
 
@@ -119,7 +122,7 @@ Rules:
 export async function executeResearch(
   options: ResearchOptions
 ): Promise<ResearchResult> {
-  const { instructions, depth = "moderate", timeout = 300000 } = options;
+  const { instructions, depth = "moderate", timeout = 300000, onProgress } = options;
   const startTime = Date.now();
   const config = DEPTH_CONFIG[depth];
 
@@ -127,9 +130,13 @@ export async function executeResearch(
 
   try {
     // Step 1: Optimize search query if instructions are too long for Tavily
+    if (instructions.length > TAVILY_MAX_QUERY_LENGTH) {
+      await onProgress?.("Optimizing search query...");
+    }
     const searchQuery = await optimizeSearchQuery(instructions);
 
     // Step 2: Execute Tavily search
+    await onProgress?.("Searching the web for sources...");
     console.log(`[Research] Executing Tavily search with ${config.maxResults} max results`);
 
     const searchResponse = await Promise.race([
@@ -152,6 +159,7 @@ export async function executeResearch(
     console.log(`[Research] Found ${sources.length} sources`);
 
     // Step 3: Synthesize findings with GPT-4o
+    await onProgress?.("Synthesizing research report...");
     console.log(`[Research] Synthesizing with GPT-4o`);
 
     const synthesisPrompt = buildSynthesisPrompt(

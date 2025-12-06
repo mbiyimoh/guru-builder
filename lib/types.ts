@@ -49,6 +49,7 @@ export interface ResearchOptions {
   instructions: string;
   depth?: ResearchDepth;
   timeout?: number; // milliseconds
+  onProgress?: (stage: string) => Promise<void>; // Progress callback for UI updates
 }
 
 // Research orchestrator result

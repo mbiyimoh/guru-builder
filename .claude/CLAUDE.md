@@ -154,6 +154,84 @@ z.object({
 
 **Diagnostic location:** Check Inngest logs at http://localhost:8288 for schema validation errors.
 
+### Prisma Polymorphic Associations
+
+**CRITICAL for models that reference multiple target types:**
+
+When a Prisma model needs to reference one of multiple possible tables (e.g., Recommendation can target either ContextLayer OR KnowledgeFile), use **separate nullable FK fields** instead of a single polymorphic field:
+
+```prisma
+// WRONG - Single field pointing to multiple tables causes FK constraint violations
+model Recommendation {
+  targetId     String?
+  targetType   TargetType  // "LAYER" or "KNOWLEDGE_FILE"
+  contextLayer  ContextLayer? @relation(fields: [targetId], references: [id])  // FK1
+  knowledgeFile KnowledgeFile? @relation(fields: [targetId], references: [id]) // FK2 - CONFLICT!
+}
+
+// CORRECT - Separate FK fields, only one populated based on targetType
+model Recommendation {
+  targetType       TargetType
+  contextLayerId   String?
+  knowledgeFileId  String?
+  contextLayer     ContextLayer?  @relation(fields: [contextLayerId], references: [id])
+  knowledgeFile    KnowledgeFile? @relation(fields: [knowledgeFileId], references: [id])
+}
+```
+
+**Why this matters:** Prisma enforces FK constraints at the database level. A single `targetId` pointing to two different tables creates conflicting constraints - the database checks if the value exists in BOTH tables, which always fails.
+
+**Application pattern:** Route to the correct FK in your code:
+```typescript
+contextLayerId: rec.targetType === "LAYER" ? rec.targetId : null,
+knowledgeFileId: rec.targetType === "KNOWLEDGE_FILE" ? rec.targetId : null,
+```
+
+**CRITICAL: Empty Strings vs NULL**
+
+When creating recommendations with ADD actions, ensure FK fields are set to `null`, not empty strings:
+
+```typescript
+// WRONG - Empty string violates check constraint
+contextLayerId: ""  // PostgreSQL treats "" as NOT NULL
+
+// CORRECT - For ADD actions, always use null
+const effectiveTargetId = rec.action === "ADD" ? null : (rec.targetId || null);
+contextLayerId: rec.targetType === "LAYER" ? effectiveTargetId : null,
+```
+
+**Why:** PostgreSQL check constraints use `IS NULL` which fails for empty strings `""`. The constraint requires both FK fields to be NULL for ADD actions.
+
+**Location:** `lib/inngest-functions.ts:262-283`
+
+### Research Run Gotchas
+
+**CRITICAL for research workflow:**
+
+1. **Tavily API Query Length Limit**
+   - **Limit:** 400 characters maximum
+   - **Problem:** GPT doesn't always follow character limits precisely when optimizing queries
+   - **Solution:** Always enforce truncation programmatically:
+   ```typescript
+   // lib/researchOrchestrator.ts:109-112
+   const rawOptimizedQuery = completion.choices[0]?.message?.content?.trim() || instructions;
+   const optimizedQuery = rawOptimizedQuery.slice(0, TAVILY_MAX_QUERY_LENGTH);  // ALWAYS enforce
+   ```
+
+2. **Inngest Hot Reload**
+   - **Problem:** Changes to `lib/inngest-functions.ts` don't always hot-reload
+   - **Solution:** Full server restart required after changes:
+   ```bash
+   pkill -f "next dev" && pkill -f "inngest-cli" && rm -rf .next
+   PORT=3002 npm run dev &
+   npx inngest-cli dev &
+   ```
+
+3. **Research Status Polling**
+   - **Problem:** Research may complete before recommendations are generated (async job chain)
+   - **Solution:** Poll until `status === 'COMPLETED' AND recommendationCount > 0`
+   - **Location:** `app/projects/[id]/research/[runId]/ResearchStatusPoller.tsx`
+
 ---
 
 ## Key Resources & Patterns

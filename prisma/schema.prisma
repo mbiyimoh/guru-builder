@@ -103,6 +103,7 @@ model ResearchRun {
   instructions   String         @db.Text // Research query/instructions
   depth          ResearchDepth  @default(MODERATE) // quick, moderate, deep
   status         ResearchStatus @default(PENDING)
+  progressStage  String?        // Current stage: "searching", "analyzing", "synthesizing", etc.
 
   // Research results
   researchData   Json? // Raw research findings from GPT Researcher
@@ -133,7 +134,10 @@ model Recommendation {
   // Recommendation type and target
   action           RecommendationAction // ADD, EDIT, DELETE
   targetType       TargetType           // LAYER or KNOWLEDGE_FILE
-  targetId         String? // ID of ContextLayer or KnowledgeFile (null for ADD)
+
+  // Separate FK fields (only one populated at a time based on targetType)
+  contextLayerId   String?
+  knowledgeFileId  String?
 
   // Recommendation content
   title            String
@@ -156,13 +160,14 @@ model Recommendation {
 
   // Relations
   researchRun      ResearchRun          @relation(fields: [researchRunId], references: [id], onDelete: Cascade)
-  contextLayer     ContextLayer?        @relation("RecommendationToLayer", fields: [targetId], references: [id], onDelete: SetNull, map: "Recommendation_layer_fkey")
-  knowledgeFile    KnowledgeFile?       @relation("RecommendationToFile", fields: [targetId], references: [id], onDelete: SetNull, map: "Recommendation_file_fkey")
+  contextLayer     ContextLayer?        @relation("RecommendationToLayer", fields: [contextLayerId], references: [id], onDelete: SetNull)
+  knowledgeFile    KnowledgeFile?       @relation("RecommendationToFile", fields: [knowledgeFileId], references: [id], onDelete: SetNull)
   applyChangesLogs ApplyChangesLog[]
 
   @@index([researchRunId, status])
   @@index([researchRunId, priority])
-  @@index([targetType, targetId])
+  @@index([contextLayerId])
+  @@index([knowledgeFileId])
 }
 
 model CorpusSnapshot {

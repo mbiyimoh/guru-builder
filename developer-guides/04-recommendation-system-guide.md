@@ -80,6 +80,25 @@ const corpusRecommendationSchema = z.object({
 });
 ```
 
+### Data Flow: AI Interface vs Database Schema
+
+**IMPORTANT:** The GPT-4o interface uses a simple `targetId` field, but the database uses **separate FK fields** to avoid constraint violations.
+
+| Layer | Field(s) | Purpose |
+|-------|----------|---------|
+| **GPT-4o Output** | `targetId` | Simple interface for AI |
+| **Database (Prisma)** | `contextLayerId`, `knowledgeFileId` | Separate FKs avoid polymorphic constraint issues |
+
+**Translation happens in `lib/inngest-functions.ts`:**
+```typescript
+// GPT returns: rec.targetId
+// Database stores:
+contextLayerId: rec.targetType === "LAYER" ? rec.targetId : null,
+knowledgeFileId: rec.targetType === "KNOWLEDGE_FILE" ? rec.targetId : null,
+```
+
+See CLAUDE.md "Prisma Polymorphic Associations" section for technical details on why this pattern is necessary.
+
 **CRITICAL: OpenAI Structured Outputs Schema Requirements**
 
 When using OpenAI's `strict: true` mode with structured outputs, optional fields **MUST** use `.nullable().optional()` - not just `.optional()` alone:

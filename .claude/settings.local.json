@@ -26,7 +26,11 @@
       "SlashCommand(/spec:ideate:*)",
       "WebFetch(domain:arxiv.org)",
       "WebFetch(domain:www.inngest.com)",
-      "WebFetch(domain:docs.tavily.com)"
+      "WebFetch(domain:docs.tavily.com)",
+      "WebFetch(domain:wanago.io)",
+      "WebFetch(domain:zenstack.dev)",
+      "WebFetch(domain:www.prisma.io)",
+      "SlashCommand(/docs:sync)"
     ],
     "deny": [],
     "ask": []

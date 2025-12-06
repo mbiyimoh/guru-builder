@@ -125,37 +125,42 @@ model ResearchRun {
 
 ```prisma
 model Recommendation {
-  id            String               @id @default(cuid())
-  researchRunId String
+  id              String               @id @default(cuid())
+  researchRunId   String
 
-  action        RecommendationAction // ADD, EDIT, DELETE
-  targetType    TargetType           // LAYER or KNOWLEDGE_FILE
-  targetId      String?              // Null for ADD
+  action          RecommendationAction // ADD, EDIT, DELETE
+  targetType      TargetType           // LAYER or KNOWLEDGE_FILE
 
-  title         String
-  content       String               @db.Text
-  reasoning     String               @db.Text
+  // Separate FK fields (only one populated based on targetType)
+  contextLayerId  String?              // Populated when targetType = LAYER
+  knowledgeFileId String?              // Populated when targetType = KNOWLEDGE_FILE
 
-  confidence    Float                // 0.0 to 1.0
-  impactLevel   ImpactLevel          // LOW, MEDIUM, HIGH
-  priority      Int                  // Ordering within run
+  title           String
+  description     String               @db.Text
+  fullContent     String               @db.Text
+  reasoning       String               @db.Text
 
-  status        RecommendationStatus @default(PENDING)
-  reviewedAt    DateTime?
-  appliedAt     DateTime?
+  confidence      Float                // 0.0 to 1.0
+  impactLevel     ImpactLevel          // LOW, MEDIUM, HIGH
+  priority        Int                  // Ordering within run
 
-  researchRun   ResearchRun @relation(...)
-  contextLayer  ContextLayer? @relation("RecommendationToLayer", ...)
-  knowledgeFile KnowledgeFile? @relation("RecommendationToFile", ...)
+  status          RecommendationStatus @default(PENDING)
+  reviewedAt      DateTime?
+  appliedAt       DateTime?
+
+  researchRun     ResearchRun @relation(...)
+  contextLayer    ContextLayer? @relation("RecommendationToLayer", fields: [contextLayerId], ...)
+  knowledgeFile   KnowledgeFile? @relation("RecommendationToFile", fields: [knowledgeFileId], ...)
   applyChangesLogs ApplyChangesLog[]
 
   @@index([researchRunId, status])
   @@index([researchRunId, priority])
-  @@index([targetType, targetId])
+  @@index([contextLayerId])
+  @@index([knowledgeFileId])
 }
 ```
 
-**Polymorphic relation:** `targetType` + `targetId` point to either layer or file
+**Separate FK Pattern:** Uses `contextLayerId` and `knowledgeFileId` instead of a single polymorphic `targetId` to avoid FK constraint conflicts. See CLAUDE.md "Prisma Polymorphic Associations" for details
 
 **Status flow:** PENDING → (APPROVED | REJECTED) → APPLIED
 

@@ -3,20 +3,24 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { PROGRESS_STAGES } from '@/lib/assessment/constants';
+import { ResearchProgressTracker } from '@/components/research/ResearchProgressTracker';
 
 interface ResearchStatusPollerProps {
   runId: string;
   projectId: string;
   initialStatus: string;
+  initialProgressStage?: string | null;
 }
 
 export default function ResearchStatusPoller({
   runId,
   projectId,
   initialStatus,
+  initialProgressStage,
 }: ResearchStatusPollerProps) {
   const [status, setStatus] = useState(initialStatus);
-  const [progressMessage, setProgressMessage] = useState('Research in progress...');
+  const [progressStage, setProgressStage] = useState(initialProgressStage || PROGRESS_STAGES.STARTING);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const recommendationPollCount = useRef(0);
@@ -32,7 +36,13 @@ export default function ResearchStatusPoller({
 
         const data = await response.json();
         const newStatus = data.run.status;
+        const newProgressStage = data.run.progressStage;
         const recommendationCount = data.recommendations?.total || 0;
+
+        // Update progress stage if available
+        if (newProgressStage) {
+          setProgressStage(newProgressStage);
+        }
 
         if (newStatus === 'RUNNING') {
           // Still running, keep polling
@@ -50,7 +60,7 @@ export default function ResearchStatusPoller({
           } else {
             // Recommendations not ready yet - keep polling
             recommendationPollCount.current += 1;
-            setProgressMessage('Generating recommendations...');
+            setProgressStage('Generating recommendations...');
 
             // Timeout after 60 seconds (12 polls at 5s interval)
             if (recommendationPollCount.current >= 12) {
@@ -75,24 +85,30 @@ export default function ResearchStatusPoller({
     return () => clearInterval(pollInterval);
   }, [runId, status, router]);
 
-  // Show running state with spinner
+  // Show running state with visual progress tracker
   if (status === 'RUNNING') {
     return (
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
-        <div className="flex items-center">
+      <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6 shadow-sm">
+        <div className="flex items-center mb-4">
           <svg className="animate-spin h-5 w-5 text-blue-600 mr-3" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
           </svg>
           <div>
-            <p className="text-blue-900 font-medium">{progressMessage}</p>
-            <p className="text-blue-700 text-sm">
+            <p className="text-gray-900 font-medium">Research in Progress</p>
+            <p className="text-gray-500 text-sm">
               This may take several minutes. Page will update automatically when complete.
             </p>
           </div>
         </div>
+
+        {/* Visual Progress Tracker */}
+        <div className="mt-6 px-4">
+          <ResearchProgressTracker currentStage={progressStage} />
+        </div>
+
         {error && (
-          <p className="text-red-600 text-sm mt-2">{error}</p>
+          <p className="text-red-600 text-sm mt-4">{error}</p>
         )}
       </div>
     );
