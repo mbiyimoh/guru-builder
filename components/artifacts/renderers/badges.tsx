@@ -60,3 +60,15 @@ export function TierBadge({ tier }: { tier: DrillTier }) {
     </span>
   );
 }
+
+// Methodology Badge for drill exercises
+export function MethodologyBadge({ methodology }: { methodology: string }) {
+  return (
+    <span
+      className="px-2 py-0.5 text-xs font-medium rounded bg-purple-100 text-purple-800"
+      data-testid="methodology-badge"
+    >
+      {methodology}
+    </span>
+  );
+}

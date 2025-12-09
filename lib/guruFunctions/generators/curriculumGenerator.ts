@@ -9,6 +9,7 @@ import { zodResponseFormat } from 'openai/helpers/zod'
 import { curriculumSchema, type CurriculumOutput } from '../schemas/curriculumSchema'
 import type { MentalModelOutput } from '../schemas/mentalModelSchema'
 import { buildCurriculumPrompt } from '../prompts/curriculumPrompt'
+import { CREATIVE_TEACHING_SYSTEM_PROMPT } from '../prompts/creativeSystemPrompt'
 import { composeCorpusSummary, computeCorpusHash } from '../corpusHasher'
 import type { GeneratorOptions, GenerationResult } from '../types'
 
@@ -36,7 +37,15 @@ export interface CurriculumGeneratorOptions extends GeneratorOptions {
 export async function generateCurriculum(
   options: CurriculumGeneratorOptions
 ): Promise<GenerationResult<CurriculumOutput>> {
-  const { contextLayers, knowledgeFiles, domain, userNotes, mentalModel } = options
+  const {
+    contextLayers,
+    knowledgeFiles,
+    domain,
+    userNotes,
+    mentalModel,
+    customSystemPrompt,
+    customUserPromptTemplate,
+  } = options
 
   // Validate inputs
   if (!mentalModel) {
@@ -50,12 +59,26 @@ export async function generateCurriculum(
   const corpusSummary = composeCorpusSummary(contextLayers, knowledgeFiles)
   const corpusHash = computeCorpusHash(contextLayers, knowledgeFiles)
 
-  const prompt = buildCurriculumPrompt({
-    domain,
-    corpusSummary,
-    mentalModel,
-    userNotes,
-  })
+  // Build user prompt - use custom template if provided, otherwise default builder
+  let userPrompt: string
+  if (customUserPromptTemplate) {
+    // Substitute variables in custom template
+    userPrompt = customUserPromptTemplate
+      .replace(/\{\{domain\}\}/g, domain)
+      .replace(/\{\{corpusSummary\}\}/g, corpusSummary)
+      .replace(/\{\{userNotes\}\}/g, userNotes || '')
+      .replace(/\{\{mentalModel\}\}/g, JSON.stringify(mentalModel, null, 2))
+  } else {
+    userPrompt = buildCurriculumPrompt({
+      domain,
+      corpusSummary,
+      mentalModel,
+      userNotes,
+    })
+  }
+
+  // Use custom system prompt if provided
+  const systemPrompt = customSystemPrompt ?? CREATIVE_TEACHING_SYSTEM_PROMPT
 
   const openai = getOpenAIClient()
 
@@ -64,11 +87,11 @@ export async function generateCurriculum(
     messages: [
       {
         role: 'system',
-        content: 'You are an expert curriculum designer creating progressive disclosure learning content.',
+        content: systemPrompt,
       },
       {
         role: 'user',
-        content: prompt,
+        content: userPrompt,
       },
     ],
     response_format: {
@@ -97,6 +120,7 @@ export async function generateCurriculum(
     content,
     markdown,
     corpusHash,
+    userPrompt,
   }
 }
 
@@ -112,6 +136,28 @@ export function renderCurriculumMarkdown(curriculum: CurriculumOutput): string {
   lines.push('')
   lines.push(`**Estimated Duration:** ${curriculum.estimatedDuration}`)
   lines.push('')
+
+  // Design Rationale section (new)
+  if (curriculum.designRationale) {
+    lines.push('---')
+    lines.push('')
+    lines.push('## Design Rationale')
+    lines.push('')
+    lines.push(`**Approaches Considered:** ${curriculum.designRationale.approachesConsidered.join(', ')}`)
+    lines.push('')
+    lines.push(`**Selected Approach:** ${curriculum.designRationale.selectedApproach}`)
+    lines.push('')
+    lines.push(`**Why This Approach:** ${curriculum.designRationale.selectionReasoning}`)
+    lines.push('')
+    if (curriculum.designRationale.engagementStrategy) {
+      lines.push(`**Engagement Strategy:** ${curriculum.designRationale.engagementStrategy}`)
+      lines.push('')
+    }
+    if (curriculum.designRationale.progressionLogic) {
+      lines.push(`**Progression Logic:** ${curriculum.designRationale.progressionLogic}`)
+      lines.push('')
+    }
+  }
 
   // Learning path
   lines.push('## Learning Path')

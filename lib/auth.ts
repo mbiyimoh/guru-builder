@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { prisma } from '@/lib/db'
 import { cache } from 'react'
+import type { User } from '@prisma/client'
 
 /**
  * Check if email is on the whitelist
@@ -11,6 +12,57 @@ export function isEmailWhitelisted(email: string): boolean {
 }
 
 /**
+ * Sync a Supabase user to the Prisma database.
+ * Handles the case where email exists with a different ID (e.g., after Supabase project migration).
+ */
+export async function syncUserToPrisma(supabaseUser: {
+  id: string
+  email: string
+  user_metadata?: { name?: string }
+}): Promise<User> {
+  // First try by Supabase ID
+  let dbUser = await prisma.user.findUnique({
+    where: { id: supabaseUser.id }
+  })
+
+  if (dbUser) {
+    // Update existing user's email if changed
+    if (dbUser.email !== supabaseUser.email) {
+      dbUser = await prisma.user.update({
+        where: { id: supabaseUser.id },
+        data: { email: supabaseUser.email },
+      })
+    }
+    return dbUser
+  }
+
+  // Check if user exists by email (may have different ID from old Supabase project)
+  const existingByEmail = await prisma.user.findUnique({
+    where: { email: supabaseUser.email }
+  })
+
+  if (existingByEmail) {
+    // Update existing user with new Supabase ID
+    return prisma.user.update({
+      where: { email: supabaseUser.email },
+      data: {
+        id: supabaseUser.id,
+        name: supabaseUser.user_metadata?.name ?? existingByEmail.name,
+      }
+    })
+  }
+
+  // Create new user
+  return prisma.user.create({
+    data: {
+      id: supabaseUser.id,
+      email: supabaseUser.email,
+      name: supabaseUser.user_metadata?.name,
+    }
+  })
+}
+
+/**
  * Get current authenticated user (cached per request)
  * Returns null if not authenticated
  */
@@ -18,24 +70,13 @@ export const getCurrentUser = cache(async () => {
   const supabase = await createClient()
   const { data: { user }, error } = await supabase.auth.getUser()
 
-  if (error || !user) return null
+  if (error || !user || !user.email) return null
 
-  // Get or create Prisma user record
-  let dbUser = await prisma.user.findUnique({
-    where: { id: user.id }
+  return syncUserToPrisma({
+    id: user.id,
+    email: user.email,
+    user_metadata: user.user_metadata as { name?: string } | undefined,
   })
-
-  if (!dbUser) {
-    dbUser = await prisma.user.create({
-      data: {
-        id: user.id,
-        email: user.email!,
-        name: user.user_metadata?.name,
-      }
-    })
-  }
-
-  return dbUser
 })
 
 /**

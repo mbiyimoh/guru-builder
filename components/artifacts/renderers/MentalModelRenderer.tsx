@@ -24,6 +24,37 @@ export function MentalModelRenderer({ content, className }: MentalModelRendererP
         <p className="text-gray-600 leading-relaxed">{content.teachingApproach}</p>
       </header>
 
+      {/* Design Rationale */}
+      {content.designRationale && (
+        <section id="design-rationale" className="mb-8 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+          <h2 className="text-lg font-semibold text-amber-800 mb-3">
+            Design Rationale
+          </h2>
+          <div className="space-y-2 text-sm">
+            <p>
+              <strong className="text-amber-700">Approaches Considered:</strong>{' '}
+              <span className="text-gray-700">
+                {content.designRationale.approachesConsidered.join(', ')}
+              </span>
+            </p>
+            <p>
+              <strong className="text-amber-700">Selected Approach:</strong>{' '}
+              <span className="text-gray-700">{content.designRationale.selectedApproach}</span>
+            </p>
+            <p>
+              <strong className="text-amber-700">Why This Approach:</strong>{' '}
+              <span className="text-gray-700">{content.designRationale.selectionReasoning}</span>
+            </p>
+            {content.designRationale.tradeoffs && (
+              <p>
+                <strong className="text-amber-700">Trade-offs:</strong>{' '}
+                <span className="text-gray-700">{content.designRationale.tradeoffs}</span>
+              </p>
+            )}
+          </div>
+        </section>
+      )}
+
       {/* Categories */}
       {sortedCategories.map((category, index) => (
         <section key={category.id} id={`category-${category.id}`} className="mb-12">
@@ -95,20 +126,29 @@ export function MentalModelRenderer({ content, className }: MentalModelRendererP
  * Generate TOC items for mental model
  */
 export function generateMentalModelTOC(content: MentalModelOutput): TOCItem[] {
+  const items: TOCItem[] = [];
+
+  // Add Design Rationale to TOC if present
+  if (content.designRationale) {
+    items.push({ id: 'design-rationale', label: 'Design Rationale', level: 1 });
+  }
+
   const sortedCategories = [...content.categories].sort(
     (a, b) => a.orderInLearningPath - b.orderInLearningPath
   );
 
-  const items: TOCItem[] = sortedCategories.map((cat) => ({
-    id: `category-${cat.id}`,
-    label: cat.name,
-    level: 1,
-    children: cat.principles.map((p) => ({
-      id: `principle-${p.id}`,
-      label: p.name,
-      level: 2,
-    })),
-  }));
+  sortedCategories.forEach((cat) => {
+    items.push({
+      id: `category-${cat.id}`,
+      label: cat.name,
+      level: 1,
+      children: cat.principles.map((p) => ({
+        id: `principle-${p.id}`,
+        label: p.name,
+        level: 2,
+      })),
+    });
+  });
 
   if (content.principleConnections.length > 0) {
     items.push({ id: 'connections', label: 'Connections', level: 1 });

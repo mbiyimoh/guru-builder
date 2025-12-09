@@ -410,6 +410,14 @@ Generate a curriculum with:
   - lessons: Array of lessons with all 4 types per principle
 - **learningPath**: Recommended order of module IDs
 
+### Design Rationale Field (Required)
+- **designRationale**: Object documenting your curriculum design thinking:
+  - approachesConsidered: Array of curriculum approaches you evaluated (e.g., "Mastery-Based", "Challenge-First")
+  - selectedApproach: The approach you chose
+  - selectionReasoning: 2-4 sentences explaining why this approach fits this domain and learner needs
+  - engagementStrategy: How you maintain learner motivation throughout (optional)
+  - progressionLogic: Why lessons and modules are ordered this way (optional)
+
 ---
 
 ## QUALITY CHECKLIST
@@ -676,6 +684,83 @@ export const mentalModelSchema = z.object({
   masterySummary: z.string(),
   // NEW FIELD
   designRationale: designRationaleSchema,
+})
+```
+
+#### Curriculum Schema
+
+**File:** `lib/guruFunctions/schemas/curriculumSchema.ts`
+
+**Add design rationale field:**
+
+```typescript
+// Curriculum has its own design rationale - different design questions than mental model
+export const curriculumDesignRationaleSchema = z.object({
+  approachesConsidered: z.array(z.string()),  // e.g., ["Mastery-Based", "Challenge-First", "Story-Integrated"]
+  selectedApproach: z.string(),
+  selectionReasoning: z.string(),
+  engagementStrategy: z.string().nullable().optional(),  // How engagement is maintained
+  progressionLogic: z.string().nullable().optional(),    // Why lessons are ordered this way
+}).nullable().optional()
+
+// Update curriculumSchema to include:
+export const curriculumSchema = z.object({
+  curriculumTitle: z.string(),
+  targetAudience: z.string(),
+  estimatedDuration: z.string(),
+  modules: z.array(moduleSchema),
+  learningPath: z.array(z.string()),
+  // NEW FIELD
+  designRationale: curriculumDesignRationaleSchema,
+})
+```
+
+#### Prompt Versioning Schema
+
+**File:** `prisma/schema.prisma`
+
+**Add fields to GuruArtifact model to track which prompts were used:**
+
+```prisma
+model GuruArtifact {
+  // ... existing fields ...
+
+  // NEW: Prompt versioning for tracking what generated this artifact
+  systemPromptHash    String?   // Hash of system prompt used
+  userPromptHash      String?   // Hash of user prompt template used
+  promptConfigId      String?   // Reference to ProjectPromptConfig if custom
+
+  // Existing: corpusHash already tracks corpus state
+}
+```
+
+**Prompt hash utility:**
+
+```typescript
+// lib/guruFunctions/promptHasher.ts
+import { createHash } from 'crypto'
+
+export function hashPrompt(prompt: string): string {
+  return createHash('sha256').update(prompt).digest('hex').slice(0, 12)
+}
+```
+
+**Usage in generators:**
+
+```typescript
+// In Inngest job, after resolving prompts:
+const systemPromptHash = hashPrompt(resolvedPrompts.systemPrompt)
+const userPromptHash = hashPrompt(userPrompt)
+
+// Store with artifact on completion
+await prisma.guruArtifact.update({
+  where: { id: artifactId },
+  data: {
+    // ... existing fields
+    systemPromptHash,
+    userPromptHash,
+    promptConfigId: resolvedPrompts.configId ?? null,
+  },
 })
 ```
 
@@ -1046,6 +1131,68 @@ export function DrillSeriesRenderer({ content }: { content: DrillSeriesOutput })
 }
 ```
 
+**Curriculum Renderer:** `components/artifacts/renderers/CurriculumRenderer.tsx`
+
+Add design rationale section at the top:
+
+```typescript
+export function CurriculumRenderer({ content }: { content: CurriculumOutput }) {
+  return (
+    <div className="space-y-8">
+      {/* NEW: Design Rationale Section */}
+      {content.designRationale && (
+        <section className="bg-emerald-50 border border-emerald-200 rounded-lg p-6">
+          <h2 className="text-lg font-semibold text-emerald-900 mb-4">
+            Design Rationale
+          </h2>
+          <div className="space-y-3 text-sm">
+            <div>
+              <span className="font-medium text-emerald-800">Approaches Considered:</span>
+              <span className="ml-2 text-gray-700">
+                {content.designRationale.approachesConsidered.join(', ')}
+              </span>
+            </div>
+            <div>
+              <span className="font-medium text-emerald-800">Selected Approach:</span>
+              <span className="ml-2 text-gray-700">
+                {content.designRationale.selectedApproach}
+              </span>
+            </div>
+            <div>
+              <span className="font-medium text-emerald-800">Why This Approach:</span>
+              <p className="mt-1 text-gray-700">
+                {content.designRationale.selectionReasoning}
+              </p>
+            </div>
+            {content.designRationale.engagementStrategy && (
+              <div>
+                <span className="font-medium text-emerald-800">Engagement Strategy:</span>
+                <p className="mt-1 text-gray-700">
+                  {content.designRationale.engagementStrategy}
+                </p>
+              </div>
+            )}
+            {content.designRationale.progressionLogic && (
+              <div>
+                <span className="font-medium text-emerald-800">Progression Logic:</span>
+                <p className="mt-1 text-gray-700">
+                  {content.designRationale.progressionLogic}
+                </p>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* Existing module rendering... */}
+      {content.modules.map((module) => (
+        // ... existing code
+      ))}
+    </div>
+  )
+}
+```
+
 **Individual Drill Cards:** Update `components/artifacts/renderers/cards/DrillCard.tsx` to show methodology:
 
 ```typescript
@@ -1382,30 +1529,42 @@ If user notes field is empty string:
 1. Create `creativeSystemPrompt.ts` with shared persona
 2. Update all three prompt builders with design protocols
 3. Add drill methodology index to drill prompt
-4. Update generators to use new system prompt
-5. Test generation still works
+4. Update curriculum prompt to require `designRationale` output
+5. Update generators to use new system prompt
+6. Test generation still works
 
 ### Phase 2: Schema Additions
 1. Backup database before changes
 2. Add `designRationale` to mental model schema
-3. Add `designThoughts` and `methodology` to drill series schema
-4. Regenerate Prisma client
-5. Test OpenAI strict mode acceptance
+3. Add `designRationale` to curriculum schema (with curriculum-specific fields)
+4. Add `designThoughts` and `methodology` to drill series schema
+5. Add prompt versioning fields to GuruArtifact Prisma model (`systemPromptHash`, `userPromptHash`, `promptConfigId`)
+6. Create `promptHasher.ts` utility
+7. Regenerate Prisma client
+8. Test OpenAI strict mode acceptance
 
 ### Phase 3: Markdown Rendering
 1. Update `renderMentalModelMarkdown` to show rationale at top
-2. Update `renderDrillSeriesMarkdown` to show design thoughts at top
-3. Include methodology in individual drill rendering
-4. Test markdown output formatting
+2. Update `renderCurriculumMarkdown` to show rationale at top
+3. Update `renderDrillSeriesMarkdown` to show design thoughts at top
+4. Include methodology in individual drill rendering
+5. Test markdown output formatting
 
 ### Phase 4: Type-Specific Renderer Updates
 1. Update `MentalModelRenderer.tsx` to display `designRationale` section
-2. Update `DrillSeriesRenderer.tsx` to display `designThoughts` section
-3. Update `DrillCard.tsx` to show methodology badge
-4. Update TOC generators to include rationale sections
-5. Test Rendered view mode displays rationale correctly
+2. Update `CurriculumRenderer.tsx` to display `designRationale` section (emerald styling)
+3. Update `DrillSeriesRenderer.tsx` to display `designThoughts` section
+4. Update `DrillCard.tsx` to show methodology badge
+5. Update TOC generators to include rationale sections for all three types
+6. Test Rendered view mode displays rationale correctly
 
-### Phase 5: UI Updates
+### Phase 5: Prompt Versioning Integration
+1. Update Inngest jobs to compute prompt hashes before generation
+2. Store `systemPromptHash`, `userPromptHash`, `promptConfigId` with artifact on completion
+3. Add prompt hash display to artifact viewer header (optional - shows which prompts generated this)
+4. Test prompt versioning is captured correctly
+
+### Phase 6: UI Updates
 1. Add `userNotes` state to GuruTeachingManager
 2. Add textarea to ArtifactCard component
 3. Pass userNotes through handleGenerate
@@ -1413,33 +1572,19 @@ If user notes field is empty string:
 
 ---
 
-## Pending Decisions
+## Resolved Decisions
 
-> **Action Required:** These questions need explicit answers before implementation begins.
+### Decision 1: Curriculum Rationale Field ✅
+**Decision:** Option B - Yes, add independent `designRationale` to curriculum
 
-### Decision 1: Curriculum Rationale Field
-**Question:** Should we add a `designRationale` field to curriculum schema, similar to mental model?
-
-**Options:**
-- **A) No** - Curriculum derives from mental model, so mental model's rationale provides sufficient context
-- **B) Yes** - Each artifact should document its own design reasoning independently
-
-**Recommendation:** Option A (No) - reduces scope, curriculum follows mental model structure
-
-**Your Decision:** _________________
+**Rationale:** The user prompts for each artifact type are highly specific. "How should I design this curriculum?" leads to different design thinking than "How should I design this mental model?" Each artifact deserves its own documented reasoning stream.
 
 ---
 
-### Decision 2: Rationale Versioning
-**Question:** Should we track which prompts/persona version was used for each generation?
+### Decision 2: Rationale Versioning ✅
+**Decision:** Option B - Yes, track prompt version with each artifact
 
-**Options:**
-- **A) No** - Out of scope for Phase 1, generation already stores corpus hash
-- **B) Yes** - Store prompt version/hash with each artifact for reproducibility
-
-**Recommendation:** Option A (No) - adds schema complexity without clear user benefit
-
-**Your Decision:** _________________
+**Rationale:** Users want to track how artifacts changed as both prompts AND corpus evolved. This enables understanding the relationship between prompt changes and output quality over time.
 
 ---
 

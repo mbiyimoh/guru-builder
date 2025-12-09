@@ -9,6 +9,19 @@ argument-hint: "<path-to-spec-file>"
 
 Decompose the specification at: $ARGUMENTS
 
+## Extract Feature Slug
+
+Extract the feature slug from the spec path:
+- If path is `specs/<slug>/02-specification.md` → slug is `<slug>`
+- If path is `specs/feat-<slug>.md` (legacy) → slug is `feat-<slug>`
+- If path is `specs/fix-<issue>-<desc>.md` (legacy) → slug is `fix-<issue>-<desc>`
+
+Store the slug for use in:
+1. Task breakdown output path: `specs/<slug>/03-tasks.md`
+2. STM task tagging: `--tags "feature:<slug>,phase1,..."`
+
+Example: `specs/add-user-auth/02-specification.md` → slug is `add-user-auth`
+
 ## Process Overview
 
 This command takes a validated specification and breaks it down into:
@@ -42,6 +55,65 @@ Before creating any STM tasks, confirm your understanding:
    - If status is "Available and initialized", use STM for task management
    - If status is "Not installed", fall back to TodoWrite
 
+0.5. **Incremental Mode Detection**:
+
+   Determine if this is a first-time decompose, incremental update, or should be skipped.
+
+   **Extract Feature Slug:**
+
+   Extract the slug from the spec path using simple string operations:
+   - If path is `specs/<slug>/02-specification.md` → slug is `<slug>`
+   - Use cut, basename, or dirname to extract
+   - Store slug for use in task file path and STM queries
+
+   Example:
+   ```bash
+   SPEC_FILE="$ARGUMENTS"
+   SLUG=$(echo "$SPEC_FILE" | cut -d'/' -f2)
+   TASKS_FILE="specs/$SLUG/03-tasks.md"
+   ```
+
+   **Determine Decompose Mode:**
+
+   Follow this decision logic to determine which mode to use:
+
+   1. **Check for existing STM tasks:**
+      ```bash
+      stm list --tags "feature:<slug>" -f json
+      ```
+      - If result is empty or `[]` → **Full mode** (first-time decompose)
+      - Display: "🆕 First-time decompose - Full mode"
+
+   2. **Check if task file exists:**
+      - If `specs/<slug>/03-tasks.md` doesn't exist → **Full mode**
+      - Display: "📄 Tasks file missing - Full mode"
+
+   3. **Extract last decompose timestamp:**
+      - Read `specs/<slug>/03-tasks.md`
+      - Find line containing "Last Decompose: YYYY-MM-DD"
+      - Extract the date
+      - If no date found → **Full mode**
+      - Display: "📄 No decompose timestamp found - Full mode"
+
+   4. **Check for new changelog entries:**
+      - Read the spec file's "## 18. Changelog" section
+      - Look for entries with dates >= last decompose date
+      - Compare dates (string comparison works for YYYY-MM-DD format)
+
+      If new entries found:
+      - Mode: **Incremental**
+      - Display: "🔄 Changelog changes detected - Incremental mode"
+      - Display: "   Last decompose: <date>"
+
+      If no new entries:
+      - Mode: **Skip**
+      - Display: "✅ No changes since last decompose (<date>)"
+      - Display: "   To force re-decompose, delete <tasks-file>"
+      - **Exit** (don't proceed with decomposition)
+
+   **Store Mode for Later:**
+   Remember the determined mode (full/incremental/skip) and last decompose date for use in subsequent steps.
+
 1. **Read and Validate Specification**:
    - Read the specified spec file
    - Verify it's a valid specification (has expected sections)
@@ -53,6 +125,112 @@ Before creating any STM tasks, confirm your understanding:
    - Note dependencies between components
    - Identify testing requirements
    - Document success criteria
+
+2.5. **Incremental Mode Processing** (if MODE=incremental):
+
+   When running in incremental mode, perform additional analysis to identify what to preserve, update, and create.
+
+   **Get Completed Tasks for Preservation:**
+
+   Query STM for tasks that are already done:
+   ```bash
+   stm list --tags "feature:<slug>" --status done -f json
+   ```
+
+   For each completed task, extract:
+   - Task ID
+   - Phase (from tags like "phase1", "phase2")
+   - Title
+
+   These tasks will be marked with ✅ DONE in the task breakdown and preserved as-is.
+
+   **Extract New Changelog Entries:**
+
+   Read the spec file and identify changelog entries added since the last decompose:
+
+   1. Use Read tool on `specs/<slug>/02-specification.md`
+   2. Find the "## 18. Changelog" section
+   3. For each changelog entry (marked by ### headers):
+      - Extract the **Date** field
+      - Compare with last decompose date (string comparison works for YYYY-MM-DD)
+      - If date >= last decompose date, this is a new entry
+   4. For new entries, extract key fields:
+      - **Issue:** What problem/feedback is being addressed
+      - **Decision:** What action was chosen (implement/defer/out-of-scope)
+      - **Changes to Specification:** Which sections are affected
+      - **Implementation Impact:** Priority, affected components, blast radius
+
+   **Categorize Existing Tasks:**
+
+   Based on the new changelog entries, determine which existing tasks need updates:
+
+   1. **Preserve Tasks (✅ DONE):**
+      - All tasks with status "done" in STM
+      - No changes to these tasks
+      - Copy to task breakdown with ✅ marker
+
+   2. **Update Tasks (🔄 UPDATED):**
+      - Tasks that are in-progress or pending
+      - Related to components mentioned in changelog "Changes to Specification"
+      - Need updated context from changelog
+      - Mark with 🔄 in task breakdown
+      - Add changelog context to task details
+
+   3. **Create Tasks (⏳ NEW):**
+      - New work identified in changelog "Implementation Impact"
+      - Not covered by existing tasks
+      - Mark with ⏳ in task breakdown
+      - Create fresh STM tasks
+
+   **Categorization Logic:**
+
+   For each existing task (from STM):
+   - If status = "done" → PRESERVE
+   - If status = "in-progress" or "pending":
+     - Check if task's component/file mentioned in changelog
+     - If yes → UPDATE (add changelog context)
+     - If no → PRESERVE (no changes needed)
+
+   For each changelog entry:
+   - Compare "Implementation Impact" → "Affected components" against existing tasks
+   - If component not covered by existing tasks → CREATE new task
+       task_status=$(echo "$task" | jq -r '.status')
+       task_title=$(echo "$task" | jq -r '.title')
+       task_details=$(echo "$task" | jq -r '.details')
+
+       if [ "$task_status" = "done" ]; then
+         # Preserve completed tasks
+         PRESERVE_TASKS[$task_id]="$task_title"
+       else
+         # Check if changelog affects this task
+         if echo "$NEW_CHANGELOG" | grep -qi "$(echo "$task_title" | sed 's/\[.*\] //')"; then
+           UPDATE_TASKS[$task_id]="$task_title"
+         else
+           PRESERVE_TASKS[$task_id]="$task_title"
+         fi
+       fi
+     done
+   }
+
+   # Get next task number for a phase
+   get_next_task_number() {
+     local phase="$1"
+     local existing_tasks="$2"
+
+     # Find highest task number in this phase
+     max_num=$(echo "$existing_tasks" | grep -oP "Task $phase\.\K[0-9]+" | sort -n | tail -1)
+
+     if [ -z "$max_num" ]; then
+       echo "$phase.1"
+     else
+       echo "$phase.$((max_num + 1))"
+     fi
+   }
+
+   echo "📊 Incremental Analysis:"
+   echo "   - Completed tasks to preserve: $(echo "$COMPLETED_TASKS" | wc -l)"
+   echo "   - New changelog entries: $(echo "$NEW_CHANGELOG" | grep -c "^\*\*Date:\*\*")"
+   ```
 
 3. **Create Task Breakdown**:
    
@@ -92,15 +270,100 @@ Before creating any STM tasks, confirm your understanding:
    - Testing tasks: Unit, integration, and E2E tests
    - Documentation tasks: API docs, user guides, code comments
 
+3.5. **Incremental Task Breakdown Adjustments** (if MODE=incremental):
+
+   When generating the task breakdown in incremental mode:
+
+   - **Mark Preserved Tasks**: Add ✅ DONE marker to completed tasks
+   - **Mark Updated Tasks**: Add 🔄 UPDATED marker with update note
+   - **Mark New Tasks**: Add ⏳ NEW marker and continue task numbering
+   - **Include Re-decompose Metadata**: Add metadata section showing history
+
+   Example task marking:
+   ```markdown
+   ### Task 2.3: Implement file operations ✅ DONE
+   **Status**: Completed in previous session
+   **Description**: ...existing content...
+
+   ### Task 2.5: Add backup validation 🔄 UPDATED
+   **Update Note**: Affected by changelog entry on 2025-11-21 - Review spec section 15.3 for new validation requirements
+   **Description**: ...existing content...
+
+   ### Task 2.8: Implement incremental backup ⏳ NEW
+   **Description**: New task based on changelog feedback
+   **Added**: 2025-11-21
+   ```
+
 4. **Generate Task Document**:
 
    Create a comprehensive task breakdown document:
-   
+
    ```markdown
    # Task Breakdown: [Specification Name]
    Generated: [Date]
    Source: [spec-file]
-   
+
+   ## Re-decompose Metadata (if incremental mode)
+
+   ### Decompose History
+   | Session | Date | Mode | Changelog Entries | New Tasks | Notes |
+   |---------|------|------|-------------------|-----------|-------|
+   | 1 | 2025-11-20 | Full | N/A | 22 | Initial decomposition |
+   | 2 | 2025-11-21 | Incremental | 2 | 5 | Feedback-driven updates |
+
+   ### Current Session Details
+   - **Mode**: Incremental
+   - **Previous Decompose**: 2025-11-20
+   - **Current Decompose**: 2025-11-21
+   - **Changelog Entries Processed**: 2
+
+   ### Changelog Entries (New Since Last Decompose)
+   1. **Date**: 2025-11-21
+      **Title**: Add incremental mode to decompose
+      **Impact**: New tasks for detection logic and metadata
+      **Action**: Created tasks 2.8-2.12
+
+   2. **Date**: 2025-11-21
+      **Title**: Update validation requirements
+      **Impact**: Updated task 2.5 with new criteria
+      **Action**: Updated task 2.5
+
+   ### Task Changes Summary
+   - **Preserved**: 18 tasks (completed, no changes)
+   - **Updated**: 2 tasks (in-progress, affected by changelog)
+   - **Created**: 5 tasks (new work from changelog)
+   - **Total**: 25 tasks
+
+   ### Existing Tasks Status
+   #### Phase 1: Foundation (8 tasks)
+   - Task 1.1: Setup project structure ✅ DONE
+   - Task 1.2: Configure TypeScript ✅ DONE
+   - Task 1.3: Initialize git repository ✅ DONE
+   - Task 1.4: Setup testing framework ✅ DONE
+   - Task 1.5: Configure linting ✅ DONE
+   - Task 1.6: Setup CI/CD pipeline ✅ DONE
+   - Task 1.7: Create documentation structure ✅ DONE
+   - Task 1.8: Initialize package.json ✅ DONE
+
+   #### Phase 2: Core Implementation (10 tasks)
+   - Task 2.1: Implement core module ✅ DONE
+   - Task 2.2: Add configuration system ✅ DONE
+   - Task 2.3: Implement file operations ✅ DONE
+   - Task 2.4: Create CLI interface 🔄 IN PROGRESS
+   - Task 2.5: Add validation logic 🔄 UPDATED
+   - Task 2.6: Implement error handling ⏳ PENDING
+   - Task 2.7: Add logging system ⏳ PENDING
+   - Task 2.8: Implement incremental mode ⏳ NEW
+   - Task 2.9: Add metadata tracking ⏳ NEW
+   - Task 2.10: Create changelog parser ⏳ NEW
+
+   ### Execution Recommendations
+   1. Review updated tasks (2.5) for new requirements
+   2. Complete in-progress tasks (2.4) before new work
+   3. Start new tasks in dependency order (2.8 → 2.9 → 2.10)
+
+   ---
+
    ## Overview
    [Brief summary of what's being built]
    
@@ -180,7 +443,108 @@ Before creating any STM tasks, confirm your understanding:
    ```
    
 5. **Create Task Management Entries**:
-   
+
+   ## 🚨 Incremental Mode: STM Task Creation Strategy
+
+   When MODE=incremental, modify the STM task creation strategy:
+
+   ```bash
+   # Function to update existing STM tasks with changelog context
+   update_stm_tasks() {
+     local slug="$1"
+     local update_tasks="$2"  # Format: "id:title|id:title|..."
+
+     IFS='|' read -ra TASKS <<< "$update_tasks"
+     for task_entry in "${TASKS[@]}"; do
+       IFS=':' read -ra PARTS <<< "$task_entry"
+       task_id="${PARTS[0]}"
+       task_title="${PARTS[1]}"
+
+       # Get existing details
+       existing_details=$(stm show "$task_id" | awk '/^## Details$/,/^## [A-Z]/' | sed '1d;$d')
+
+       # Append incremental update note
+       updated_details="$existing_details
+
+   ---
+
+   ## Incremental Update ($(date +%Y-%m-%d))
+
+   **Affected by changelog changes**. Review the following:
+   - Check specification sections mentioned in recent changelog
+   - Review feedback log for this task
+   - Update implementation based on new requirements
+
+   **Related changelog**: See Re-decompose Metadata section in 03-tasks.md"
+
+       # Update STM task
+       stm update "$task_id" --details "$updated_details"
+
+       echo "   🔄 Updated task $task_id: $task_title"
+     done
+   }
+
+   # Function to create new STM tasks for incremental work
+   create_incremental_stm_tasks() {
+     local slug="$1"
+     local create_tasks="$2"  # Format: "phase.num:title:details|..."
+
+     IFS='|' read -ra TASKS <<< "$create_tasks"
+     for task_entry in "${TASKS[@]}"; do
+       IFS=':' read -ra PARTS <<< "$task_entry"
+       task_num="${PARTS[0]}"
+       phase=$(echo "$task_num" | cut -d. -f1)
+       task_title="${PARTS[1]}"
+       task_details="${PARTS[2]}"
+
+       # Create temporary file for details
+       cat > /tmp/stm-incremental-details.txt << EOF
+   $task_details
+
+   ---
+
+   ## Incremental Task Context
+
+   **Created**: $(date +%Y-%m-%d)
+   **Source**: Changelog-driven decomposition
+   **Related**: See Re-decompose Metadata in specs/$slug/03-tasks.md
+
+   This task was created based on specification changes documented in the changelog.
+   EOF
+
+       # Create STM task
+       stm add "[$task_num] $task_title" \
+         --description "New task from incremental decompose based on changelog feedback" \
+         --details "$(cat /tmp/stm-incremental-details.txt)" \
+         --validation "See task breakdown in specs/$slug/03-tasks.md for acceptance criteria" \
+         --tags "feature:$slug,incremental,phase$phase" \
+         --status pending
+
+       echo "   ⏳ Created task [$task_num]: $task_title"
+
+       rm /tmp/stm-incremental-details.txt
+     done
+   }
+
+   # Execute based on mode
+   if [ "$DECOMPOSE_MODE" = "incremental" ]; then
+     echo ""
+     echo "📝 Updating STM tasks (incremental mode):"
+     # Update affected tasks
+     update_stm_tasks "$SLUG" "$UPDATE_TASKS_LIST"
+     # Create new tasks
+     create_incremental_stm_tasks "$SLUG" "$CREATE_TASKS_LIST"
+     echo ""
+     echo "✅ Incremental decompose complete!"
+     echo "   - Preserved: $PRESERVED_COUNT tasks"
+     echo "   - Updated: $UPDATED_COUNT tasks"
+     echo "   - Created: $CREATED_COUNT tasks"
+   else
+     # Full mode: Create all tasks as usual (existing behavior below)
+     echo "📝 Creating STM tasks (full mode):"
+   fi
+   ```
+
    ## 🚨 STOP AND READ: Common Mistake vs Correct Approach
    
    ❌ **WRONG - What NOT to do**:
@@ -243,122 +607,92 @@ Before creating any STM tasks, confirm your understanding:
      --description "Create shared utilities module for all hooks with stdin reader, project root discovery, package manager detection, command execution wrapper, error formatting, and tool availability checking" \
      --details "$(cat /tmp/task-details.txt)" \
      --validation "readStdin with 1-second timeout. Project root discovery via git. Package manager detection for npm/yarn/pnpm. Command execution with timeout and output capture. Error formatting follows BLOCKED: pattern. Tool availability checker works." \
-     --tags "phase1,infrastructure,utilities"
+     --tags "feature:<slug>,phase1,infrastructure,utilities"
    
    rm /tmp/task-details.txt
    ```
    
    **Remember**: The task breakdown document you created has ALL the implementation details. Your job is to COPY those details into STM, not summarize them!
    
+   **Example: Creating a task with complete specification details**
+
+   When creating STM tasks, include ALL implementation details from the task breakdown. Use one of these approaches:
+
+   **Method 1: Direct multi-line string (for shorter content)**
    ```bash
-   # Example: Creating a task with complete specification details
-   
-   # Method 1: Using heredocs for multi-line content
    stm add "Implement auto-checkpoint hook logic" \
-     --description "Build the complete auto-checkpoint functionality with git integration to create timestamped git stashes on Stop events" \
-     --details "$(cat <<'EOF'
-   Technical Requirements:
-   - Check if current directory is git repository using git status
+     --description "Build complete auto-checkpoint functionality with git integration" \
+     --details "Technical Requirements:
+   - Check if current directory is git repository
    - Detect uncommitted changes using git status --porcelain
-   - Create timestamped stash with configurable prefix from config
-   - Apply stash to restore working directory after creation
+   - Create timestamped stash with configurable prefix
+   - Apply stash to restore working directory
    - Handle exit codes properly (0 for success, 1 for errors)
-   
+
    Implementation from specification:
-   ```typescript
-   const hookName = process.argv[2];
-   if (hookName !== 'auto-checkpoint') {
-     console.error(`Unknown hook: ${hookName}`);
-     process.exit(1);
-   }
-   
-   const hookConfig = config.hooks?.['auto-checkpoint'] || {};
-   const prefix = hookConfig.prefix || 'claude';
-   
-   const gitStatus = spawn('git', ['status', '--porcelain'], {
-     stdio: ['ignore', 'pipe', 'pipe']
-   });
-   
-   let stdout = '';
-   gitStatus.stdout.on('data', (data) => stdout += data);
-   
-   gitStatus.on('close', (code) => {
-     if (code !== 0) {
-       console.log('Not a git repository, skipping checkpoint');
-       process.exit(0);
-     }
-     
-     if (!stdout.trim()) {
-       console.log('No changes to checkpoint');
-       process.exit(0);
-     }
-     
-     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-     const message = `${prefix}-checkpoint-${timestamp}`;
-     
-     const stash = spawn('git', ['stash', 'push', '-m', message], {
-       stdio: ['ignore', 'pipe', 'pipe']
-     });
-     
-     stash.on('close', (stashCode) => {
-       if (stashCode !== 0) {
-         console.error('Failed to create checkpoint');
-         process.exit(1);
-       }
-       
-       spawn('git', ['stash', 'apply'], {
-         stdio: 'ignore'
-       }).on('close', () => {
-         console.log(`✅ Checkpoint created: ${message}`);
-         process.exit(0);
-       });
-     });
-   });
-   ```
-   
+   [Copy full code blocks from task breakdown here]
+
    Key implementation notes:
    - Use child_process.spawn for git commands
    - Capture stdout to check for changes
    - Generate ISO timestamp and sanitize for git message
-   - Chain git stash push and apply operations
-   EOF
-   )" \
-     --validation "$(cat <<'EOF'
-   - [ ] Correctly identifies git repositories
-   - [ ] Detects uncommitted changes using git status --porcelain
-   - [ ] Creates checkpoint with format: ${prefix}-checkpoint-${timestamp}
-   - [ ] Restores working directory after stash
-   - [ ] Exits with code 0 on success, 1 on error
-   - [ ] Respects configured prefix from .claudekit/config.json
-   - [ ] Handles missing config file gracefully
-   
-   Test scenarios:
-   1. Run in non-git directory - should exit 0
-   2. Run with no changes - should exit 0
-   3. Run with changes - should create checkpoint
-   4. Run with custom config - should use custom prefix
-   EOF
-   )" \
-     --tags "phase2,core,high-priority,large" \
+   - Chain git stash push and apply operations" \
+     --validation "- Check git repository detection
+   - Verify uncommitted changes detection
+   - Test checkpoint creation format
+   - Confirm working directory restoration
+   - Validate exit codes
+   - Test custom prefix support" \
+     --tags "feature:<slug>,phase2,core,high-priority,large" \
      --status pending \
      --deps "35,36"
-   
-   # Method 2: Using temporary files for very large content
-   cat > /tmp/stm-details.txt << 'EOF'
-   [Full technical requirements and implementation details from spec...]
-   EOF
-   
-   cat > /tmp/stm-validation.txt << 'EOF'
-   [Complete acceptance criteria and test scenarios...]
-   EOF
-   
+   ```
+
+   **Method 2: Using Write tool for very large content**
+
+   For tasks with extensive code blocks or very detailed requirements:
+
+   1. Use Write tool to create a temp file with the full details
+   2. Read the file content
+   3. Pass to STM add command
+   4. Clean up temp file
+
+   This avoids bash parsing issues with complex multi-line content.
+
+   ```bash
+   # Create temp files with full content
+   # (Use Write tool in practice, shown as bash here for illustration)
+
+   # Create details file
+   echo "Technical Requirements:
+   - Full requirement 1
+   - Full requirement 2
+
+   Implementation code blocks:
+   [Full code from task breakdown]
+
+   Key notes:
+   - Implementation detail 1
+   - Implementation detail 2" > /tmp/stm-details.txt
+
+   # Create validation file
+   echo "Acceptance Criteria:
+   - Test scenario 1
+   - Test scenario 2
+   - Edge case verification" > /tmp/stm-validation.txt
+
+   # Read files and pass to STM
+   DETAILS=$(cat /tmp/stm-details.txt)
+   VALIDATION=$(cat /tmp/stm-validation.txt)
+
    stm add "Task title" \
      --description "Brief what and why" \
-     --details "$(cat /tmp/stm-details.txt)" \
-     --validation "$(cat /tmp/stm-validation.txt)" \
-     --tags "appropriate,tags" \
+     --details "$DETAILS" \
+     --validation "$VALIDATION" \
+     --tags "feature:<slug>,appropriate,tags" \
      --status pending
-   
+
+   # Cleanup
    rm /tmp/stm-details.txt /tmp/stm-validation.txt
    ```
    
@@ -400,7 +734,7 @@ Before creating any STM tasks, confirm your understanding:
      --description "[One line summary]" \
      --details "$(cat /tmp/stm-task-details.txt)" \
      --validation "$(cat /tmp/stm-task-validation.txt)" \
-     --tags "appropriate,tags" \
+     --tags "feature:<slug>,appropriate,tags" \
      --deps "1,2,3"
    
    rm /tmp/stm-task-*.txt
@@ -426,7 +760,8 @@ Before creating any STM tasks, confirm your understanding:
    ```
 
 6. **Save Task Breakdown**:
-   - Save the detailed task breakdown document to `specs/[spec-name]-tasks.md`
+   - Save the detailed task breakdown document to `specs/<slug>/03-tasks.md` (using slug from "Extract Feature Slug" section)
+   - For legacy paths, save to `specs/<spec-name>-tasks.md`
    - Create tasks in STM or TodoWrite for immediate tracking
    - Generate a summary report showing:
      - Total number of tasks
@@ -521,8 +856,9 @@ After creating STM tasks, perform these checks:
 
 - **Prerequisites**: Run `/spec:validate` first to ensure spec quality
 - **Next step**: Use `/spec:execute` to implement the decomposed tasks
-- **Progress tracking**: 
-  - With STM: `stm list --pretty` or `stm list --status pending`
+- **Progress tracking**:
+  - With STM: `stm list --pretty --tag feature:<slug>` to see only this feature's tasks
+  - With STM: `stm list --status pending --tag feature:<slug>` for pending tasks
   - With TodoWrite: Monitor task completion in session
 - **Quality checks**: Run `/validate-and-fix` after implementation
 
@@ -533,3 +869,208 @@ After creating STM tasks, perform these checks:
 3. **Testing**: Include test tasks for each component
 4. **Documentation**: Add documentation tasks alongside implementation
 5. **Phases**: Group related tasks into logical phases
+
+## Incremental Mode
+
+### Overview
+
+Incremental mode allows `/spec:decompose` to intelligently re-decompose a specification after feedback has been incorporated via `/spec:feedback`. Instead of recreating all tasks, it:
+
+1. **Preserves completed work** - Tasks marked as DONE are not regenerated
+2. **Updates affected tasks** - In-progress tasks get changelog context appended
+3. **Creates new tasks** - Only for work not covered by existing tasks
+4. **Maintains numbering** - New tasks continue the sequence (e.g., 2.8, 2.9, 2.10)
+5. **Tracks history** - Metadata section shows all decompose sessions
+
+### How It Works
+
+#### 1. Detection
+When you run `/spec:decompose specs/<slug>/02-specification.md`, the command:
+- Checks for existing STM tasks tagged with `feature:<slug>`
+- Looks for the `03-tasks.md` file with decompose history
+- Compares changelog timestamps to find new entries
+- Determines mode: **Full** (first time), **Incremental** (has changes), or **Skip** (no changes)
+
+#### 2. Preservation
+For completed tasks (status = DONE in STM):
+- Task details remain unchanged in 03-tasks.md
+- Marked with ✅ DONE in task breakdown
+- No STM task created (already exists and complete)
+- Full implementation details preserved for reference
+
+#### 3. Updates
+For in-progress tasks affected by changelog:
+- Marked with 🔄 UPDATED in task breakdown
+- Update note added explaining what changed
+- STM task details updated with changelog context
+- Developer prompted to review new requirements
+
+#### 4. Creation
+For net-new work identified in changelog:
+- Marked with ⏳ NEW in task breakdown
+- Continues task numbering from existing phase
+- New STM task created with incremental tag
+- Links to Re-decompose Metadata for context
+
+#### 5. Numbering Continuity
+Task numbering is maintained across decompose sessions:
+- Existing tasks keep their numbers (1.1, 1.2, 2.1, 2.2, etc.)
+- New tasks continue the sequence in each phase
+- Example: If Phase 2 has tasks 2.1-2.7, new tasks become 2.8, 2.9, 2.10
+
+### Example
+
+**First Decompose** (Full Mode):
+```bash
+/spec:decompose specs/my-feature/02-specification.md
+
+# Output:
+🆕 First-time decompose - Full mode
+✅ Created 22 tasks across 4 phases
+📄 Task breakdown saved to specs/my-feature/03-tasks.md
+```
+
+**After Feedback** (Incremental Mode):
+```bash
+# Developer runs /spec:feedback with issue
+# Specification updated, changelog entry added
+# Now re-decompose:
+
+/spec:decompose specs/my-feature/02-specification.md
+
+# Output:
+🔄 Changelog changes detected - Incremental mode
+   Last decompose: 2025-11-20
+📊 Incremental Analysis:
+   - Completed tasks to preserve: 8
+   - New changelog entries: 2
+📝 Updating STM tasks (incremental mode):
+   🔄 Updated task 2.5: Add validation logic
+   ⏳ Created task [2.8]: Implement incremental mode detection
+   ⏳ Created task [2.9]: Add metadata tracking
+   ⏳ Created task [2.10]: Create changelog parser
+✅ Incremental decompose complete!
+   - Preserved: 18 tasks
+   - Updated: 2 tasks
+   - Created: 3 tasks
+```
+
+**No Changes** (Skip Mode):
+```bash
+/spec:decompose specs/my-feature/02-specification.md
+
+# Output:
+✅ No changes since last decompose (2025-11-21)
+   To force re-decompose, delete specs/my-feature/03-tasks.md
+```
+
+### Re-decompose Metadata Format
+
+When incremental mode runs, the generated `03-tasks.md` includes a metadata section:
+
+```markdown
+## Re-decompose Metadata
+
+### Decompose History
+| Session | Date | Mode | Changelog Entries | New Tasks | Notes |
+|---------|------|------|-------------------|-----------|-------|
+| 1 | 2025-11-20 | Full | N/A | 22 | Initial decomposition |
+| 2 | 2025-11-21 | Incremental | 2 | 3 | Added incremental mode |
+
+### Current Session Details
+- **Mode**: Incremental
+- **Previous Decompose**: 2025-11-20
+- **Current Decompose**: 2025-11-21
+- **Changelog Entries Processed**: 2
+- **Last Decompose**: 2025-11-21
+
+### Changelog Entries (New Since Last Decompose)
+1. **Date**: 2025-11-21
+   **Issue**: Decompose creates duplicate tasks on re-run
+   **Decision**: Add incremental mode with task preservation
+   **Impact**: New tasks for detection, categorization, and metadata
+   **Action**: Created tasks 2.8-2.10
+
+### Task Changes Summary
+- **Preserved**: 18 tasks (completed, no changes needed)
+- **Updated**: 2 tasks (in-progress, affected by changelog)
+- **Created**: 3 tasks (new work from changelog)
+- **Total**: 23 tasks
+
+### Execution Recommendations
+1. Review updated task 2.5 for new validation requirements
+2. Complete in-progress tasks before starting new work
+3. Start new tasks in dependency order: 2.8 → 2.9 → 2.10
+```
+
+### Task Status Markers
+
+In the task breakdown, tasks are marked with emoji indicators:
+
+- **✅ DONE** - Completed in a previous session, preserved as-is
+- **🔄 UPDATED** - In-progress, affected by changelog, needs review
+- **⏳ NEW** - Created in this session based on changelog
+- **No marker** - Pending from previous session, no changes
+
+### STM Integration
+
+Incremental mode modifies STM task creation:
+
+**Preserved Tasks (DONE)**:
+- No action - STM task already exists with status=done
+- Task details preserved in 03-tasks.md for reference
+
+**Updated Tasks (In-Progress)**:
+- STM task details updated with incremental note
+- Developer alerted to review changelog and spec changes
+- Status remains as-is (pending/in-progress)
+
+**New Tasks**:
+- STM task created with `incremental` tag
+- Tagged with `feature:<slug>,incremental,phase<N>`
+- Details include link to Re-decompose Metadata
+
+### Force Full Re-decompose
+
+To force a full re-decompose (ignoring incremental mode):
+
+```bash
+# Delete the tasks file
+rm specs/<slug>/03-tasks.md
+
+# Run decompose
+/spec:decompose specs/<slug>/02-specification.md
+# Will run in full mode since no tasks file exists
+```
+
+Or manually delete STM tasks:
+```bash
+# Delete all tasks for a feature
+stm list --tags "feature:<slug>" -f json | jq -r '.[].id' | xargs -I {} stm delete {}
+
+# Run decompose
+/spec:decompose specs/<slug>/02-specification.md
+# Will run in full mode since no STM tasks exist
+```
+
+### Best Practices for Incremental Mode
+
+1. **Always use `/spec:feedback` for changes** - This ensures changelog is properly updated
+2. **Review updated tasks carefully** - Check what changed and why
+3. **Complete tasks in order** - Finish updated tasks before starting new ones
+4. **Check Re-decompose Metadata** - Understand what triggered the changes
+5. **Use STM filtering** - `stm list --tags "feature:<slug>,incremental"` to see new work
+
+### Troubleshooting
+
+**Problem**: Incremental mode not detecting changes
+- **Solution**: Ensure changelog entries have proper date format (YYYY-MM-DD)
+- **Check**: Last Decompose date is correctly set in 03-tasks.md
+
+**Problem**: Too many tasks marked as updated
+- **Solution**: Changelog impact assessment may be broad - review and adjust
+- **Option**: Delete 03-tasks.md and do full re-decompose if needed
+
+**Problem**: Skip mode triggered but I have changes
+- **Solution**: Changelog entries may predate last decompose - add new entry with current date
+- **Option**: Force full re-decompose by deleting 03-tasks.md

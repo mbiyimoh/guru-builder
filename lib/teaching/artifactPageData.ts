@@ -1,12 +1,22 @@
 import { ArtifactTypeSlug } from './constants';
 import { getArtifactSummariesWithVersions, getArtifactContent } from './artifactClient';
 import type { ArtifactDetail, ArtifactSummary } from './artifactClient';
+import {
+  getPromptConfigForType,
+  detectPromptDrift,
+  wasGeneratedWithCustomPrompts,
+} from './promptUtils';
+import type { PromptInfo } from './types';
+
+// Re-export for convenience
+export type { PromptInfo } from './types';
 
 export interface ArtifactPageData {
   artifact: ArtifactDetail;
   previousArtifact: ArtifactDetail | null;
   allVersions: ArtifactSummary[];
   showDiff: boolean;
+  promptInfo: PromptInfo;
 }
 
 /**
@@ -62,10 +72,36 @@ export async function fetchArtifactPageData(
     }
   }
 
+  // 6. Fetch prompt configuration and compute prompt info
+  let promptInfo: PromptInfo;
+  try {
+    const promptConfig = await getPromptConfigForType(projectId, type);
+    promptInfo = {
+      isCustom: wasGeneratedWithCustomPrompts(artifact, artifact.type),
+      hasPromptDrift: detectPromptDrift(artifact, {
+        systemPrompt: promptConfig.systemPrompt.current,
+        userPromptTemplate: promptConfig.userPrompt.current,
+      }),
+      currentConfig: promptConfig,
+    };
+  } catch (error) {
+    console.error('[artifactPageData] Failed to fetch prompt config:', error);
+    // Graceful degradation: show artifact without prompt features
+    promptInfo = {
+      isCustom: false,
+      hasPromptDrift: false,
+      currentConfig: {
+        systemPrompt: { current: '', default: '', isCustom: false },
+        userPrompt: { current: '', default: '', isCustom: false },
+      },
+    };
+  }
+
   return {
     artifact,
     previousArtifact,
     allVersions: versions,
     showDiff: diff !== undefined,
+    promptInfo,
   };
 }

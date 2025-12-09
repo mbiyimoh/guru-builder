@@ -27,6 +27,43 @@ export function CurriculumRenderer({ content, className }: CurriculumRendererPro
         </div>
       </header>
 
+      {/* Design Rationale */}
+      {content.designRationale && (
+        <section id="design-rationale" className="mb-8 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+          <h2 className="text-lg font-semibold text-amber-800 mb-3">
+            Design Rationale
+          </h2>
+          <div className="space-y-2 text-sm">
+            <p>
+              <strong className="text-amber-700">Approaches Considered:</strong>{' '}
+              <span className="text-gray-700">
+                {content.designRationale.approachesConsidered.join(', ')}
+              </span>
+            </p>
+            <p>
+              <strong className="text-amber-700">Selected Approach:</strong>{' '}
+              <span className="text-gray-700">{content.designRationale.selectedApproach}</span>
+            </p>
+            <p>
+              <strong className="text-amber-700">Why This Approach:</strong>{' '}
+              <span className="text-gray-700">{content.designRationale.selectionReasoning}</span>
+            </p>
+            {content.designRationale.engagementStrategy && (
+              <p>
+                <strong className="text-amber-700">Engagement Strategy:</strong>{' '}
+                <span className="text-gray-700">{content.designRationale.engagementStrategy}</span>
+              </p>
+            )}
+            {content.designRationale.progressionLogic && (
+              <p>
+                <strong className="text-amber-700">Progression Logic:</strong>{' '}
+                <span className="text-gray-700">{content.designRationale.progressionLogic}</span>
+              </p>
+            )}
+          </div>
+        </section>
+      )}
+
       {/* Modules */}
       {content.modules.map((module, index) => (
         <section
@@ -106,16 +143,25 @@ export function CurriculumRenderer({ content, className }: CurriculumRendererPro
  * Generate TOC items for curriculum
  */
 export function generateCurriculumTOC(content: CurriculumOutput): TOCItem[] {
-  const items: TOCItem[] = content.modules.map((mod) => ({
-    id: `module-${mod.moduleId}`,
-    label: mod.title,
-    level: 1,
-    children: mod.lessons.map((l) => ({
-      id: `lesson-${l.lessonId}`,
-      label: l.title,
-      level: 2,
-    })),
-  }));
+  const items: TOCItem[] = [];
+
+  // Add Design Rationale to TOC if present
+  if (content.designRationale) {
+    items.push({ id: 'design-rationale', label: 'Design Rationale', level: 1 });
+  }
+
+  content.modules.forEach((mod) => {
+    items.push({
+      id: `module-${mod.moduleId}`,
+      label: mod.title,
+      level: 1,
+      children: mod.lessons.map((l) => ({
+        id: `lesson-${l.lessonId}`,
+        label: l.title,
+        level: 2,
+      })),
+    });
+  });
 
   if (content.learningPath.recommended.length > 0) {
     items.push({ id: 'learning-path', label: 'Learning Path', level: 1 });

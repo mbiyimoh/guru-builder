@@ -39,6 +39,35 @@ export function DrillSeriesRenderer({ content, className }: DrillSeriesRendererP
         )}
       </header>
 
+      {/* Design Thoughts */}
+      {content.designThoughts && (
+        <section id="design-thoughts" className="mb-8 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+          <h2 className="text-lg font-semibold text-amber-800 mb-3">
+            Design Thoughts
+          </h2>
+          <div className="space-y-2 text-sm">
+            <p>
+              <strong className="text-amber-700">Methodology Rationale:</strong>{' '}
+              <span className="text-gray-700">{content.designThoughts.methodologyRationale}</span>
+            </p>
+            <p>
+              <strong className="text-amber-700">Variety Analysis:</strong>{' '}
+              <span className="text-gray-700">{content.designThoughts.varietyAnalysis}</span>
+            </p>
+            <p>
+              <strong className="text-amber-700">Pedagogical Notes:</strong>{' '}
+              <span className="text-gray-700">{content.designThoughts.pedagogicalNotes}</span>
+            </p>
+            {content.designThoughts.distinctiveElements && (
+              <p>
+                <strong className="text-amber-700">Distinctive Elements:</strong>{' '}
+                <span className="text-gray-700">{content.designThoughts.distinctiveElements}</span>
+              </p>
+            )}
+          </div>
+        </section>
+      )}
+
       {/* Series */}
       {content.series.map((series) => (
         <section
@@ -98,16 +127,25 @@ export function DrillSeriesRenderer({ content, className }: DrillSeriesRendererP
  * Generate TOC items for drill series
  */
 export function generateDrillSeriesToc(content: DrillSeriesOutput): TOCItem[] {
-  const items: TOCItem[] = content.series.map((s) => ({
-    id: `series-${s.seriesId}`,
-    label: s.principleName,
-    level: 1,
-    children: s.drills.map((d, i) => ({
-      id: `drill-${d.drillId}`,
-      label: `Drill ${i + 1}`,
-      level: 2,
-    })),
-  }));
+  const items: TOCItem[] = [];
+
+  // Add Design Thoughts to TOC if present
+  if (content.designThoughts) {
+    items.push({ id: 'design-thoughts', label: 'Design Thoughts', level: 1 });
+  }
+
+  content.series.forEach((s) => {
+    items.push({
+      id: `series-${s.seriesId}`,
+      label: s.principleName,
+      level: 1,
+      children: s.drills.map((d, i) => ({
+        id: `drill-${d.drillId}`,
+        label: `Drill ${i + 1}`,
+        level: 2,
+      })),
+    });
+  });
 
   if (content.practiceSequences && content.practiceSequences.length > 0) {
     items.push({ id: 'practice-sequences', label: 'Practice Sequences', level: 1 });

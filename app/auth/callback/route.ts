@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { prisma } from '@/lib/db'
+import { syncUserToPrisma } from '@/lib/auth'
 import { NextResponse } from 'next/server'
 
 // Admin email from environment - used for orphan project assignment
@@ -14,16 +15,12 @@ export async function GET(request: Request) {
     const supabase = await createClient()
     const { data: { user }, error } = await supabase.auth.exchangeCodeForSession(code)
 
-    if (!error && user) {
-      // Sync user to Prisma database
-      await prisma.user.upsert({
-        where: { id: user.id },
-        update: { email: user.email! },
-        create: {
-          id: user.id,
-          email: user.email!,
-          name: user.user_metadata?.name,
-        },
+    if (!error && user && user.email) {
+      // Sync user to Prisma database using shared helper
+      await syncUserToPrisma({
+        id: user.id,
+        email: user.email,
+        user_metadata: user.user_metadata as { name?: string } | undefined,
       })
 
       // Assign orphan projects to admin on first login

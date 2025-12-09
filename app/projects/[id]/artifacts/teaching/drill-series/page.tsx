@@ -26,6 +26,7 @@ export default async function DrillSeriesPage({ params, searchParams }: PageProp
       allVersions={data.allVersions}
       projectId={projectId}
       showDiff={data.showDiff}
+      promptInfo={data.promptInfo}
     />
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, CheckCircle } from 'lucide-react';
-import { TierBadge } from '../badges';
+import { TierBadge, MethodologyBadge } from '../badges';
 import type { Drill } from '@/lib/guruFunctions/schemas/drillSeriesSchema';
 
 interface DrillCardProps {
@@ -27,7 +27,10 @@ export function DrillCard({ id, drill, drillNumber, totalDrills }: DrillCardProp
           <span className="text-sm text-gray-500">
             Drill {drillNumber} of {totalDrills}
           </span>
-          <TierBadge tier={drill.tier} />
+          <div className="flex items-center gap-2">
+            {drill.methodology && <MethodologyBadge methodology={drill.methodology} />}
+            <TierBadge tier={drill.tier} />
+          </div>
         </div>
 
         {/* Scenario */}

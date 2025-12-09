@@ -51,7 +51,6 @@ Users cannot see or modify the prompts that shape their guru's teaching content,
 
 ## Non-Goals
 
-- Version history of prompt changes
 - Prompt templates library (shared across projects)
 - Prompt validation/linting
 - A/B testing of prompts
@@ -98,9 +97,38 @@ model ProjectPromptConfig {
 
   // Relation
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  history     PromptConfigHistory[]
 
   // Unique constraint: one config per project per artifact type
   @@unique([projectId, artifactType])
+}
+
+// NEW: Track history of prompt changes for analysis
+model PromptConfigHistory {
+  id              String   @id @default(cuid())
+  configId        String
+
+  // Snapshot of prompts at this point in time
+  systemPrompt    String?  @db.Text
+  userPrompt      String?  @db.Text
+
+  // Change metadata
+  changeType      PromptChangeType  // CREATED | UPDATED | RESET
+  changedAt       DateTime @default(now())
+
+  // Hash for quick comparison (matches GuruArtifact.systemPromptHash/userPromptHash)
+  systemPromptHash String?
+  userPromptHash   String?
+
+  config          ProjectPromptConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+
+  @@index([configId, changedAt])
+}
+
+enum PromptChangeType {
+  CREATED
+  UPDATED
+  RESET
 }
 
 // Update Project model to include relation
@@ -474,6 +502,18 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
   const { systemPrompt, userPrompt } = result.data
 
+  // Import hash utility
+  const { hashPrompt } = await import('@/lib/guruFunctions/promptHasher')
+
+  // Check if config exists (to determine change type)
+  const existingConfig = await prisma.projectPromptConfig.findUnique({
+    where: {
+      projectId_artifactType: { projectId, artifactType: artifactType as any },
+    },
+  })
+
+  const changeType = existingConfig ? 'UPDATED' : 'CREATED'
+
   // Upsert the config
   const config = await prisma.projectPromptConfig.upsert({
     where: {
@@ -491,6 +531,18 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     update: {
       customSystemPrompt: systemPrompt,
       customUserPrompt: userPrompt,
+    },
+  })
+
+  // Record history for tracking changes over time
+  await prisma.promptConfigHistory.create({
+    data: {
+      configId: config.id,
+      systemPrompt: systemPrompt,
+      userPrompt: userPrompt,
+      changeType,
+      systemPromptHash: systemPrompt ? hashPrompt(systemPrompt) : null,
+      userPromptHash: userPrompt ? hashPrompt(userPrompt) : null,
     },
   })
 
@@ -520,6 +572,27 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     await requireProjectOwnership(projectId)
   } catch {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  // Find existing config to record reset in history
+  const existingConfig = await prisma.projectPromptConfig.findUnique({
+    where: {
+      projectId_artifactType: { projectId, artifactType: artifactType as any },
+    },
+  })
+
+  if (existingConfig) {
+    // Record the reset in history before deleting
+    await prisma.promptConfigHistory.create({
+      data: {
+        configId: existingConfig.id,
+        systemPrompt: null,
+        userPrompt: null,
+        changeType: 'RESET',
+        systemPromptHash: null,
+        userPromptHash: null,
+      },
+    })
   }
 
   await prisma.projectPromptConfig.deleteMany({
@@ -593,8 +666,26 @@ export function PromptEditorModal({
   const [editedUser, setEditedUser] = useState(userPrompt.current)
   const [isSaving, setIsSaving] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
+  const [validationWarnings, setValidationWarnings] = useState<string[]>([])
 
   useModalAccessibility({ onClose })
+
+  // Validate prompts for missing required variables
+  const REQUIRED_VARIABLES = ['{{domain}}', '{{corpusSummary}}']
+  const OPTIONAL_VARIABLES = ['{{corpusWordCount}}', '{{userNotes}}']
+
+  useEffect(() => {
+    const warnings: string[] = []
+
+    // Check user prompt for missing required variables
+    for (const variable of REQUIRED_VARIABLES) {
+      if (!editedUser.includes(variable)) {
+        warnings.push(`User prompt is missing ${variable} - generation may produce unexpected results`)
+      }
+    }
+
+    setValidationWarnings(warnings)
+  }, [editedUser])
 
   useEffect(() => {
     const systemChanged = editedSystem !== systemPrompt.current
@@ -739,6 +830,26 @@ export function PromptEditorModal({
                   <code className="bg-gray-100 px-1 rounded">{'{{corpusWordCount}}'}</code>,
                   <code className="bg-gray-100 px-1 rounded">{'{{userNotes}}'}</code>
                 </p>
+
+                {/* Validation Warnings */}
+                {validationWarnings.length > 0 && (
+                  <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <svg className="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                      <div className="text-sm text-amber-800">
+                        <p className="font-medium mb-1">Missing required variables:</p>
+                        <ul className="list-disc list-inside space-y-1">
+                          {validationWarnings.map((warning, i) => (
+                            <li key={i}>{warning}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <textarea
                   value={editedUser}
                   onChange={(e) => setEditedUser(e.target.value)}
@@ -1174,67 +1285,58 @@ If prompt config save fails:
 
 ### Phase 1: Core Infrastructure
 1. Add `ProjectPromptConfig` Prisma model
-2. Run migration
-3. Create `prompts/defaults.ts` module
-4. Create `promptResolver.ts` service
-5. Add API routes for prompt CRUD
+2. Add `PromptConfigHistory` Prisma model for tracking changes
+3. Add `PromptChangeType` enum
+4. Run migration
+5. Create `prompts/defaults.ts` module
+6. Create `promptResolver.ts` service
 
-### Phase 2: Generator Integration
+### Phase 2: API Routes
+1. Add GET route for prompt configs
+2. Add PUT route with history recording
+3. Add DELETE route with history recording
+4. Test CRUD operations
+
+### Phase 3: Generator Integration
 1. Update `GeneratorOptions` interface
 2. Update all three generators to accept custom prompts
 3. Update Inngest jobs to resolve and pass prompts
 4. Test generation with custom prompts
 
-### Phase 3: UI
+### Phase 4: UI - Core Modal
 1. Create `PromptEditorModal` component
 2. Add settings button to `ArtifactCard`
 3. Add "Custom" badge indicator
 4. Wire up Save/Save & Regenerate actions
-5. Test end-to-end flow
+
+### Phase 5: UI - Validation & Polish
+1. Add validation warning for missing required variables
+2. Add useModalAccessibility hook (or use existing pattern)
+3. Test end-to-end flow
+4. Test validation warnings appear correctly
 
 ---
 
-## Pending Decisions
+## Resolved Decisions
 
-> **Action Required:** These questions need explicit answers before implementation begins.
+### Decision 1: Monaco Editor ✅
+**Decision:** Option A - No, use plain textarea
 
-### Decision 1: Monaco Editor
-**Question:** Should we use Monaco Editor for rich prompt editing (syntax highlighting, etc.)?
-
-**Options:**
-- **A) No** - Plain textarea is sufficient for MVP, reduces bundle size
-- **B) Yes** - Better editing experience for long prompts with markdown-like syntax
-
-**Recommendation:** Option A (No) - simplifies implementation, can add later if users request
-
-**Your Decision:** _________________
+**Rationale:** Plain textarea is sufficient for MVP. Reduces bundle size and implementation complexity. Can add Monaco later if users report difficulty editing long prompts.
 
 ---
 
-### Decision 2: Prompt Validation
-**Question:** Should we validate that custom prompts include required template variables?
+### Decision 2: Prompt Validation ✅
+**Decision:** Option B - Warn only
 
-**Options:**
-- **A) No** - Trust users, show variable list in UI as guidance, let generation fail if broken
-- **B) Yes, warn only** - Show warning if `{{domain}}` is missing, but allow save
-- **C) Yes, block** - Prevent save if required variables are missing
-
-**Recommendation:** Option A (No) - keeps implementation simple, error handling covers failures
-
-**Your Decision:** _________________
+**Rationale:** Show a warning if required variables like `{{domain}}` are missing, but allow save. This provides helpful feedback without blocking users who may intentionally want different prompt structures.
 
 ---
 
-### Decision 3: Prompt History
-**Question:** Should we keep version history of prompt changes?
+### Decision 3: Prompt History ✅
+**Decision:** Option B - Yes, track prompt history
 
-**Options:**
-- **A) No** - Out of scope, users can copy/paste to save versions externally
-- **B) Yes** - Track changes with timestamps, allow rollback
-
-**Recommendation:** Option A (No) - significant schema additions for minimal user value
-
-**Your Decision:** _________________
+**Rationale:** Users want to track how artifacts changed as both prompts AND corpus evolved. Prompt history enables understanding the relationship between prompt changes and output quality over time. Works alongside the prompt versioning added in Spec 1.
 
 ---
 

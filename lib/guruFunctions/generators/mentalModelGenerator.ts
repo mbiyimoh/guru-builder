@@ -7,6 +7,7 @@
 import { zodResponseFormat } from 'openai/helpers/zod'
 import { mentalModelSchema, type MentalModelOutput } from '../schemas/mentalModelSchema'
 import { buildMentalModelPrompt } from '../prompts/mentalModelPrompt'
+import { CREATIVE_TEACHING_SYSTEM_PROMPT } from '../prompts/creativeSystemPrompt'
 import { composeCorpusSummary, computeCorpusHash, countCorpusWords } from '../corpusHasher'
 import type { GeneratorOptions, GenerationResult } from '../types'
 
@@ -30,7 +31,14 @@ function getOpenAIClient(): import('openai').default {
 export async function generateMentalModel(
   options: GeneratorOptions
 ): Promise<GenerationResult<MentalModelOutput>> {
-  const { contextLayers, knowledgeFiles, domain, userNotes } = options
+  const {
+    contextLayers,
+    knowledgeFiles,
+    domain,
+    userNotes,
+    customSystemPrompt,
+    customUserPromptTemplate,
+  } = options
 
   // Validate corpus has content
   if (contextLayers.length === 0 && knowledgeFiles.length === 0) {
@@ -41,12 +49,26 @@ export async function generateMentalModel(
   const corpusHash = computeCorpusHash(contextLayers, knowledgeFiles)
   const corpusWordCount = countCorpusWords(contextLayers, knowledgeFiles)
 
-  const prompt = buildMentalModelPrompt({
-    domain,
-    corpusSummary,
-    corpusWordCount,
-    userNotes,
-  })
+  // Build user prompt - use custom template if provided, otherwise default builder
+  let userPrompt: string
+  if (customUserPromptTemplate) {
+    // Substitute variables in custom template
+    userPrompt = customUserPromptTemplate
+      .replace(/\{\{domain\}\}/g, domain)
+      .replace(/\{\{corpusSummary\}\}/g, corpusSummary)
+      .replace(/\{\{corpusWordCount\}\}/g, String(corpusWordCount))
+      .replace(/\{\{userNotes\}\}/g, userNotes || '')
+  } else {
+    userPrompt = buildMentalModelPrompt({
+      domain,
+      corpusSummary,
+      corpusWordCount,
+      userNotes,
+    })
+  }
+
+  // Use custom system prompt if provided
+  const systemPrompt = customSystemPrompt ?? CREATIVE_TEACHING_SYSTEM_PROMPT
 
   const openai = getOpenAIClient()
 
@@ -55,11 +77,11 @@ export async function generateMentalModel(
     messages: [
       {
         role: 'system',
-        content: 'You are an expert instructional designer creating mental models for teaching.',
+        content: systemPrompt,
       },
       {
         role: 'user',
-        content: prompt,
+        content: userPrompt,
       },
     ],
     response_format: {
@@ -88,6 +110,7 @@ export async function generateMentalModel(
     content,
     markdown,
     corpusHash,
+    userPrompt,
   }
 }
 
@@ -101,6 +124,24 @@ export function renderMentalModelMarkdown(model: MentalModelOutput): string {
   lines.push('')
   lines.push(`**Teaching Approach:** ${model.teachingApproach}`)
   lines.push('')
+
+  // Design Rationale section (new)
+  if (model.designRationale) {
+    lines.push('---')
+    lines.push('')
+    lines.push('## Design Rationale')
+    lines.push('')
+    lines.push(`**Approaches Considered:** ${model.designRationale.approachesConsidered.join(', ')}`)
+    lines.push('')
+    lines.push(`**Selected Approach:** ${model.designRationale.selectedApproach}`)
+    lines.push('')
+    lines.push(`**Why This Approach:** ${model.designRationale.selectionReasoning}`)
+    lines.push('')
+    if (model.designRationale.tradeoffs) {
+      lines.push(`**Trade-offs:** ${model.designRationale.tradeoffs}`)
+      lines.push('')
+    }
+  }
 
   // Categories and principles
   const sortedCategories = [...model.categories].sort(

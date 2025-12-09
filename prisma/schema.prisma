@@ -51,6 +51,7 @@ model Project {
   assessmentConfig   SelfAssessmentConfig?  // DEPRECATED: kept for migration
   projectAssessments ProjectAssessment[]
   guruArtifacts      GuruArtifact[]
+  promptConfigs      ProjectPromptConfig[]
 
   @@index([createdAt])
   @@index([userId])
@@ -341,6 +342,11 @@ model GuruArtifact {
   corpusHash      String?      // Hash of corpus state when generated
   generatedAt     DateTime     @default(now())
 
+  // Prompt versioning - tracks which prompts generated this artifact
+  systemPromptHash    String?   // Hash of system prompt used
+  userPromptHash      String?   // Hash of user prompt template used
+  promptConfigId      String?   // Reference to ProjectPromptConfig if custom prompts used
+
   // For tracking dependencies
   dependsOnArtifactId String?  // ID of artifact this one builds on
 
@@ -364,8 +370,65 @@ model GuruArtifact {
 }
 
 // ============================================================================
+// PER-PROJECT PROMPT CUSTOMIZATION
+// ============================================================================
+
+// Custom prompt configuration per project per artifact type
+model ProjectPromptConfig {
+  id          String   @id @default(cuid())
+  projectId   String
+
+  // Which artifact type this config applies to
+  artifactType GuruArtifactType  // MENTAL_MODEL | CURRICULUM | DRILL_SERIES
+
+  // Custom prompts (null means use default)
+  customSystemPrompt String?  @db.Text
+  customUserPrompt   String?  @db.Text
+
+  // Metadata
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  history     PromptConfigHistory[]
+
+  // Unique constraint: one config per project per artifact type
+  @@unique([projectId, artifactType])
+  @@index([projectId])
+}
+
+// Track history of prompt changes for analysis
+model PromptConfigHistory {
+  id              String   @id @default(cuid())
+  configId        String
+
+  // Snapshot of prompts at this point in time
+  systemPrompt    String?  @db.Text
+  userPrompt      String?  @db.Text
+
+  // Change metadata
+  changeType      PromptChangeType  // CREATED | UPDATED | RESET
+  changedAt       DateTime @default(now())
+
+  // Hash for quick comparison (matches GuruArtifact.systemPromptHash/userPromptHash)
+  systemPromptHash String?
+  userPromptHash   String?
+
+  config          ProjectPromptConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+
+  @@index([configId, changedAt])
+}
+
+// ============================================================================
 // ENUMS
 // ============================================================================
+
+enum PromptChangeType {
+  CREATED
+  UPDATED
+  RESET
+}
 
 enum GuruArtifactType {
   MENTAL_MODEL

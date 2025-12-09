@@ -47,6 +47,8 @@ export const drillMetadataSchema = z.object({
 export const drillSchema = z.object({
   drillId: z.string(),
   tier: z.enum(['RECOGNITION', 'APPLICATION', 'TRANSFER']),
+  // NEW: Methodology from the drill methodology index
+  methodology: z.string().nullable().optional(),
   scenario: drillScenarioSchema,
   options: z.array(drillOptionSchema),
   correctAnswer: z.string(),
@@ -69,6 +71,17 @@ export const practiceSequenceSchema = z.object({
   drillIds: z.array(z.string()),
 })
 
+/**
+ * Design thoughts schema for drill series generation.
+ * Captures methodology selection and variety analysis.
+ */
+export const designThoughtsSchema = z.object({
+  methodologyRationale: z.string(),
+  varietyAnalysis: z.string(),
+  pedagogicalNotes: z.string(),
+  distinctiveElements: z.string().nullable().optional(),
+}).nullable().optional()
+
 export const drillSeriesSchema = z.object({
   drillSeriesTitle: z.string(),
   targetPrinciples: z.array(z.string()),
@@ -76,6 +89,8 @@ export const drillSeriesSchema = z.object({
   estimatedCompletionMinutes: z.number(),
   series: z.array(principleSeriesSchema),
   practiceSequences: z.array(practiceSequenceSchema).nullable().optional(), // Made optional per simplification
+  // NEW: Design thoughts documenting drill design decisions
+  designThoughts: designThoughtsSchema,
 })
 
 export type DrillOption = z.infer<typeof drillOptionSchema>
@@ -85,4 +100,5 @@ export type DrillMetadata = z.infer<typeof drillMetadataSchema>
 export type Drill = z.infer<typeof drillSchema>
 export type PrincipleSeries = z.infer<typeof principleSeriesSchema>
 export type PracticeSequence = z.infer<typeof practiceSequenceSchema>
+export type DesignThoughts = z.infer<typeof designThoughtsSchema>
 export type DrillSeriesOutput = z.infer<typeof drillSeriesSchema>

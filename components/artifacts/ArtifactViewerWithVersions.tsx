@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ArtifactDetail, ArtifactSummary } from '@/lib/teaching/artifactClient';
 import { getArtifactSlug } from '@/lib/teaching/constants';
 import { ArtifactHeader } from './ArtifactHeader';
@@ -8,6 +9,8 @@ import VersionHistoryPanel from './VersionHistoryPanel';
 import DiffContent from './DiffContent';
 import { ViewModeToggle, ViewMode } from './ViewModeToggle';
 import { TypeSpecificRenderer } from './renderers/TypeSpecificRenderer';
+import { PromptEditorModal } from '@/components/guru/PromptEditorModal';
+import type { PromptInfo } from '@/lib/teaching/artifactPageData';
 
 interface ArtifactViewerWithVersionsProps {
   artifact: ArtifactDetail;
@@ -15,6 +18,7 @@ interface ArtifactViewerWithVersionsProps {
   allVersions: ArtifactSummary[];
   projectId: string;
   showDiff: boolean;
+  promptInfo: PromptInfo;
 }
 
 export function ArtifactViewerWithVersions({
@@ -23,11 +27,29 @@ export function ArtifactViewerWithVersions({
   allVersions,
   projectId,
   showDiff,
+  promptInfo,
 }: ArtifactViewerWithVersionsProps) {
+  const router = useRouter();
   const [viewMode, setViewMode] = useState<ViewMode>('rendered');
+  const [isPromptModalOpen, setIsPromptModalOpen] = useState(false);
 
   const artifactSlug = getArtifactSlug(artifact.type);
   const canShowDiff = artifact.version > 1;
+
+  // Map artifact type to the format expected by PromptEditorModal
+  const artifactTypeForModal = artifact.type as 'MENTAL_MODEL' | 'CURRICULUM' | 'DRILL_SERIES';
+
+  const handlePromptSave = () => {
+    setIsPromptModalOpen(false);
+    // Refresh to show updated prompt info
+    router.refresh();
+  };
+
+  const handlePromptSaveAndRegenerate = () => {
+    setIsPromptModalOpen(false);
+    // Navigate to project page where regeneration will show
+    router.push(`/projects/${projectId}`);
+  };
 
   // Get content as string for diff
   const currentContent = artifact.markdownContent || JSON.stringify(artifact.content, null, 2);
@@ -51,6 +73,8 @@ export function ArtifactViewerWithVersions({
           projectId={projectId}
           showDiff={showDiff}
           canShowDiff={canShowDiff}
+          promptInfo={promptInfo}
+          onEditPrompts={() => setIsPromptModalOpen(true)}
         >
           <ViewModeToggle mode={viewMode} onChange={setViewMode} />
         </ArtifactHeader>
@@ -80,6 +104,19 @@ export function ArtifactViewerWithVersions({
           )}
         </div>
       </div>
+
+      {/* Prompt Editor Modal */}
+      {isPromptModalOpen && (
+        <PromptEditorModal
+          projectId={projectId}
+          artifactType={artifactTypeForModal}
+          systemPrompt={promptInfo.currentConfig.systemPrompt}
+          userPrompt={promptInfo.currentConfig.userPrompt}
+          onClose={() => setIsPromptModalOpen(false)}
+          onSave={handlePromptSave}
+          onSaveAndRegenerate={handlePromptSaveAndRegenerate}
+        />
+      )}
     </div>
   );
 }

@@ -26,6 +26,7 @@ export default async function CurriculumPage({ params, searchParams }: PageProps
       allVersions={data.allVersions}
       projectId={projectId}
       showDiff={data.showDiff}
+      promptInfo={data.promptInfo}
     />
   );
 }

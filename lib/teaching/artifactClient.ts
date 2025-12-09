@@ -1,5 +1,8 @@
 import type { GuruArtifactType, ArtifactStatus } from '@prisma/client';
 import { ArtifactTypeSlug, getApiKeyFromSlug } from './constants';
+import { prisma } from '@/lib/db';
+import { requireProjectOwnership } from '@/lib/auth';
+import { clearStaleGeneratingArtifact } from './staleArtifactHandler';
 
 export interface ArtifactSummary {
   id: string;
@@ -15,6 +18,10 @@ export interface ArtifactSummary {
 export interface ArtifactDetail extends ArtifactSummary {
   content: unknown;
   markdownContent: string | null;
+  // Prompt versioning fields
+  systemPromptHash: string | null;
+  userPromptHash: string | null;
+  promptConfigId: string | null;
 }
 
 export interface ArtifactSummariesResponse {
@@ -38,15 +45,74 @@ export interface ArtifactSummariesResponse {
 }
 
 /**
- * Fetch artifact summaries for a project (server-side)
+ * Fetch artifact summaries for a project (server-side using Prisma directly)
  */
 export async function getArtifactSummaries(projectId: string): Promise<ArtifactSummariesResponse> {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3002';
-  const res = await fetch(`${baseUrl}/api/projects/${projectId}/guru/artifacts`, {
-    cache: 'no-store',
-  });
+  try {
+    // Verify project ownership
+    await requireProjectOwnership(projectId);
 
-  if (!res.ok) {
+    // Clear any stale GENERATING artifacts
+    await Promise.all([
+      clearStaleGeneratingArtifact(projectId, 'MENTAL_MODEL'),
+      clearStaleGeneratingArtifact(projectId, 'CURRICULUM'),
+      clearStaleGeneratingArtifact(projectId, 'DRILL_SERIES'),
+    ]);
+
+    const artifacts = await prisma.guruArtifact.findMany({
+      where: { projectId },
+      orderBy: [{ type: 'asc' }, { version: 'desc' }],
+      select: {
+        id: true,
+        type: true,
+        version: true,
+        status: true,
+        corpusHash: true,
+        generatedAt: true,
+        errorMessage: true,
+        progressStage: true,
+      },
+    });
+
+    // Transform dates to strings for consistency
+    const transformedArtifacts: ArtifactSummary[] = artifacts.map((a) => ({
+      ...a,
+      generatedAt: a.generatedAt?.toISOString() ?? '',
+    }));
+
+    // Group by type
+    const grouped = {
+      mentalModels: transformedArtifacts.filter((a) => a.type === 'MENTAL_MODEL'),
+      curricula: transformedArtifacts.filter((a) => a.type === 'CURRICULUM'),
+      drillSeries: transformedArtifacts.filter((a) => a.type === 'DRILL_SERIES'),
+    };
+
+    // Get latest of each type (GENERATING takes precedence, then COMPLETED)
+    const getLatest = (list: ArtifactSummary[]) => {
+      const generating = list.find((a) => a.status === 'GENERATING');
+      if (generating) return generating;
+      return list.find((a) => a.status === 'COMPLETED') ?? null;
+    };
+
+    const latest = {
+      mentalModel: getLatest(grouped.mentalModels),
+      curriculum: getLatest(grouped.curricula),
+      drillSeries: getLatest(grouped.drillSeries),
+    };
+
+    return {
+      artifacts: transformedArtifacts,
+      grouped,
+      latest,
+      counts: {
+        total: artifacts.length,
+        mentalModels: grouped.mentalModels.length,
+        curricula: grouped.curricula.length,
+        drillSeries: grouped.drillSeries.length,
+      },
+    };
+  } catch (error) {
+    console.error('[ArtifactClient] Failed to fetch summaries:', error);
     return {
       artifacts: [],
       grouped: { mentalModels: [], curricula: [], drillSeries: [] },
@@ -54,8 +120,6 @@ export async function getArtifactSummaries(projectId: string): Promise<ArtifactS
       counts: { total: 0, mentalModels: 0, curricula: 0, drillSeries: 0 },
     };
   }
-
-  return res.json();
 }
 
 /**
@@ -70,22 +134,44 @@ export async function getArtifactSummariesWithVersions(
 }
 
 /**
- * Fetch full artifact content by ID (server-side)
+ * Fetch full artifact content by ID (server-side using Prisma directly)
  */
 export async function getArtifactContent(
   projectId: string,
   artifactId: string
 ): Promise<{ artifact: ArtifactDetail }> {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3002';
-  const res = await fetch(`${baseUrl}/api/projects/${projectId}/guru/artifacts/${artifactId}`, {
-    cache: 'no-store',
+  // Verify project ownership
+  await requireProjectOwnership(projectId);
+
+  const artifact = await prisma.guruArtifact.findFirst({
+    where: {
+      id: artifactId,
+      projectId, // Ensure artifact belongs to the project
+    },
   });
 
-  if (!res.ok) {
-    throw new Error('Failed to fetch artifact content');
+  if (!artifact) {
+    throw new Error('Artifact not found');
   }
 
-  return res.json();
+  return {
+    artifact: {
+      id: artifact.id,
+      type: artifact.type,
+      version: artifact.version,
+      status: artifact.status,
+      generatedAt: artifact.generatedAt?.toISOString() ?? '',
+      corpusHash: artifact.corpusHash,
+      errorMessage: artifact.errorMessage,
+      progressStage: artifact.progressStage,
+      content: artifact.content,
+      markdownContent: artifact.markdownContent,
+      // Prompt versioning fields
+      systemPromptHash: artifact.systemPromptHash,
+      userPromptHash: artifact.userPromptHash,
+      promptConfigId: artifact.promptConfigId,
+    },
+  };
 }
 
 /**

@@ -37,6 +37,18 @@ export const curriculumModuleSchema = z.object({
   lessons: z.array(lessonSchema),
 })
 
+/**
+ * Design rationale schema for curriculum generation.
+ * Captures curriculum-specific design decisions.
+ */
+export const curriculumDesignRationaleSchema = z.object({
+  approachesConsidered: z.array(z.string()),  // e.g., ["Mastery-Based", "Challenge-First", "Story-Integrated"]
+  selectedApproach: z.string(),
+  selectionReasoning: z.string(),
+  engagementStrategy: z.string().nullable().optional(),  // How engagement is maintained
+  progressionLogic: z.string().nullable().optional(),    // Why lessons are ordered this way
+}).nullable().optional()
+
 export const curriculumSchema = z.object({
   curriculumTitle: z.string(),
   targetAudience: z.string(),
@@ -45,10 +57,13 @@ export const curriculumSchema = z.object({
   learningPath: z.object({
     recommended: z.array(z.string()),
   }),
+  // NEW: Design rationale documenting curriculum design decisions
+  designRationale: curriculumDesignRationaleSchema,
 })
 
 export type LessonContent = z.infer<typeof lessonContentSchema>
 export type LessonMetadata = z.infer<typeof lessonMetadataSchema>
 export type Lesson = z.infer<typeof lessonSchema>
 export type CurriculumModule = z.infer<typeof curriculumModuleSchema>
+export type CurriculumDesignRationale = z.infer<typeof curriculumDesignRationaleSchema>
 export type CurriculumOutput = z.infer<typeof curriculumSchema>

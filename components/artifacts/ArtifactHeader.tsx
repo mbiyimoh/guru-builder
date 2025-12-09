@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { GuruArtifactType, ArtifactStatus } from '@prisma/client';
 import { ARTIFACT_TYPE_CONFIG } from '@/lib/teaching/constants';
+import type { PromptInfo } from '@/lib/teaching/types';
 
 interface ArtifactDetail {
   id: string;
@@ -23,6 +24,9 @@ interface ArtifactHeaderProps {
   canShowDiff?: boolean; // false for v1
   // Phase 3: ViewModeToggle slot
   children?: React.ReactNode;
+  // Prompt integration
+  promptInfo?: PromptInfo;
+  onEditPrompts?: () => void;
 }
 
 export function ArtifactHeader({
@@ -33,6 +37,8 @@ export function ArtifactHeader({
   showDiff,
   canShowDiff,
   children,
+  promptInfo,
+  onEditPrompts,
 }: ArtifactHeaderProps) {
   const [isRegenerating, setIsRegenerating] = useState(false);
   const router = useRouter();
@@ -96,6 +102,50 @@ export function ArtifactHeader({
           <span className="text-sm text-gray-500">
             Generated {formatTimestamp(artifact.generatedAt)}
           </span>
+
+          {/* Prompt indicator badges */}
+          {promptInfo && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Custom/Default badge */}
+              <span
+                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                  promptInfo.isCustom
+                    ? 'bg-purple-100 text-purple-800'
+                    : 'bg-gray-100 text-gray-600'
+                }`}
+                title={
+                  promptInfo.isCustom
+                    ? 'This artifact was generated using customized prompts'
+                    : 'This artifact was generated using default prompts'
+                }
+              >
+                {promptInfo.isCustom ? 'Custom Prompts' : 'Default Prompts'}
+              </span>
+
+              {/* Drift warning badge */}
+              {promptInfo.hasPromptDrift && (
+                <span
+                  className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800"
+                  title="Project prompts have changed since this was generated. Regenerate to use current prompts."
+                >
+                  <svg
+                    className="h-3 w-3"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
+                  </svg>
+                  Prompts Changed
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-4">
@@ -130,6 +180,31 @@ export function ArtifactHeader({
               />
               Show JSON
             </label>
+          )}
+
+          {/* Edit prompts button */}
+          {onEditPrompts && (
+            <button
+              onClick={onEditPrompts}
+              className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              title="View or edit the prompts used to generate this content"
+              data-testid="edit-prompts-button"
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                />
+              </svg>
+              View/Edit Prompts
+            </button>
           )}
 
           <button

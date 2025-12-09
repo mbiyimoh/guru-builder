@@ -10,6 +10,7 @@ import { drillSeriesSchema, type DrillSeriesOutput } from '../schemas/drillSerie
 import type { MentalModelOutput } from '../schemas/mentalModelSchema'
 import type { CurriculumOutput } from '../schemas/curriculumSchema'
 import { buildDrillDesignerPrompt } from '../prompts/drillDesignerPrompt'
+import { CREATIVE_TEACHING_SYSTEM_PROMPT } from '../prompts/creativeSystemPrompt'
 import { composeCorpusSummary, computeCorpusHash } from '../corpusHasher'
 import type { GeneratorOptions, GenerationResult } from '../types'
 
@@ -38,7 +39,16 @@ export interface DrillDesignerOptions extends GeneratorOptions {
 export async function generateDrillSeries(
   options: DrillDesignerOptions
 ): Promise<GenerationResult<DrillSeriesOutput>> {
-  const { contextLayers, knowledgeFiles, domain, userNotes, mentalModel, curriculum } = options
+  const {
+    contextLayers,
+    knowledgeFiles,
+    domain,
+    userNotes,
+    mentalModel,
+    curriculum,
+    customSystemPrompt,
+    customUserPromptTemplate,
+  } = options
 
   // Validate inputs
   if (!mentalModel) {
@@ -56,13 +66,28 @@ export async function generateDrillSeries(
   const corpusSummary = composeCorpusSummary(contextLayers, knowledgeFiles)
   const corpusHash = computeCorpusHash(contextLayers, knowledgeFiles)
 
-  const prompt = buildDrillDesignerPrompt({
-    domain,
-    corpusSummary,
-    mentalModel,
-    curriculum,
-    userNotes,
-  })
+  // Build user prompt - use custom template if provided, otherwise default builder
+  let userPrompt: string
+  if (customUserPromptTemplate) {
+    // Substitute variables in custom template
+    userPrompt = customUserPromptTemplate
+      .replace(/\{\{domain\}\}/g, domain)
+      .replace(/\{\{corpusSummary\}\}/g, corpusSummary)
+      .replace(/\{\{userNotes\}\}/g, userNotes || '')
+      .replace(/\{\{mentalModel\}\}/g, JSON.stringify(mentalModel, null, 2))
+      .replace(/\{\{curriculum\}\}/g, JSON.stringify(curriculum, null, 2))
+  } else {
+    userPrompt = buildDrillDesignerPrompt({
+      domain,
+      corpusSummary,
+      mentalModel,
+      curriculum,
+      userNotes,
+    })
+  }
+
+  // Use custom system prompt if provided
+  const systemPrompt = customSystemPrompt ?? CREATIVE_TEACHING_SYSTEM_PROMPT
 
   const openai = getOpenAIClient()
 
@@ -71,11 +96,11 @@ export async function generateDrillSeries(
     messages: [
       {
         role: 'system',
-        content: 'You are an expert in deliberate practice drill design for skill development.',
+        content: systemPrompt,
       },
       {
         role: 'user',
-        content: prompt,
+        content: userPrompt,
       },
     ],
     response_format: {
@@ -104,6 +129,7 @@ export async function generateDrillSeries(
     content,
     markdown,
     corpusHash,
+    userPrompt,
   }
 }
 
@@ -121,6 +147,24 @@ export function renderDrillSeriesMarkdown(drillSeries: DrillSeriesOutput): strin
   lines.push('')
   lines.push(`**Target Principles:** ${drillSeries.targetPrinciples.join(', ')}`)
   lines.push('')
+
+  // Design Thoughts section (new)
+  if (drillSeries.designThoughts) {
+    lines.push('---')
+    lines.push('')
+    lines.push('## Design Thoughts')
+    lines.push('')
+    lines.push(`**Methodology Rationale:** ${drillSeries.designThoughts.methodologyRationale}`)
+    lines.push('')
+    lines.push(`**Variety Analysis:** ${drillSeries.designThoughts.varietyAnalysis}`)
+    lines.push('')
+    lines.push(`**Pedagogical Notes:** ${drillSeries.designThoughts.pedagogicalNotes}`)
+    lines.push('')
+    if (drillSeries.designThoughts.distinctiveElements) {
+      lines.push(`**Distinctive Elements:** ${drillSeries.designThoughts.distinctiveElements}`)
+      lines.push('')
+    }
+  }
 
   // Series
   for (const series of drillSeries.series) {

@@ -324,6 +324,8 @@ import {
   CURRICULUM_PHASE_KEYS,
   DRILL_SERIES_PHASE_KEYS,
 } from './teaching/constants';
+import { hashPrompt } from './guruFunctions/promptHasher';
+import { resolvePromptsForProject } from './guruFunctions/promptResolver';
 
 /**
  * Mental Model generation job
@@ -364,6 +366,11 @@ export const mentalModelGenerationJob = inngest.createFunction(
       throw new Error(`Project not found: ${projectId}`);
     }
 
+    // Resolve custom prompts for this project
+    const prompts = await step.run('resolve-prompts', async () => {
+      return await resolvePromptsForProject(projectId, 'MENTAL_MODEL');
+    });
+
     // Phase 2: Analyzing Structure
     await step.run('progress-analyzing', async () => {
       await updateArtifactProgress(artifactId, MENTAL_MODEL_PHASE_KEYS.ANALYZING_STRUCTURE);
@@ -384,6 +391,9 @@ export const mentalModelGenerationJob = inngest.createFunction(
           knowledgeFiles: project.knowledgeFiles.map(f => ({ title: f.title, content: f.content })),
           domain: project.name,
           userNotes,
+          // Pass custom prompts if configured
+          customSystemPrompt: prompts.isCustomSystem ? prompts.systemPrompt : undefined,
+          customUserPromptTemplate: prompts.isCustomUser ? prompts.userPromptTemplate ?? undefined : undefined,
         });
       });
     } catch (error) {
@@ -410,14 +420,21 @@ export const mentalModelGenerationJob = inngest.createFunction(
       await updateArtifactProgress(artifactId, MENTAL_MODEL_PHASE_KEYS.SAVING_ARTIFACT);
     });
 
-    // Save artifact
+    // Save artifact with prompt hashes
     await step.run('save-artifact', async () => {
+      // Hash prompts for versioning (use resolved prompts which may be custom)
+      const systemPromptHash = hashPrompt(prompts.systemPrompt);
+      const userPromptHash = hashPrompt(result.userPrompt);
+
       await prisma.guruArtifact.update({
         where: { id: artifactId },
         data: {
           content: result.content as unknown as Prisma.JsonObject,
           markdownContent: result.markdown,
           corpusHash: result.corpusHash,
+          systemPromptHash,
+          userPromptHash,
+          promptConfigId: prompts.configId,  // Store reference to custom config if used
           status: 'COMPLETED',
           progressStage: null,  // Clear on completion
         },
@@ -484,6 +501,11 @@ export const curriculumGenerationJob = inngest.createFunction(
       throw new Error('Mental model required for curriculum generation');
     }
 
+    // Resolve custom prompts for this project
+    const prompts = await step.run('resolve-prompts', async () => {
+      return await resolvePromptsForProject(projectId, 'CURRICULUM');
+    });
+
     // Phase 2: Analyzing Mental Model
     await step.run('progress-analyzing', async () => {
       await updateArtifactProgress(artifactId, CURRICULUM_PHASE_KEYS.ANALYZING_MENTAL_MODEL);
@@ -505,6 +527,9 @@ export const curriculumGenerationJob = inngest.createFunction(
           domain: project.name,
           userNotes,
           mentalModel: mentalModelArtifact.content as unknown as MentalModelOutput,
+          // Pass custom prompts if configured
+          customSystemPrompt: prompts.isCustomSystem ? prompts.systemPrompt : undefined,
+          customUserPromptTemplate: prompts.isCustomUser ? prompts.userPromptTemplate ?? undefined : undefined,
         });
       });
     } catch (error) {
@@ -531,14 +556,21 @@ export const curriculumGenerationJob = inngest.createFunction(
       await updateArtifactProgress(artifactId, CURRICULUM_PHASE_KEYS.SAVING_ARTIFACT);
     });
 
-    // Save artifact
+    // Save artifact with prompt hashes
     await step.run('save-artifact', async () => {
+      // Hash prompts for versioning (use resolved prompts which may be custom)
+      const systemPromptHash = hashPrompt(prompts.systemPrompt);
+      const userPromptHash = hashPrompt(result.userPrompt);
+
       await prisma.guruArtifact.update({
         where: { id: artifactId },
         data: {
           content: result.content as unknown as Prisma.JsonObject,
           markdownContent: result.markdown,
           corpusHash: result.corpusHash,
+          systemPromptHash,
+          userPromptHash,
+          promptConfigId: prompts.configId,  // Store reference to custom config if used
           status: 'COMPLETED',
           progressStage: null,  // Clear on completion
         },
@@ -616,6 +648,11 @@ export const drillSeriesGenerationJob = inngest.createFunction(
       throw new Error('Curriculum required for drill series generation');
     }
 
+    // Resolve custom prompts for this project
+    const prompts = await step.run('resolve-prompts', async () => {
+      return await resolvePromptsForProject(projectId, 'DRILL_SERIES');
+    });
+
     // Phase 2: Analyzing Curriculum
     await step.run('progress-analyzing', async () => {
       await updateArtifactProgress(artifactId, DRILL_SERIES_PHASE_KEYS.ANALYZING_CURRICULUM);
@@ -643,6 +680,9 @@ export const drillSeriesGenerationJob = inngest.createFunction(
           userNotes,
           mentalModel: mentalModelArtifact.content as unknown as MentalModelOutput,
           curriculum: curriculumArtifact.content as unknown as CurriculumOutput,
+          // Pass custom prompts if configured
+          customSystemPrompt: prompts.isCustomSystem ? prompts.systemPrompt : undefined,
+          customUserPromptTemplate: prompts.isCustomUser ? prompts.userPromptTemplate ?? undefined : undefined,
         });
       });
     } catch (error) {
@@ -664,14 +704,21 @@ export const drillSeriesGenerationJob = inngest.createFunction(
       await updateArtifactProgress(artifactId, DRILL_SERIES_PHASE_KEYS.SAVING_ARTIFACT);
     });
 
-    // Save artifact
+    // Save artifact with prompt hashes
     await step.run('save-artifact', async () => {
+      // Hash prompts for versioning (use resolved prompts which may be custom)
+      const systemPromptHash = hashPrompt(prompts.systemPrompt);
+      const userPromptHash = hashPrompt(result.userPrompt);
+
       await prisma.guruArtifact.update({
         where: { id: artifactId },
         data: {
           content: result.content as unknown as Prisma.JsonObject,
           markdownContent: result.markdown,
           corpusHash: result.corpusHash,
+          systemPromptHash,
+          userPromptHash,
+          promptConfigId: prompts.configId,  // Store reference to custom config if used
           status: 'COMPLETED',
           progressStage: null,  // Clear on completion
         },

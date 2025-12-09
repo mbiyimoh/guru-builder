@@ -81,9 +81,26 @@ After validating the problem from first principles, complete these technical che
 
 **CRITICAL: If any validation fails, STOP immediately and request clarification.**
 
+## Detect Output Path
+
+Check if $ARGUMENTS contains: "IMPORTANT: Save this specification to: <path>"
+
+If found:
+1. Extract the full path (e.g., `specs/my-feature/02-specification.md`)
+2. Store as OUTPUT_PATH variable
+3. Create parent directory: `mkdir -p $(dirname OUTPUT_PATH)`
+4. Strip this instruction line from the task description for spec content
+5. Use OUTPUT_PATH as the location to write the spec
+
+If not found (legacy direct usage):
+1. Generate filename from task description:
+   - Features: `specs/feat-{kebab-case-name}.md`
+   - Bugfixes: `specs/fix-{issue-number}-{brief-description}.md`
+2. Use that as OUTPUT_PATH
+
 ## Your task
 
-Create a comprehensive specification document in the `specs/` folder for the following feature/bugfix: $ARGUMENTS
+Create a comprehensive specification document for the following feature/bugfix: $ARGUMENTS
 
 First, analyze the request to understand:
 1. Whether this is a feature or bugfix
@@ -172,9 +189,7 @@ Follow these guidelines:
 - When referencing external libraries, include version-specific information
 - Do NOT include time or effort estimations (no "X days", "Y hours", or complexity estimates)
 
-Name the spec file descriptively based on the feature:
-- Features: `feat-{kebab-case-name}.md`
-- Bugfixes: `fix-{issue-number}-{brief-description}.md`
+Write the specification to the OUTPUT_PATH determined in the "Detect Output Path" section above.
 
 ## PROGRESSIVE VALIDATION CHECKPOINTS
 

@@ -280,6 +280,125 @@ contextLayerId: rec.targetType === "LAYER" ? effectiveTargetId : null,
    - **Solution:** Poll until `status === 'COMPLETED' AND recommendationCount > 0`
    - **Location:** `app/projects/[id]/research/[runId]/ResearchStatusPoller.tsx`
 
+### Prompt Customization & Drift Detection
+
+**CRITICAL for teaching artifact generation:**
+
+The system supports per-project prompt customization with automatic drift detection to track when generated artifacts use different prompts than the current project settings.
+
+**Key Components:**
+- `lib/teaching/types.ts` - Shared type definitions (PromptInfo, PromptConfig, PromptConfigItem)
+- `lib/teaching/promptUtils.ts` - Prompt fetching, drift detection, custom prompt detection
+- `lib/teaching/artifactPageData.ts` - Server-side data fetching with prompt info
+- `components/artifacts/ArtifactHeader.tsx` - Displays prompt badges and edit button
+- `components/guru/PromptEditorModal.tsx` - Modal for viewing/editing prompts
+
+**How it works:**
+
+1. **Prompt Hashing**: When artifacts are generated, prompts are hashed and stored with the artifact:
+   ```typescript
+   // lib/inngest-functions.ts (Mental Model, Curriculum, Drill Series generation)
+   systemPromptHash: hashPrompt(systemPrompt),
+   userPromptHash: hashPrompt(userPromptTemplate),
+   promptConfigId: customConfig?.id || null,
+   ```
+
+2. **Drift Detection**: Compares current project prompts to artifact's stored hashes:
+   ```typescript
+   function detectPromptDrift(artifact, currentPrompts): boolean {
+     // Returns true if current prompts differ from what was used to generate artifact
+     // Returns false for legacy artifacts with no hashes
+   }
+   ```
+
+3. **Custom Prompt Detection**: Determines if artifact was generated with custom prompts:
+   ```typescript
+   function wasGeneratedWithCustomPrompts(artifact, type): boolean {
+     // First checks promptConfigId (most reliable)
+     // Falls back to comparing hashes with defaults
+     // Returns false for legacy artifacts
+   }
+   ```
+
+**Integration Pattern:**
+```typescript
+// In artifact viewer pages
+const promptConfig = await getPromptConfigForType(projectId, type);
+const promptInfo = {
+  isCustom: wasGeneratedWithCustomPrompts(artifact, artifact.type),
+  hasPromptDrift: detectPromptDrift(artifact, {
+    systemPrompt: promptConfig.systemPrompt.current,
+    userPromptTemplate: promptConfig.userPrompt.current,
+  }),
+  currentConfig: promptConfig,
+};
+
+<ArtifactHeader promptInfo={promptInfo} onEditPrompts={() => setIsPromptModalOpen(true)} />
+```
+
+**Displayed to users as:**
+- **"Custom Prompts"** badge (purple) or **"Default Prompts"** badge (gray)
+- **"Prompts Changed"** warning badge (amber) when drift detected
+- **"View/Edit Prompts"** button opens PromptEditorModal
+
+**CRITICAL: Type Consolidation**
+All prompt-related types are defined in `lib/teaching/types.ts` to avoid duplication. Always import from this file:
+
+```typescript
+import type { PromptInfo, PromptConfig, PromptConfigItem } from '@/lib/teaching/types';
+```
+
+**Gotchas:**
+- Null handling: Check for `null` hashes explicitly, don't assume existence
+- Empty strings vs NULL: Use `null` for FK fields, not `""` (PostgreSQL constraint)
+- Error handling: Prompt config fetching should degrade gracefully if it fails
+- Legacy artifacts: Artifacts without hashes should return `false` for drift/custom detection
+
+**Location:** `lib/teaching/promptUtils.ts:66-125`, `lib/teaching/types.ts:1-35`
+
+### Type Consolidation Pattern
+
+**CRITICAL for maintaining type consistency:**
+
+When multiple files need to share type definitions, always consolidate into a shared types file rather than duplicating interfaces. This prevents type drift and makes refactoring safer.
+
+**Pattern:**
+1. Create a dedicated types file (e.g., `lib/teaching/types.ts`)
+2. Export all shared interfaces from that file
+3. Import types in consuming files
+4. Re-export if needed for convenience
+
+**Example:**
+```typescript
+// lib/teaching/types.ts
+export interface PromptInfo {
+  isCustom: boolean;
+  hasPromptDrift: boolean;
+  currentConfig: PromptConfig;
+}
+
+// lib/teaching/artifactPageData.ts
+import type { PromptInfo } from './types';
+export type { PromptInfo } from './types';  // Re-export for convenience
+
+// components/artifacts/ArtifactHeader.tsx
+import type { PromptInfo } from '@/lib/teaching/types';
+```
+
+**Benefits:**
+- Single source of truth for types
+- TypeScript catches inconsistencies immediately
+- Refactoring updates all consumers automatically
+- Self-documenting through centralized type definitions
+
+**When to use:**
+- Types used in 3+ files
+- Types shared across feature boundaries (lib ↔ components)
+- Complex types with nested structures
+- Types that evolve frequently
+
+**Location:** See `lib/teaching/types.ts` for reference implementation
+
 ---
 
 ## Key Resources & Patterns
@@ -571,4 +690,4 @@ npx tsc --noEmit                   # Check for errors
 **Stack:** Next.js 15 + PostgreSQL + Prisma + OpenAI + Inngest + Supabase
 **Port:** 3002 (dev server)
 **Production:** https://guru-builder-production.up.railway.app
-**Last Updated:** 2025-12-04
+**Last Updated:** 2025-12-09

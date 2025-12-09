@@ -18,10 +18,14 @@ export interface GeneratorOptions {
   knowledgeFiles: CorpusItem[]
   domain: string
   userNotes?: string // Optional notes for regeneration
+  // Custom prompts (resolved before calling generator)
+  customSystemPrompt?: string
+  customUserPromptTemplate?: string
 }
 
 export interface GenerationResult<T> {
   content: T
   markdown: string
   corpusHash: string
+  userPrompt: string  // The user prompt sent to GPT (for versioning)
 }
