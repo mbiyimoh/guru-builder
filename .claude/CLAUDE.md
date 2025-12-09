@@ -154,6 +154,54 @@ z.object({
 
 **Diagnostic location:** Check Inngest logs at http://localhost:8288 for schema validation errors.
 
+### Teaching Artifact Viewer - View Modes & Renderers
+
+**CRITICAL for artifact display components:**
+
+The Teaching Artifact Viewer system supports three view modes: **Rendered**, **Markdown**, and **JSON**. Each artifact type (Mental Model, Curriculum, Drill Series) has a specialized renderer.
+
+**Key Components:**
+- `components/artifacts/ViewModeToggle.tsx` - 3-mode toggle (rendered/markdown/json)
+- `components/artifacts/renderers/TypeSpecificRenderer.tsx` - Router that selects renderer based on artifact.type
+- `components/artifacts/renderers/MentalModelRenderer.tsx` - Mental Model display + TOC generation
+- `components/artifacts/renderers/CurriculumRenderer.tsx` - Curriculum display + TOC generation
+- `components/artifacts/renderers/DrillSeriesRenderer.tsx` - Drill Series display + TOC generation
+- `components/artifacts/TableOfContents.tsx` - Hierarchical TOC with active highlighting
+- `lib/teaching/hooks/useActiveSection.ts` - IntersectionObserver scroll tracking
+
+**ViewMode type:**
+```typescript
+export type ViewMode = 'rendered' | 'markdown' | 'json';
+```
+
+**Integration pattern:**
+```typescript
+const [viewMode, setViewMode] = useState<ViewMode>('rendered');
+
+<ViewModeToggle mode={viewMode} onChange={setViewMode} />
+
+{viewMode === 'rendered' && <TypeSpecificRenderer artifact={artifact} />}
+{viewMode === 'markdown' && <DiffContent ... />}
+{viewMode === 'json' && <pre>{JSON.stringify(artifact.content, null, 2)}</pre>}
+```
+
+**TOC generation:**
+Each renderer exports a TOC generator function:
+- `generateMentalModelTOC(content: MentalModelOutput): TOCItem[]`
+- `generateCurriculumTOC(content: CurriculumOutput): TOCItem[]`
+- `generateDrillSeriesToc(content: DrillSeriesOutput): TOCItem[]`
+
+**Scroll tracking with IntersectionObserver:**
+```typescript
+const sectionIds = useMemo(() => extractIds(tocItems), [tocItems]);
+const activeId = useActiveSection(sectionIds);
+```
+
+**CRITICAL: useActiveSection dependency array:**
+The hook uses `JSON.stringify(sectionIds)` in the dependency array to avoid infinite re-renders when the array reference changes but contents are identical. This is combined with a ref pattern to store the latest sectionIds.
+
+**Location:** `lib/teaching/hooks/useActiveSection.ts:63`
+
 ### Prisma Polymorphic Associations
 
 **CRITICAL for models that reference multiple target types:**

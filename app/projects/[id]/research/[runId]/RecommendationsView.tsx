@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { DiffViewer } from '@/components/recommendations/DiffViewer';
 
 interface Recommendation {
   id: string;
@@ -29,6 +30,7 @@ export function RecommendationsView({ recommendations, projectId, runId }: Recom
   const router = useRouter();
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [applyingAll, setApplyingAll] = useState(false);
+  const [expandedDiffs, setExpandedDiffs] = useState<Set<string>>(new Set());
 
   const handleApprove = async (id: string) => {
     setLoadingId(id);
@@ -175,17 +177,44 @@ export function RecommendationsView({ recommendations, projectId, runId }: Recom
                 <p className="text-gray-700 mb-3">{rec.description}</p>
 
                 {/* Full Content Preview - expandable */}
-                <details className="mb-3">
-                  <summary className="cursor-pointer text-blue-600 hover:text-blue-800 font-medium text-sm">
-                    View Full {rec.action === 'EDIT' ? 'Proposed Changes' : 'Content'}
-                    {' '}({Math.ceil(rec.fullContent.length / 1000)}k characters)
-                  </summary>
-                  <div className="mt-3 p-4 bg-gray-50 rounded-md border border-gray-200 max-h-96 overflow-y-auto">
-                    <pre className="whitespace-pre-wrap text-sm text-gray-800 font-mono">
-                      {rec.fullContent}
-                    </pre>
-                  </div>
-                </details>
+                {rec.action === 'EDIT' && (rec.contextLayerId || rec.knowledgeFileId) ? (
+                  <details
+                    className="mb-3"
+                    onToggle={(e) => {
+                      const isOpen = (e.target as HTMLDetailsElement).open;
+                      setExpandedDiffs(prev => {
+                        const next = new Set(prev);
+                        if (isOpen) next.add(rec.id);
+                        else next.delete(rec.id);
+                        return next;
+                      });
+                    }}
+                  >
+                    <summary className="cursor-pointer text-blue-600 hover:text-blue-800 font-medium text-sm">
+                      View Changes ({Math.ceil(rec.fullContent.length / 1000)}k characters)
+                    </summary>
+                    <div className="mt-3">
+                      <DiffViewer
+                        targetType={rec.targetType as 'LAYER' | 'KNOWLEDGE_FILE'}
+                        targetId={(rec.contextLayerId || rec.knowledgeFileId)!}
+                        proposedContent={rec.fullContent}
+                        isExpanded={expandedDiffs.has(rec.id)}
+                      />
+                    </div>
+                  </details>
+                ) : (
+                  <details className="mb-3">
+                    <summary className="cursor-pointer text-blue-600 hover:text-blue-800 font-medium text-sm">
+                      View Full {rec.action === 'ADD' ? 'Proposed' : rec.action === 'DELETE' ? 'Content to Delete' : 'Content'}
+                      {' '}({Math.ceil(rec.fullContent.length / 1000)}k characters)
+                    </summary>
+                    <div className="mt-3 p-4 bg-gray-50 rounded-md border border-gray-200 max-h-96 overflow-y-auto">
+                      <pre className="whitespace-pre-wrap text-sm text-gray-800 font-mono">
+                        {rec.fullContent}
+                      </pre>
+                    </div>
+                  </details>
+                )}
 
                 {/* Reasoning */}
                 <div className="bg-gray-50 p-3 rounded-md">

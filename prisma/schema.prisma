@@ -350,6 +350,9 @@ model GuruArtifact {
   // Error message if failed
   errorMessage String?         @db.Text
 
+  // Progress tracking (for UI display during generation)
+  progressStage String?        // Current phase key (e.g., "COMPOSING_CORPUS")
+
   // Relations
   project     Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
   dependsOn   GuruArtifact?    @relation("ArtifactDependency", fields: [dependsOnArtifactId], references: [id])

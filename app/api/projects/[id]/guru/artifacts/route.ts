@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireProjectOwnership } from "@/lib/auth";
+import { clearStaleGeneratingArtifact } from "@/lib/teaching/staleArtifactHandler";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -41,6 +42,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
       if (authError) return authError;
     }
 
+    // Clear any stale GENERATING artifacts before querying
+    await Promise.all([
+      clearStaleGeneratingArtifact(projectId, "MENTAL_MODEL"),
+      clearStaleGeneratingArtifact(projectId, "CURRICULUM"),
+      clearStaleGeneratingArtifact(projectId, "DRILL_SERIES"),
+    ]);
+
     const artifacts = await prisma.guruArtifact.findMany({
       where: { projectId },
       orderBy: [{ type: "asc" }, { version: "desc" }],
@@ -53,6 +61,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         generatedAt: true,
         dependsOnArtifactId: true,
         errorMessage: true,
+        progressStage: true,  // For progress tracking UI
         // Don't include full content in list - use individual endpoint
       },
     });
@@ -64,11 +73,17 @@ export async function GET(request: NextRequest, context: RouteContext) {
       drillSeries: artifacts.filter((a) => a.type === "DRILL_SERIES"),
     };
 
-    // Get latest completed of each type
+    // Get latest of each type (GENERATING takes precedence for progress tracking, then COMPLETED)
+    const getLatest = (list: typeof artifacts) => {
+      const generating = list.find((a) => a.status === "GENERATING");
+      if (generating) return generating;
+      return list.find((a) => a.status === "COMPLETED");
+    };
+
     const latest = {
-      mentalModel: grouped.mentalModels.find((a) => a.status === "COMPLETED"),
-      curriculum: grouped.curricula.find((a) => a.status === "COMPLETED"),
-      drillSeries: grouped.drillSeries.find((a) => a.status === "COMPLETED"),
+      mentalModel: getLatest(grouped.mentalModels),
+      curriculum: getLatest(grouped.curricula),
+      drillSeries: getLatest(grouped.drillSeries),
     };
 
     return NextResponse.json(

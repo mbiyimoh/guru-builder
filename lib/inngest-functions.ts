@@ -303,11 +303,27 @@ export const recommendationGenerationJob = inngest.createFunction(
 // GURU TEACHING FUNCTION JOBS
 // =============================================================================
 
+/**
+ * Helper to update the progress stage of a guru artifact
+ */
+async function updateArtifactProgress(artifactId: string, progressStage: string): Promise<void> {
+  await prisma.guruArtifact.update({
+    where: { id: artifactId },
+    data: { progressStage },
+  });
+  console.log(`[Artifact Progress] ${artifactId}: ${progressStage}`);
+}
+
 import { generateMentalModel } from './guruFunctions/generators/mentalModelGenerator';
 import { generateCurriculum } from './guruFunctions/generators/curriculumGenerator';
 import { generateDrillSeries } from './guruFunctions/generators/drillDesigner';
 import type { MentalModelOutput } from './guruFunctions/schemas/mentalModelSchema';
 import type { CurriculumOutput } from './guruFunctions/schemas/curriculumSchema';
+import {
+  MENTAL_MODEL_PHASE_KEYS,
+  CURRICULUM_PHASE_KEYS,
+  DRILL_SERIES_PHASE_KEYS,
+} from './teaching/constants';
 
 /**
  * Mental Model generation job
@@ -321,6 +337,11 @@ export const mentalModelGenerationJob = inngest.createFunction(
   { event: 'guru/generate-mental-model' },
   async ({ event, step }) => {
     const { projectId, artifactId, userNotes } = event.data;
+
+    // Phase 1: Composing Corpus
+    await step.run('progress-composing', async () => {
+      await updateArtifactProgress(artifactId, MENTAL_MODEL_PHASE_KEYS.COMPOSING_CORPUS);
+    });
 
     // Fetch project with corpus
     const project = await step.run('fetch-project', async () => {
@@ -337,11 +358,21 @@ export const mentalModelGenerationJob = inngest.createFunction(
       await step.run('mark-failed-no-project', async () => {
         await prisma.guruArtifact.update({
           where: { id: artifactId },
-          data: { status: 'FAILED', errorMessage: 'Project not found' },
+          data: { status: 'FAILED', errorMessage: 'Project not found', progressStage: null },
         });
       });
       throw new Error(`Project not found: ${projectId}`);
     }
+
+    // Phase 2: Analyzing Structure
+    await step.run('progress-analyzing', async () => {
+      await updateArtifactProgress(artifactId, MENTAL_MODEL_PHASE_KEYS.ANALYZING_STRUCTURE);
+    });
+
+    // Phase 3: Extracting Principles (main generation)
+    await step.run('progress-extracting', async () => {
+      await updateArtifactProgress(artifactId, MENTAL_MODEL_PHASE_KEYS.EXTRACTING_PRINCIPLES);
+    });
 
     // Generate mental model
     let result;
@@ -362,11 +393,22 @@ export const mentalModelGenerationJob = inngest.createFunction(
           data: {
             status: 'FAILED',
             errorMessage: error instanceof Error ? error.message : 'Generation failed',
+            progressStage: null,
           },
         });
       });
       throw error;
     }
+
+    // Phase 4: Building Framework
+    await step.run('progress-building', async () => {
+      await updateArtifactProgress(artifactId, MENTAL_MODEL_PHASE_KEYS.BUILDING_FRAMEWORK);
+    });
+
+    // Phase 5: Saving Artifact
+    await step.run('progress-saving', async () => {
+      await updateArtifactProgress(artifactId, MENTAL_MODEL_PHASE_KEYS.SAVING_ARTIFACT);
+    });
 
     // Save artifact
     await step.run('save-artifact', async () => {
@@ -377,6 +419,7 @@ export const mentalModelGenerationJob = inngest.createFunction(
           markdownContent: result.markdown,
           corpusHash: result.corpusHash,
           status: 'COMPLETED',
+          progressStage: null,  // Clear on completion
         },
       });
     });
@@ -398,6 +441,11 @@ export const curriculumGenerationJob = inngest.createFunction(
   async ({ event, step }) => {
     const { projectId, artifactId, mentalModelArtifactId, userNotes } = event.data;
 
+    // Phase 1: Loading Prerequisites
+    await step.run('progress-loading', async () => {
+      await updateArtifactProgress(artifactId, CURRICULUM_PHASE_KEYS.LOADING_PREREQUISITES);
+    });
+
     // Fetch project with corpus
     const project = await step.run('fetch-project', async () => {
       return await prisma.project.findUnique({
@@ -413,7 +461,7 @@ export const curriculumGenerationJob = inngest.createFunction(
       await step.run('mark-failed-no-project', async () => {
         await prisma.guruArtifact.update({
           where: { id: artifactId },
-          data: { status: 'FAILED', errorMessage: 'Project not found' },
+          data: { status: 'FAILED', errorMessage: 'Project not found', progressStage: null },
         });
       });
       throw new Error(`Project not found: ${projectId}`);
@@ -430,11 +478,21 @@ export const curriculumGenerationJob = inngest.createFunction(
       await step.run('mark-failed-no-mental-model', async () => {
         await prisma.guruArtifact.update({
           where: { id: artifactId },
-          data: { status: 'FAILED', errorMessage: 'Mental model not found or not completed' },
+          data: { status: 'FAILED', errorMessage: 'Mental model not found or not completed', progressStage: null },
         });
       });
       throw new Error('Mental model required for curriculum generation');
     }
+
+    // Phase 2: Analyzing Mental Model
+    await step.run('progress-analyzing', async () => {
+      await updateArtifactProgress(artifactId, CURRICULUM_PHASE_KEYS.ANALYZING_MENTAL_MODEL);
+    });
+
+    // Phase 3: Designing Path (main generation)
+    await step.run('progress-designing', async () => {
+      await updateArtifactProgress(artifactId, CURRICULUM_PHASE_KEYS.DESIGNING_PATH);
+    });
 
     // Generate curriculum
     let result;
@@ -456,11 +514,22 @@ export const curriculumGenerationJob = inngest.createFunction(
           data: {
             status: 'FAILED',
             errorMessage: error instanceof Error ? error.message : 'Generation failed',
+            progressStage: null,
           },
         });
       });
       throw error;
     }
+
+    // Phase 4: Structuring Modules
+    await step.run('progress-structuring', async () => {
+      await updateArtifactProgress(artifactId, CURRICULUM_PHASE_KEYS.STRUCTURING_MODULES);
+    });
+
+    // Phase 5: Saving Artifact
+    await step.run('progress-saving', async () => {
+      await updateArtifactProgress(artifactId, CURRICULUM_PHASE_KEYS.SAVING_ARTIFACT);
+    });
 
     // Save artifact
     await step.run('save-artifact', async () => {
@@ -471,6 +540,7 @@ export const curriculumGenerationJob = inngest.createFunction(
           markdownContent: result.markdown,
           corpusHash: result.corpusHash,
           status: 'COMPLETED',
+          progressStage: null,  // Clear on completion
         },
       });
     });
@@ -492,6 +562,11 @@ export const drillSeriesGenerationJob = inngest.createFunction(
   async ({ event, step }) => {
     const { projectId, artifactId, mentalModelArtifactId, curriculumArtifactId, userNotes } = event.data;
 
+    // Phase 1: Loading Prerequisites
+    await step.run('progress-loading', async () => {
+      await updateArtifactProgress(artifactId, DRILL_SERIES_PHASE_KEYS.LOADING_PREREQUISITES);
+    });
+
     // Fetch project with corpus
     const project = await step.run('fetch-project', async () => {
       return await prisma.project.findUnique({
@@ -507,7 +582,7 @@ export const drillSeriesGenerationJob = inngest.createFunction(
       await step.run('mark-failed-no-project', async () => {
         await prisma.guruArtifact.update({
           where: { id: artifactId },
-          data: { status: 'FAILED', errorMessage: 'Project not found' },
+          data: { status: 'FAILED', errorMessage: 'Project not found', progressStage: null },
         });
       });
       throw new Error(`Project not found: ${projectId}`);
@@ -525,7 +600,7 @@ export const drillSeriesGenerationJob = inngest.createFunction(
       await step.run('mark-failed-no-mental-model', async () => {
         await prisma.guruArtifact.update({
           where: { id: artifactId },
-          data: { status: 'FAILED', errorMessage: 'Mental model not found or not completed' },
+          data: { status: 'FAILED', errorMessage: 'Mental model not found or not completed', progressStage: null },
         });
       });
       throw new Error('Mental model required for drill series generation');
@@ -535,11 +610,26 @@ export const drillSeriesGenerationJob = inngest.createFunction(
       await step.run('mark-failed-no-curriculum', async () => {
         await prisma.guruArtifact.update({
           where: { id: artifactId },
-          data: { status: 'FAILED', errorMessage: 'Curriculum not found or not completed' },
+          data: { status: 'FAILED', errorMessage: 'Curriculum not found or not completed', progressStage: null },
         });
       });
       throw new Error('Curriculum required for drill series generation');
     }
+
+    // Phase 2: Analyzing Curriculum
+    await step.run('progress-analyzing', async () => {
+      await updateArtifactProgress(artifactId, DRILL_SERIES_PHASE_KEYS.ANALYZING_CURRICULUM);
+    });
+
+    // Phase 3: Designing Exercises
+    await step.run('progress-designing', async () => {
+      await updateArtifactProgress(artifactId, DRILL_SERIES_PHASE_KEYS.DESIGNING_EXERCISES);
+    });
+
+    // Phase 4: Generating Content (main generation)
+    await step.run('progress-generating', async () => {
+      await updateArtifactProgress(artifactId, DRILL_SERIES_PHASE_KEYS.GENERATING_CONTENT);
+    });
 
     // Generate drill series
     let result;
@@ -562,11 +652,17 @@ export const drillSeriesGenerationJob = inngest.createFunction(
           data: {
             status: 'FAILED',
             errorMessage: error instanceof Error ? error.message : 'Generation failed',
+            progressStage: null,
           },
         });
       });
       throw error;
     }
+
+    // Phase 5: Saving Artifact
+    await step.run('progress-saving', async () => {
+      await updateArtifactProgress(artifactId, DRILL_SERIES_PHASE_KEYS.SAVING_ARTIFACT);
+    });
 
     // Save artifact
     await step.run('save-artifact', async () => {
@@ -577,6 +673,7 @@ export const drillSeriesGenerationJob = inngest.createFunction(
           markdownContent: result.markdown,
           corpusHash: result.corpusHash,
           status: 'COMPLETED',
+          progressStage: null,  // Clear on completion
         },
       });
     });

@@ -10,6 +10,7 @@ import { prisma } from "@/lib/db";
 import { requireProjectOwnership } from "@/lib/auth";
 import { inngest } from "@/lib/inngest";
 import { z } from "zod";
+import { getActiveGeneratingArtifact } from "@/lib/teaching/staleArtifactHandler";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -64,15 +65,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
       },
     });
 
-    // Also check for any in-progress generation
-    const generating = await prisma.guruArtifact.findFirst({
-      where: {
-        projectId,
-        type: "DRILL_SERIES",
-        status: "GENERATING",
-      },
-      orderBy: { generatedAt: "desc" },
-    });
+    // Check for active generation (auto-clears stale ones)
+    const generating = await getActiveGeneratingArtifact(projectId, "DRILL_SERIES");
 
     return NextResponse.json(
       {
@@ -209,14 +203,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       }
     }
 
-    // Check for existing in-progress generation
-    const existingGeneration = await prisma.guruArtifact.findFirst({
-      where: {
-        projectId,
-        type: "DRILL_SERIES",
-        status: "GENERATING",
-      },
-    });
+    // Check for existing in-progress generation (auto-clears stale ones)
+    const existingGeneration = await getActiveGeneratingArtifact(projectId, "DRILL_SERIES");
 
     if (existingGeneration) {
       return NextResponse.json(

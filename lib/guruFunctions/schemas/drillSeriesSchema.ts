@@ -75,7 +75,7 @@ export const drillSeriesSchema = z.object({
   totalDrills: z.number(),
   estimatedCompletionMinutes: z.number(),
   series: z.array(principleSeriesSchema),
-  practiceSequences: z.array(practiceSequenceSchema).optional(), // Made optional per simplification
+  practiceSequences: z.array(practiceSequenceSchema).nullable().optional(), // Made optional per simplification
 })
 
 export type DrillOption = z.infer<typeof drillOptionSchema>
