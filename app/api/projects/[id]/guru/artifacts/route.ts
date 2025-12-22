@@ -62,6 +62,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         dependsOnArtifactId: true,
         errorMessage: true,
         progressStage: true,  // For progress tracking UI
+        subTaskProgress: true,  // For detailed sub-task visibility during verification
         // Don't include full content in list - use individual endpoint
       },
     });

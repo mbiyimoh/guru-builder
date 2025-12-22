@@ -20,6 +20,16 @@ import { PROGRESS_STAGES } from "./assessment/constants";
  */
 const MIN_RECOMMENDATION_CONFIDENCE = 0.4;
 
+/**
+ * Minimum verification rate to consider a match archive import complete.
+ * Allows up to 5% of positions to fail verification (e.g., due to engine timeouts)
+ * without blocking the entire import.
+ *
+ * Range: 0.0 to 1.0
+ * Current: 0.95 (95% of positions must be verified)
+ */
+const MIN_VERIFICATION_RATE_FOR_COMPLETION = 0.95;
+
 
 /**
  * Helper to update the progress stage of a research run
@@ -314,9 +324,32 @@ async function updateArtifactProgress(artifactId: string, progressStage: string)
   console.log(`[Artifact Progress] ${artifactId}: ${progressStage}`);
 }
 
+import type { SubTaskProgress } from '@/lib/teaching/types';
+
+/**
+ * Updates sub-task progress for an artifact during generation.
+ * Used to provide detailed visibility into verification phase.
+ * Updates are batched (caller should call every N claims to reduce DB writes).
+ */
+async function updateSubTaskProgress(
+  artifactId: string,
+  progress: SubTaskProgress
+): Promise<void> {
+  await prisma.guruArtifact.update({
+    where: { id: artifactId },
+    data: {
+      subTaskProgress: {
+        ...progress,
+        updatedAt: new Date().toISOString()
+      } as Prisma.JsonObject
+    }
+  });
+  console.log(`[SubTask Progress] ${artifactId}: ${progress.phase} ${progress.current}/${progress.total}`);
+}
+
 import { generateMentalModel } from './guruFunctions/generators/mentalModelGenerator';
 import { generateCurriculum } from './guruFunctions/generators/curriculumGenerator';
-import { generateDrillSeries } from './guruFunctions/generators/drillDesigner';
+import { generateDrillSeriesWithValidation } from './guruFunctions/generators/drillDesigner';
 import type { MentalModelOutput } from './guruFunctions/schemas/mentalModelSchema';
 import type { CurriculumOutput } from './guruFunctions/schemas/curriculumSchema';
 import {
@@ -326,6 +359,55 @@ import {
 } from './teaching/constants';
 import { hashPrompt } from './guruFunctions/promptHasher';
 import { resolvePromptsForProject } from './guruFunctions/promptResolver';
+import { resolveGroundTruthConfig } from './groundTruth/config';
+import { extractVerifiableClaims, extractCurriculumClaims } from './groundTruth/claimExtraction';
+import { verifyClaimsAgainstGroundTruth } from './groundTruth/verification/batchVerifier';
+import { verifyAllDrills } from './groundTruth/verification/drillVerifier';
+import type { PhaseOrganizedDrillSeries } from './guruFunctions/schemas/phaseOrganizedDrillSchema';
+import { seedPositionsByPhase, getPositionIdsFromSeeded } from './positionLibrary';
+import { DEFAULT_DRILL_CONFIG, type DrillGenerationConfig, type GamePhase } from './guruFunctions/types';
+
+/**
+ * Valid game phases for config validation
+ */
+const VALID_GAME_PHASES: Set<GamePhase> = new Set(['OPENING', 'EARLY', 'MIDDLE', 'BEAROFF']);
+
+/**
+ * Normalize and validate drill config from event data.
+ * Ensures all values are within safe ranges and have sensible defaults.
+ */
+function normalizeDrillConfig(config?: Partial<DrillGenerationConfig>): DrillGenerationConfig {
+  if (!config) return DEFAULT_DRILL_CONFIG;
+
+  // Validate and filter game phases
+  const rawPhases = Array.isArray(config.gamePhases) ? config.gamePhases : [];
+  const validPhases = rawPhases.filter((phase): phase is GamePhase => VALID_GAME_PHASES.has(phase as GamePhase));
+  const gamePhases = validPhases.length > 0 ? validPhases : DEFAULT_DRILL_CONFIG.gamePhases;
+
+  // Clamp targetDrillCount to safe range (5-50)
+  const targetDrillCount = Math.max(5, Math.min(50, config.targetDrillCount ?? DEFAULT_DRILL_CONFIG.targetDrillCount));
+
+  // Clamp directDrillRatio to 0-1 range
+  const directDrillRatio = Math.max(0, Math.min(1, config.directDrillRatio ?? DEFAULT_DRILL_CONFIG.directDrillRatio));
+
+  // Boolean validation for useExistingPositions
+  const useExistingPositions = typeof config.useExistingPositions === 'boolean'
+    ? config.useExistingPositions
+    : DEFAULT_DRILL_CONFIG.useExistingPositions;
+
+  // Optional: fetchNewPositionCount (only if valid positive number)
+  const fetchNewPositionCount = typeof config.fetchNewPositionCount === 'number' && config.fetchNewPositionCount > 0
+    ? Math.min(50, config.fetchNewPositionCount)
+    : undefined;
+
+  return {
+    gamePhases,
+    targetDrillCount,
+    directDrillRatio,
+    useExistingPositions,
+    ...(fetchNewPositionCount && { fetchNewPositionCount }),
+  };
+}
 
 /**
  * Mental Model generation job
@@ -366,6 +448,16 @@ export const mentalModelGenerationJob = inngest.createFunction(
       throw new Error(`Project not found: ${projectId}`);
     }
 
+    // Fetch guru profile
+    const guruProfile = await step.run('fetch-guru-profile', async () => {
+      const projectWithProfile = await prisma.project.findUnique({
+        where: { id: projectId },
+        include: { currentProfile: true }
+      });
+      const profileData = projectWithProfile?.currentProfile?.profileData;
+      return profileData ? (profileData as import('@/lib/guruProfile/types').GuruProfileData) : undefined;
+    });
+
     // Resolve custom prompts for this project
     const prompts = await step.run('resolve-prompts', async () => {
       return await resolvePromptsForProject(projectId, 'MENTAL_MODEL');
@@ -394,6 +486,8 @@ export const mentalModelGenerationJob = inngest.createFunction(
           // Pass custom prompts if configured
           customSystemPrompt: prompts.isCustomSystem ? prompts.systemPrompt : undefined,
           customUserPromptTemplate: prompts.isCustomUser ? prompts.userPromptTemplate ?? undefined : undefined,
+          // Pass guru profile if available (convert null to undefined)
+          guruProfile: guruProfile ?? undefined,
         });
       });
     } catch (error) {
@@ -501,6 +595,16 @@ export const curriculumGenerationJob = inngest.createFunction(
       throw new Error('Mental model required for curriculum generation');
     }
 
+    // Fetch guru profile
+    const guruProfile = await step.run('fetch-guru-profile', async () => {
+      const projectWithProfile = await prisma.project.findUnique({
+        where: { id: projectId },
+        include: { currentProfile: true }
+      });
+      const profileData = projectWithProfile?.currentProfile?.profileData;
+      return profileData ? (profileData as import('@/lib/guruProfile/types').GuruProfileData) : undefined;
+    });
+
     // Resolve custom prompts for this project
     const prompts = await step.run('resolve-prompts', async () => {
       return await resolvePromptsForProject(projectId, 'CURRICULUM');
@@ -530,6 +634,8 @@ export const curriculumGenerationJob = inngest.createFunction(
           // Pass custom prompts if configured
           customSystemPrompt: prompts.isCustomSystem ? prompts.systemPrompt : undefined,
           customUserPromptTemplate: prompts.isCustomUser ? prompts.userPromptTemplate ?? undefined : undefined,
+          // Pass guru profile if available (convert null to undefined)
+          guruProfile: guruProfile ?? undefined,
         });
       });
     } catch (error) {
@@ -551,12 +657,89 @@ export const curriculumGenerationJob = inngest.createFunction(
       await updateArtifactProgress(artifactId, CURRICULUM_PHASE_KEYS.STRUCTURING_MODULES);
     });
 
+    // Check if ground truth verification is enabled
+    const gtConfig = await step.run('check-ground-truth-config', async () => {
+      return await resolveGroundTruthConfig(projectId);
+    });
+
+    // Phase 4.5: Verification (if enabled)
+    let verificationStatus: 'VERIFIED' | 'NEEDS_REVIEW' | 'UNVERIFIED' | 'FAILED' | null = null;
+    let verificationDetails: Record<string, unknown> | null = null;
+
+    if (gtConfig?.enabled) {
+      await step.run('progress-verifying', async () => {
+        await updateArtifactProgress(artifactId, CURRICULUM_PHASE_KEYS.VERIFYING_CONTENT);
+      });
+
+      try {
+        // Extract verifiable claims from curriculum content
+        const claims = await step.run('extract-curriculum-claims', async () => {
+          return extractCurriculumClaims(result.content);
+        });
+
+        console.log(`[Curriculum ${artifactId}] Extracted ${claims.length} verifiable claims`);
+
+        // Verify claims against ground truth (if any claims were extracted)
+        if (claims.length > 0) {
+          // Initialize sub-task progress for verification phase
+          await step.run('init-subtask-progress', async () => {
+            await updateSubTaskProgress(artifactId, {
+              phase: 'VERIFYING_CONTENT',
+              current: 0,
+              total: claims.length,
+              currentClaimText: 'Starting verification...'
+            });
+          });
+
+          const verificationResult = await step.run('verify-curriculum-claims', async () => {
+            return await verifyClaimsAgainstGroundTruth(claims, gtConfig);
+          });
+
+          // Update sub-task progress to show completion
+          await step.run('complete-subtask-progress', async () => {
+            await updateSubTaskProgress(artifactId, {
+              phase: 'VERIFYING_CONTENT',
+              current: claims.length,
+              total: claims.length,
+              currentClaimText: `Verified ${verificationResult.summary.verifiedClaims}/${claims.length} claims`
+            });
+          });
+
+          console.log(
+            `[Curriculum ${artifactId}] Verification complete: ${verificationResult.status} ` +
+            `(${verificationResult.summary.verifiedClaims}/${verificationResult.summary.totalClaims} verified)`
+          );
+
+          verificationStatus = verificationResult.status;
+          verificationDetails = {
+            toolCalls: verificationResult.toolCalls,
+            claims: verificationResult.claims,
+            summary: verificationResult.summary,
+          };
+        } else {
+          // No claims to verify - mark as unverified (no content to check)
+          console.log(`[Curriculum ${artifactId}] No verifiable claims found in curriculum content`);
+          verificationStatus = 'UNVERIFIED';
+          verificationDetails = {
+            message: 'No verifiable claims found in curriculum content',
+            summary: { totalClaims: 0, verifiedClaims: 0, failedClaims: 0, cachedResponses: 0 },
+          };
+        }
+      } catch (error) {
+        console.error(`[Curriculum ${artifactId}] Verification error:`, error);
+        verificationStatus = 'FAILED';
+        verificationDetails = {
+          error: error instanceof Error ? error.message : 'Unknown verification error',
+        };
+      }
+    }
+
     // Phase 5: Saving Artifact
     await step.run('progress-saving', async () => {
       await updateArtifactProgress(artifactId, CURRICULUM_PHASE_KEYS.SAVING_ARTIFACT);
     });
 
-    // Save artifact with prompt hashes
+    // Save artifact with prompt hashes and verification results
     await step.run('save-artifact', async () => {
       // Hash prompts for versioning (use resolved prompts which may be custom)
       const systemPromptHash = hashPrompt(prompts.systemPrompt);
@@ -573,6 +756,13 @@ export const curriculumGenerationJob = inngest.createFunction(
           promptConfigId: prompts.configId,  // Store reference to custom config if used
           status: 'COMPLETED',
           progressStage: null,  // Clear on completion
+          // Verification results (if ground truth was enabled)
+          ...(verificationStatus && {
+            verificationStatus,
+            verificationDetails: verificationDetails as Prisma.JsonObject,
+            verificationAttempts: 1,
+            lastVerifiedAt: new Date(),
+          }),
         },
       });
     });
@@ -592,7 +782,10 @@ export const drillSeriesGenerationJob = inngest.createFunction(
   },
   { event: 'guru/generate-drill-series' },
   async ({ event, step }) => {
-    const { projectId, artifactId, mentalModelArtifactId, curriculumArtifactId, userNotes } = event.data;
+    const { projectId, artifactId, mentalModelArtifactId, curriculumArtifactId, userNotes, drillConfig: rawDrillConfig } = event.data;
+
+    // Normalize drill config to ensure values are within safe ranges
+    const drillConfig = normalizeDrillConfig(rawDrillConfig);
 
     // Phase 1: Loading Prerequisites
     await step.run('progress-loading', async () => {
@@ -648,9 +841,57 @@ export const drillSeriesGenerationJob = inngest.createFunction(
       throw new Error('Curriculum required for drill series generation');
     }
 
+    // Fetch guru profile
+    const guruProfile = await step.run('fetch-guru-profile', async () => {
+      const projectWithProfile = await prisma.project.findUnique({
+        where: { id: projectId },
+        include: { currentProfile: true }
+      });
+      const profileData = projectWithProfile?.currentProfile?.profileData;
+      return profileData ? (profileData as import('@/lib/guruProfile/types').GuruProfileData) : undefined;
+    });
+
     // Resolve custom prompts for this project
     const prompts = await step.run('resolve-prompts', async () => {
       return await resolvePromptsForProject(projectId, 'DRILL_SERIES');
+    });
+
+    // Check if ground truth is enabled and seed positions if available
+    const seededPositions = await step.run('seed-positions', async () => {
+      const gtConfig = await resolveGroundTruthConfig(projectId);
+      if (!gtConfig?.enabled) {
+        console.log(`[Drill Series ${artifactId}] Ground truth not enabled, skipping position seeding`);
+        return null;
+      }
+
+      // Calculate dynamic position limit based on drill count and phases
+      // This reduces token usage by loading only what's needed
+      const phasesCount = drillConfig?.gamePhases?.length ?? 1;
+      const targetDrills = drillConfig?.targetDrillCount ?? 21;
+      const positionsPerPhase = Math.ceil(targetDrills / phasesCount) + 2; // +2 buffer for variety
+
+      // Cap at user-specified max or default of 25
+      const dynamicLimit = Math.min(
+        positionsPerPhase,
+        drillConfig?.maxPositionsPerPhase ?? 25
+      );
+
+      console.log(`[Drill Series ${artifactId}] Dynamic position limit: ${dynamicLimit}/phase (${targetDrills} drills ÷ ${phasesCount} phases + 2 buffer)`);
+
+      // Fetch positions from the Position Library (filtered by requested game phases)
+      const positions = await seedPositionsByPhase(
+        gtConfig.engineId,
+        drillConfig?.gamePhases,
+        dynamicLimit
+      );
+      if (!positions) {
+        console.log(`[Drill Series ${artifactId}] No positions found, using standard generation`);
+        return null;
+      }
+
+      const totalPositions = positions.OPENING.length + positions.EARLY.length + positions.MIDDLE.length + positions.BEAROFF.length;
+      console.log(`[Drill Series ${artifactId}] Seeded ${totalPositions} positions (OPENING=${positions.OPENING.length}, EARLY=${positions.EARLY.length}, MIDDLE=${positions.MIDDLE.length}, BEAROFF=${positions.BEAROFF.length})`);
+      return positions;
     });
 
     // Phase 2: Analyzing Curriculum
@@ -668,11 +909,13 @@ export const drillSeriesGenerationJob = inngest.createFunction(
       await updateArtifactProgress(artifactId, DRILL_SERIES_PHASE_KEYS.GENERATING_CONTENT);
     });
 
-    // Generate drill series
+    // Generate drill series with validation
     let result;
     try {
       result = await step.run('generate-drill-series', async () => {
-        return await generateDrillSeries({
+        console.log(`[Drill Series ${artifactId}] Starting generation with validation (target: ${drillConfig.targetDrillCount} drills)`);
+
+        return await generateDrillSeriesWithValidation({
           projectId,
           contextLayers: project.contextLayers.map(l => ({ title: l.title, content: l.content })),
           knowledgeFiles: project.knowledgeFiles.map(f => ({ title: f.title, content: f.content })),
@@ -683,8 +926,22 @@ export const drillSeriesGenerationJob = inngest.createFunction(
           // Pass custom prompts if configured
           customSystemPrompt: prompts.isCustomSystem ? prompts.systemPrompt : undefined,
           customUserPromptTemplate: prompts.isCustomUser ? prompts.userPromptTemplate ?? undefined : undefined,
+          // Pass guru profile if available (convert null to undefined)
+          guruProfile: guruProfile ?? undefined,
+          // Pass seeded positions for scenario-based drills
+          seededPositions,
+          // Pass drill configuration (required for validation)
+          drillConfig,
         });
       });
+
+      // Log validation results
+      if (result.validationWarning) {
+        console.warn(`[Drill Series ${artifactId}] Validation warning:`, result.validationWarning);
+        console.log(`[Drill Series ${artifactId}] Accepted partial result after ${result.retryCount} retry attempts`);
+      } else {
+        console.log(`[Drill Series ${artifactId}] Validation passed (${result.retryCount === 0 ? 'first attempt' : `after ${result.retryCount} retries`})`);
+      }
     } catch (error) {
       await step.run('mark-failed-generation', async () => {
         await prisma.guruArtifact.update({
@@ -699,16 +956,118 @@ export const drillSeriesGenerationJob = inngest.createFunction(
       throw error;
     }
 
+    // Check if ground truth verification is enabled
+    const gtConfig = await step.run('check-ground-truth-config', async () => {
+      return await resolveGroundTruthConfig(projectId);
+    });
+
+    // Phase 4.5: Per-Drill Verification (if enabled)
+    if (gtConfig?.enabled) {
+      await step.run('progress-verifying', async () => {
+        await updateArtifactProgress(artifactId, DRILL_SERIES_PHASE_KEYS.VERIFYING_CONTENT);
+      });
+
+      try {
+        // Cast content to phase-organized schema
+        const drillContent = result.content as unknown as PhaseOrganizedDrillSeries;
+
+        // Count total drills for progress tracking
+        const totalDrills = drillContent.phases?.reduce(
+          (sum, phase) => sum + phase.principleGroups.reduce(
+            (groupSum, group) => groupSum + group.drills.length, 0
+          ), 0
+        ) || 0;
+
+        console.log(`[Drill Series ${artifactId}] Starting per-drill verification for ${totalDrills} drills`);
+
+        // Initialize sub-task progress for verification phase
+        if (totalDrills > 0) {
+          await step.run('init-subtask-progress', async () => {
+            await updateSubTaskProgress(artifactId, {
+              phase: 'VERIFYING_CONTENT',
+              current: 0,
+              total: totalDrills,
+              currentClaimText: 'Verifying drills against ground truth...'
+            });
+          });
+        }
+
+        // Verify ALL drills against ground truth (not just extracted claims)
+        const verificationResult = await step.run('verify-all-drills', async () => {
+          return await verifyAllDrills(drillContent, gtConfig);
+        });
+
+        // Update sub-task progress to show completion
+        if (totalDrills > 0) {
+          await step.run('complete-subtask-progress', async () => {
+            await updateSubTaskProgress(artifactId, {
+              phase: 'VERIFYING_CONTENT',
+              current: totalDrills,
+              total: totalDrills,
+              currentClaimText: `Verified ${verificationResult.summary.verifiedDrills}/${totalDrills} drills`
+            });
+          });
+        }
+
+        console.log(
+          `[Drill Series ${artifactId}] Per-drill verification complete: ${verificationResult.status} ` +
+          `(${verificationResult.summary.verifiedDrills} verified, ${verificationResult.summary.failedDrills} failed, ${verificationResult.summary.skippedDrills} skipped)`
+        );
+
+        // Update artifact with per-drill verification results
+        await step.run('save-verification', async () => {
+          await prisma.guruArtifact.update({
+            where: { id: artifactId },
+            data: {
+              verificationStatus: verificationResult.status,
+              verificationDetails: {
+                drills: verificationResult.drills,
+                summary: verificationResult.summary,
+              } as unknown as Prisma.JsonObject,
+              verificationAttempts: 1,
+              lastVerifiedAt: new Date(),
+            },
+          });
+        });
+      } catch (verificationError) {
+        // Log verification error but don't fail the entire generation
+        console.error(
+          `[Drill Series ${artifactId}] Per-drill verification failed:`,
+          verificationError instanceof Error ? verificationError.message : 'Unknown error'
+        );
+
+        // Mark verification as failed in database
+        await step.run('mark-verification-failed', async () => {
+          await prisma.guruArtifact.update({
+            where: { id: artifactId },
+            data: {
+              verificationStatus: 'FAILED',
+              verificationDetails: {
+                error: verificationError instanceof Error ? verificationError.message : 'Unknown error',
+              } as unknown as Prisma.JsonObject,
+              verificationAttempts: 1,
+              lastVerifiedAt: new Date(),
+            },
+          });
+        });
+      }
+    } else {
+      console.log(`[Drill Series ${artifactId}] Ground truth verification not enabled, skipping`);
+    }
+
     // Phase 5: Saving Artifact
     await step.run('progress-saving', async () => {
       await updateArtifactProgress(artifactId, DRILL_SERIES_PHASE_KEYS.SAVING_ARTIFACT);
     });
 
-    // Save artifact with prompt hashes
+    // Save artifact with prompt hashes, positionsUsed, and validation metadata
     await step.run('save-artifact', async () => {
       // Hash prompts for versioning (use resolved prompts which may be custom)
       const systemPromptHash = hashPrompt(prompts.systemPrompt);
       const userPromptHash = hashPrompt(result.userPrompt);
+
+      // Get position IDs if positions were seeded
+      const positionsUsed = getPositionIdsFromSeeded(seededPositions);
 
       await prisma.guruArtifact.update({
         where: { id: artifactId },
@@ -719,15 +1078,704 @@ export const drillSeriesGenerationJob = inngest.createFunction(
           systemPromptHash,
           userPromptHash,
           promptConfigId: prompts.configId,  // Store reference to custom config if used
+          positionsUsed: positionsUsed.length > 0 ? positionsUsed : [],
+          // Store validation metadata
+          validationWarning: result.validationWarning ?? null,
+          validationRetryCount: result.retryCount,
           status: 'COMPLETED',
           progressStage: null,  // Clear on completion
         },
       });
     });
 
+    // Phase 6: Populate Drill Table (two-table architecture sync)
+    await step.run('populate-drill-table', async () => {
+      const { populateDrillsFromArtifact } = await import('./drills/sync');
+      const populateResult = await populateDrillsFromArtifact(artifactId);
+      console.log(`[Drill Series ${artifactId}] Populated ${populateResult.created} drill records (skipped: ${populateResult.skipped})`);
+      if (populateResult.errors.length > 0) {
+        console.warn(`[Drill Series ${artifactId}] Population warnings: ${populateResult.errors.join(', ')}`);
+      }
+    });
+
     return { artifactId, success: true };
   }
 );
+
+/**
+ * Artifact Regeneration job - handles re-generation of artifacts that need review
+ */
+export const artifactRegenerationJob = inngest.createFunction(
+  {
+    id: 'artifact-regeneration',
+    name: 'Regenerate Artifact',
+    retries: 1,
+  },
+  { event: 'guru/regenerate-artifact' },
+  async ({ event, step }) => {
+    const { artifactId, projectId, artifactType, scope, previousFailures } = event.data;
+
+    console.log(`[Regenerate] Starting regeneration for artifact ${artifactId} (${artifactType}) - Scope: ${scope}`);
+
+    try {
+      // Get the original artifact to understand its dependencies
+      const artifact = await step.run('fetch-artifact', async () => {
+        return await prisma.guruArtifact.findUnique({
+          where: { id: artifactId },
+          include: {
+            project: true,
+            dependsOn: true, // Get the artifact this one depends on
+          },
+        });
+      });
+
+      if (!artifact) {
+        throw new Error(`Artifact not found: ${artifactId}`);
+      }
+
+      // Route to appropriate generator based on artifact type
+      switch (artifactType) {
+        case 'MENTAL_MODEL': {
+          // Mental model has no dependencies, just regenerate
+          console.log(`[Regenerate] Triggering mental model generation for ${artifactId}`);
+
+          await step.sendEvent('trigger-mental-model', {
+            name: 'guru/generate-mental-model',
+            data: {
+              projectId,
+              artifactId, // Reuse same artifact ID to update in place
+            },
+          });
+          break;
+        }
+
+        case 'CURRICULUM': {
+          // Curriculum depends on mental model - find the latest completed one
+          const mentalModel = await step.run('find-mental-model', async () => {
+            return await prisma.guruArtifact.findFirst({
+              where: {
+                projectId,
+                type: 'MENTAL_MODEL',
+                status: 'COMPLETED',
+              },
+              orderBy: { version: 'desc' },
+            });
+          });
+
+          if (!mentalModel) {
+            throw new Error('No completed mental model found for curriculum regeneration');
+          }
+
+          console.log(`[Regenerate] Triggering curriculum generation for ${artifactId} based on mental model ${mentalModel.id}`);
+
+          await step.sendEvent('trigger-curriculum', {
+            name: 'guru/generate-curriculum',
+            data: {
+              projectId,
+              artifactId, // Reuse same artifact ID to update in place
+              mentalModelArtifactId: mentalModel.id,
+            },
+          });
+          break;
+        }
+
+        case 'DRILL_SERIES': {
+          // Drill series depends on both mental model and curriculum
+          const [mentalModel, curriculum] = await step.run('find-dependencies', async () => {
+            return await Promise.all([
+              prisma.guruArtifact.findFirst({
+                where: {
+                  projectId,
+                  type: 'MENTAL_MODEL',
+                  status: 'COMPLETED',
+                },
+                orderBy: { version: 'desc' },
+              }),
+              prisma.guruArtifact.findFirst({
+                where: {
+                  projectId,
+                  type: 'CURRICULUM',
+                  status: 'COMPLETED',
+                },
+                orderBy: { version: 'desc' },
+              }),
+            ]);
+          });
+
+          if (!mentalModel) {
+            throw new Error('No completed mental model found for drill series regeneration');
+          }
+
+          if (!curriculum) {
+            throw new Error('No completed curriculum found for drill series regeneration');
+          }
+
+          console.log(
+            `[Regenerate] Triggering drill series generation for ${artifactId} based on mental model ${mentalModel.id} and curriculum ${curriculum.id}`
+          );
+
+          await step.sendEvent('trigger-drill-series', {
+            name: 'guru/generate-drill-series',
+            data: {
+              projectId,
+              artifactId, // Reuse same artifact ID to update in place
+              mentalModelArtifactId: mentalModel.id,
+              curriculumArtifactId: curriculum.id,
+            },
+          });
+          break;
+        }
+
+        default: {
+          throw new Error(`Unknown artifact type: ${artifactType}`);
+        }
+      }
+
+      console.log(`[Regenerate] Successfully triggered regeneration for ${artifactId}`);
+
+      return {
+        success: true,
+        artifactId,
+        artifactType,
+        scope,
+      };
+
+    } catch (error) {
+      console.error(`[Regenerate] Failed to regenerate artifact ${artifactId}:`, error);
+
+      // Mark artifact as failed
+      await step.run('mark-failed', async () => {
+        await prisma.guruArtifact.update({
+          where: { id: artifactId },
+          data: {
+            status: 'FAILED',
+            progressStage: null,
+            errorMessage: error instanceof Error ? error.message : 'Regeneration failed',
+          },
+        });
+      });
+
+      throw error;
+    }
+  }
+);
+
+// =============================================================================
+// MATCH ARCHIVE IMPORT FUNCTIONS
+// =============================================================================
+
+import {
+  parseJellyFishMatch,
+  enrichMatchMetadata,
+  replayMatch,
+  classifyPhase,
+  generateAsciiBoard,
+  boardStateToMCPFormat,
+  generatePositionIdFromBoard,
+  readArchiveFile,
+} from './matchImport'
+import type { ParsedMatch, DiceRoll } from './matchImport'
+import {
+  discoverHardyArchives,
+  downloadArchive,
+  filterAlreadyImported,
+  storeArchiveFile,
+} from './matchImport'
+import type { DiscoveredArchive } from './matchImport'
+import { getPlaysForPosition, formatMove } from './groundTruth/mcpClient'
+import type { GroundTruthConfig } from './groundTruth/types'
+
+/**
+ * Scrape match archives from Hardy's Backgammon Pages.
+ *
+ * This job discovers all .txt files on Hardy's site, filters out already-imported
+ * ones, then downloads and processes each one incrementally (saving to DB after
+ * each download to avoid losing progress on failures).
+ */
+export const scrapeMatchArchivesJob = inngest.createFunction(
+  {
+    id: 'scrape-match-archives',
+    name: 'Scrape Match Archives',
+    retries: 1,
+  },
+  { event: 'match-archive/scrape.started' },
+  async ({ event, step }) => {
+    const { collection, engineId } = event.data as {
+      collection: 'Hardy'
+      engineId: string
+    }
+
+    // Step 1: Discover all archives from the collection
+    const archives = await step.run('discover-archives', async () => {
+      if (collection === 'Hardy') {
+        return discoverHardyArchives()
+      }
+      throw new Error(`Unknown collection: ${collection}`)
+    })
+
+    console.log(`[Scraper] Discovered ${archives.length} archives from ${collection}`)
+
+    // Step 2: Filter out already-imported archives
+    const scrapeResult = await step.run('filter-imported', async () => {
+      return filterAlreadyImported(archives, prisma)
+    })
+
+    console.log(
+      `[Scraper] ${scrapeResult.alreadyImported} already imported, ${scrapeResult.toProcess.length} to process`
+    )
+
+    if (scrapeResult.toProcess.length === 0) {
+      return {
+        collection,
+        discovered: scrapeResult.discovered,
+        alreadyImported: scrapeResult.alreadyImported,
+        processed: 0,
+        failed: 0,
+        message: 'All archives already imported',
+      }
+    }
+
+    // Step 3: Process each archive individually
+    // Each archive is processed in its own step for incremental progress
+    // Rate limiting: 1 second delay between downloads to be respectful to Hardy's server
+    const DOWNLOAD_DELAY_MS = 1000
+    let processed = 0
+    let failed = 0
+    const failures: Array<{ filename: string; error: string }> = []
+
+    for (let i = 0; i < scrapeResult.toProcess.length; i++) {
+      const archive = scrapeResult.toProcess[i]
+
+      try {
+        await step.run(`import-${archive.filename}`, async () => {
+          // Download the file
+          const content = await downloadArchive(archive.url)
+
+          // Create the MatchArchive record
+          const record = await prisma.matchArchive.create({
+            data: {
+              filename: archive.filename,
+              sourceUrl: archive.url,
+              sourceCollection: collection,
+              importStatus: 'PENDING',
+              totalMatches: 0,
+              totalGames: 0,
+              totalPositions: 0,
+              positionsVerified: 0,
+            },
+          })
+
+          // Store the file content locally
+          await storeArchiveFile(record.id, content)
+
+          // Trigger the existing import job to process this archive
+          await inngest.send({
+            name: 'match-archive/import.started',
+            data: {
+              archiveId: record.id,
+              engineId,
+            },
+          })
+
+          return { archiveId: record.id, filename: archive.filename }
+        })
+
+        processed++
+
+        // Rate limiting: delay between downloads (skip on last item)
+        if (i < scrapeResult.toProcess.length - 1) {
+          await step.sleep(`rate-limit-${i}`, DOWNLOAD_DELAY_MS)
+        }
+      } catch (error) {
+        failed++
+        failures.push({
+          filename: archive.filename,
+          error: error instanceof Error ? error.message : String(error),
+        })
+        console.error(`[Scraper] Failed to process ${archive.filename}:`, error)
+        // Continue processing other archives
+      }
+    }
+
+    return {
+      collection,
+      discovered: scrapeResult.discovered,
+      alreadyImported: scrapeResult.alreadyImported,
+      processed,
+      failed,
+      failures: failures.slice(0, 10), // Only include first 10 failures in response
+      message:
+        failed > 0
+          ? `Processed ${processed} archives with ${failed} failures`
+          : `Successfully processed ${processed} archives`,
+    }
+  }
+)
+
+/**
+ * Match archive import job - parses file, replays games, stores positions
+ */
+export const matchArchiveImportJob = inngest.createFunction(
+  {
+    id: 'match-archive-import',
+    name: 'Import Match Archive',
+    retries: 3,
+  },
+  { event: 'match-archive/import.started' },
+  async ({ event, step }) => {
+    const { archiveId, engineId } = event.data
+
+    // Step 1: Update status to parsing
+    await step.run('update-status-parsing', async () => {
+      await prisma.matchArchive.update({
+        where: { id: archiveId },
+        data: { importStatus: 'PARSING' }
+      })
+    })
+
+    // Step 2: Parse the match file
+    const parseResult = await step.run('parse-match-file', async () => {
+      const archive = await prisma.matchArchive.findUnique({
+        where: { id: archiveId }
+      })
+      if (!archive) throw new Error('Archive not found')
+
+      const content = await readArchiveFile(archiveId)
+      const result = parseJellyFishMatch(content)
+
+      if (!result.success || !result.match) {
+        throw new Error(`Parse failed: ${result.errors.map(e => e.message).join(', ')}`)
+      }
+
+      return enrichMatchMetadata(result.match, archive.filename, archive.sourceCollection || undefined)
+    })
+
+    // Step 3: Create ImportedMatch records
+    const matchIds = await step.run('create-match-records', async () => {
+      const ids: string[] = []
+
+      // Create one ImportedMatch per match (first game of each match)
+      // For single-match files, there's one ImportedMatch
+      const importedMatch = await prisma.importedMatch.create({
+        data: {
+          archiveId,
+          tournamentName: parseResult.metadata.tournamentName,
+          matchLength: parseResult.matchLength,
+          player1Name: parseResult.games[0]?.player1.name || 'Player 1',
+          player1Country: parseResult.games[0]?.player1.country,
+          player2Name: parseResult.games[0]?.player2.name || 'Player 2',
+          player2Country: parseResult.games[0]?.player2.country,
+          totalGames: parseResult.games.length,
+        }
+      })
+      ids.push(importedMatch.id)
+
+      await prisma.matchArchive.update({
+        where: { id: archiveId },
+        data: {
+          totalMatches: 1,
+          totalGames: parseResult.games.length
+        }
+      })
+
+      return ids
+    })
+
+    // Step 4: Update status to replaying
+    await step.run('update-status-replaying', async () => {
+      await prisma.matchArchive.update({
+        where: { id: archiveId },
+        data: { importStatus: 'REPLAYING' }
+      })
+    })
+
+    // Step 5: Replay all games and extract positions
+    const positionIds = await step.run('replay-and-store-positions', async () => {
+      // Cast parseResult back to ParsedMatch since Inngest step.run serializes/deserializes
+      const replayResult = replayMatch(parseResult as unknown as ParsedMatch)
+      const ids: string[] = []
+
+      // Filter out OPENING positions (we use the opening catalog for those)
+      const positions = replayResult.positions.filter(pos => {
+        const phase = classifyPhase(pos)
+        return phase.phase !== 'OPENING'
+      })
+
+      // Store each position
+      for (const pos of positions) {
+        const positionId = generatePositionIdFromBoard(pos.board, pos.dice as [number, number], pos.player)
+        const diceRoll = `${pos.dice[0]}-${pos.dice[1]}`
+        const phase = classifyPhase(pos)
+
+        try {
+          // Store board config as metadata for later verification
+          const boardConfig = boardStateToMCPFormat(pos.board)
+
+          await prisma.positionLibrary.upsert({
+            where: { positionId },
+            create: {
+              positionId,
+              gamePhase: phase.phase,
+              diceRoll,
+              bestMove: '',  // Will be filled during verification
+              bestMoveEquity: 0,
+              asciiBoard: generateAsciiBoard(pos.board),
+              sourceType: 'MATCH_IMPORT',
+              engineId,
+              archiveId,
+              matchId: matchIds[0],
+              gameNumber: pos.gameNumber,
+              moveNumber: pos.moveNumber,
+              probabilityBreakdown: {
+                metadata: {
+                  board: boardConfig as { x: Record<string, number>; o: Record<string, number> },
+                  dice: pos.dice,
+                  player: pos.player,
+                  pipCountX: pos.pipCountX,
+                  pipCountO: pos.pipCountO,
+                }
+              } as Prisma.InputJsonValue
+            },
+            update: {} // Skip if already exists (deduplication)
+          })
+          ids.push(positionId)
+        } catch (error) {
+          console.error(`[Match Import] Failed to store position ${positionId}:`, error)
+        }
+      }
+
+      return ids
+    })
+
+    // Step 6: Update status and queue verification
+    await step.run('update-status-verifying', async () => {
+      await prisma.matchArchive.update({
+        where: { id: archiveId },
+        data: {
+          importStatus: 'VERIFYING',
+          totalPositions: positionIds.length
+        }
+      })
+    })
+
+    // Step 7: Send verification events in batches
+    const BATCH_SIZE = 50
+    const batches: string[][] = []
+    for (let i = 0; i < positionIds.length; i += BATCH_SIZE) {
+      batches.push(positionIds.slice(i, i + BATCH_SIZE))
+    }
+
+    for (let i = 0; i < batches.length; i++) {
+      await step.sendEvent(`send-verification-batch-${i}`, {
+        name: 'match-archive/verify-batch',
+        data: {
+          archiveId,
+          positionIds: batches[i],
+          batchNumber: i + 1,
+          totalBatches: batches.length,
+          engineId
+        }
+      })
+    }
+
+    // If no positions to verify, mark as complete
+    if (positionIds.length === 0) {
+      await step.run('mark-complete-no-positions', async () => {
+        await prisma.matchArchive.update({
+          where: { id: archiveId },
+          data: {
+            importStatus: 'COMPLETED',
+            completedAt: new Date()
+          }
+        })
+      })
+    }
+
+    return {
+      success: true,
+      archiveId,
+      positionsQueued: positionIds.length,
+      batches: batches.length
+    }
+  }
+)
+
+/**
+ * Verify positions against GNUBG in throttled batches
+ */
+export const verifyPositionBatchJob = inngest.createFunction(
+  {
+    id: 'verify-position-batch',
+    name: 'Verify Position Batch',
+    concurrency: {
+      limit: 3  // Max 3 concurrent batch verifications
+    },
+    throttle: {
+      limit: 10,
+      period: '1s'
+    }
+  },
+  { event: 'match-archive/verify-batch' },
+  async ({ event, step }) => {
+    const { archiveId, positionIds, batchNumber, totalBatches, engineId } = event.data
+
+    // Get engine config
+    const engineConfig = await step.run('get-engine-config', async () => {
+      const engine = await prisma.groundTruthEngine.findUnique({
+        where: { id: engineId }
+      })
+
+      if (!engine) {
+        throw new Error(`Engine not found: ${engineId}`)
+      }
+
+      return {
+        enabled: true,
+        engineUrl: engine.engineUrl,
+        engineId: engine.id,
+        engineName: engine.name,
+        domain: engine.domain,
+        configId: ''
+      } as GroundTruthConfig
+    })
+
+    let verified = 0
+    let errors = 0
+
+    // Verify each position
+    for (const positionId of positionIds) {
+      await step.run(`verify-${positionId}`, async () => {
+        try {
+          const position = await prisma.positionLibrary.findUnique({
+            where: { positionId }
+          })
+
+          if (!position) {
+            console.warn(`[Verify] Position not found: ${positionId}`)
+            return
+          }
+
+          // Skip if already verified
+          if (position.bestMove && position.bestMove !== '') {
+            verified++
+            return
+          }
+
+          // Extract board config from stored metadata
+          const probBreakdown = position.probabilityBreakdown as {
+            metadata?: {
+              board: { x: Record<string, number>; o: Record<string, number> }
+              dice: DiceRoll
+              player: 'x' | 'o'
+            }
+          } | null
+
+          if (!probBreakdown?.metadata?.board) {
+            console.error(`[Verify] No board metadata for position ${positionId}`)
+            errors++
+            return
+          }
+
+          const { board, dice, player } = probBreakdown.metadata
+
+          // Query GNUBG for best moves
+          const moves = await getPlaysForPosition(
+            {
+              board,
+              cubeful: false,
+              dice: dice as [number, number],
+              player,
+              'max-moves': 3
+            },
+            engineConfig
+          )
+
+          if (moves && moves.length > 0) {
+            await prisma.positionLibrary.update({
+              where: { positionId },
+              data: {
+                bestMove: formatMove(moves[0].play),
+                bestMoveEquity: moves[0].evaluation.eq,
+                secondBestMove: moves[1] ? formatMove(moves[1].play) : null,
+                secondEquity: moves[1]?.evaluation.eq ?? null,
+                thirdBestMove: moves[2] ? formatMove(moves[2].play) : null,
+                thirdEquity: moves[2]?.evaluation.eq ?? null,
+                probabilityBreakdown: {
+                  ...probBreakdown,
+                  best: moves[0].evaluation.probability,
+                  second: moves[1]?.evaluation.probability ?? null,
+                  third: moves[2]?.evaluation.probability ?? null
+                }
+              }
+            })
+            verified++
+          }
+        } catch (error) {
+          console.error(`[Verify] Failed for ${positionId}:`, error)
+          errors++
+        }
+      })
+
+      // Small delay between verifications to avoid overwhelming the engine
+      await step.sleep(`delay-${positionId}`, '100ms')
+    }
+
+    // Update archive stats
+    await step.run('update-archive-stats', async () => {
+      const archive = await prisma.matchArchive.findUnique({
+        where: { id: archiveId }
+      })
+
+      if (!archive) return
+
+      const newVerified = archive.positionsVerified + verified
+
+      await prisma.matchArchive.update({
+        where: { id: archiveId },
+        data: {
+          positionsVerified: newVerified
+        }
+      })
+
+      // Check if all batches are done (this is the final batch)
+      if (batchNumber === totalBatches) {
+        // Re-fetch to get accurate count (already includes our update from above)
+        const finalArchive = await prisma.matchArchive.findUnique({
+          where: { id: archiveId }
+        })
+
+        if (finalArchive) {
+          // Mark complete if 95%+ verified (allowing some failures)
+          // Note: finalArchive.positionsVerified already includes this batch's verified count
+          const verificationRate = finalArchive.totalPositions > 0
+            ? finalArchive.positionsVerified / finalArchive.totalPositions
+            : 1
+
+          if (verificationRate >= MIN_VERIFICATION_RATE_FOR_COMPLETION) {
+            await prisma.matchArchive.update({
+              where: { id: archiveId },
+              data: {
+                importStatus: 'COMPLETED',
+                completedAt: new Date()
+              }
+            })
+          } else {
+            console.warn(
+              `[Match Import ${archiveId}] Import incomplete: ${finalArchive.positionsVerified}/${finalArchive.totalPositions} verified (${Math.round(verificationRate * 100)}%)`
+            )
+          }
+        }
+      }
+    })
+
+    return {
+      batchNumber,
+      totalBatches,
+      verified,
+      errors
+    }
+  }
+)
 
 /**
  * Export all functions as an array for registration
@@ -739,4 +1787,8 @@ export const inngestFunctions = [
   mentalModelGenerationJob,
   curriculumGenerationJob,
   drillSeriesGenerationJob,
+  artifactRegenerationJob,
+  scrapeMatchArchivesJob,
+  matchArchiveImportJob,
+  verifyPositionBatchJob,
 ];

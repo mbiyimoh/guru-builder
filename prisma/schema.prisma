@@ -40,36 +40,77 @@ model Project {
   updatedAt   DateTime @updatedAt
 
   // User ownership
-  userId      String?  // Nullable for migration period
-  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String? // Nullable for migration period
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Guru Profile (brain dump synthesis)
+  currentProfileId String?       @unique
+  currentProfile   GuruProfile?  @relation("CurrentGuruProfile", fields: [currentProfileId], references: [id])
+  profileHistory   GuruProfile[] // All profiles for this project
 
   // Relations
   contextLayers      ContextLayer[]
   knowledgeFiles     KnowledgeFile[]
   researchRuns       ResearchRun[]
   snapshots          CorpusSnapshot[]
-  assessmentConfig   SelfAssessmentConfig?  // DEPRECATED: kept for migration
+  assessmentConfig   SelfAssessmentConfig? // DEPRECATED: kept for migration
   projectAssessments ProjectAssessment[]
   guruArtifacts      GuruArtifact[]
   promptConfigs      ProjectPromptConfig[]
+  groundTruthConfigs ProjectGroundTruthConfig[]
+  publishedGuru      PublishedGuru?
 
   @@index([createdAt])
   @@index([userId])
 }
 
-model ContextLayer {
-  id          String   @id @default(cuid())
-  projectId   String
-  title       String
-  content     String   @db.Text
-  priority    Int      // Lower number = higher priority (loaded first)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+// ============================================================================
+// GURU PROFILE MODEL (Brain Dump Synthesis)
+// ============================================================================
+
+model GuruProfile {
+  id        String @id @default(cuid())
+  projectId String
+
+  // Raw input from brain dump
+  rawBrainDump  String        @db.Text
+  synthesisMode SynthesisMode @default(TEXT)
+
+  // Structured profile data (15 fields - stored as JSON)
+  profileData Json // GuruProfileData type
+
+  // Fields marked as inferred vs explicitly stated
+  lightAreas String[] // Field names that were inferred with low confidence
+
+  // Versioning
+  version   Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  recommendations Recommendation[] @relation("RecommendationToLayer")
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // A profile can be the current one OR in history
+  currentForProject Project? @relation("CurrentGuruProfile")
+
+  @@index([projectId])
+  @@index([projectId, version])
+}
+
+model ContextLayer {
+  id        String   @id @default(cuid())
+  projectId String
+  title     String
+  content   String   @db.Text
+  priority  Int // Lower number = higher priority (loaded first)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  project         Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  recommendations Recommendation[]      @relation("RecommendationToLayer")
+  dimensionTags   CorpusDimensionTag[]
 
   @@index([projectId, priority])
   @@index([projectId, isActive])
@@ -91,34 +132,35 @@ model KnowledgeFile {
   updatedAt   DateTime @updatedAt
 
   // Relations
-  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  recommendations Recommendation[] @relation("RecommendationToFile")
+  project         Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  recommendations Recommendation[]      @relation("RecommendationToFile")
+  dimensionTags   CorpusDimensionTag[]
 
   @@index([projectId, isActive])
   @@index([projectId, category])
 }
 
 model ResearchRun {
-  id             String         @id @default(cuid())
-  projectId      String
-  instructions   String         @db.Text // Research query/instructions
-  depth          ResearchDepth  @default(MODERATE) // quick, moderate, deep
-  status         ResearchStatus @default(PENDING)
-  progressStage  String?        // Current stage: "searching", "analyzing", "synthesizing", etc.
+  id            String         @id @default(cuid())
+  projectId     String
+  instructions  String         @db.Text // Research query/instructions
+  depth         ResearchDepth  @default(MODERATE) // quick, moderate, deep
+  status        ResearchStatus @default(PENDING)
+  progressStage String? // Current stage: "searching", "analyzing", "synthesizing", etc.
 
   // Research results
-  researchData   Json? // Raw research findings from GPT Researcher
-  errorMessage   String?        @db.Text
+  researchData Json? // Raw research findings from GPT Researcher
+  errorMessage String? @db.Text
 
   // Metadata
-  startedAt      DateTime?
-  completedAt    DateTime?
-  executionTime  Int? // milliseconds
-  tokensUsed     Int?
-  costEstimate   Float? // USD
+  startedAt     DateTime?
+  completedAt   DateTime?
+  executionTime Int? // milliseconds
+  tokensUsed    Int?
+  costEstimate  Float? // USD
 
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
   project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -129,40 +171,40 @@ model ResearchRun {
 }
 
 model Recommendation {
-  id               String               @id @default(cuid())
-  researchRunId    String
+  id            String @id @default(cuid())
+  researchRunId String
 
   // Recommendation type and target
-  action           RecommendationAction // ADD, EDIT, DELETE
-  targetType       TargetType           // LAYER or KNOWLEDGE_FILE
+  action     RecommendationAction // ADD, EDIT, DELETE
+  targetType TargetType // LAYER or KNOWLEDGE_FILE
 
   // Separate FK fields (only one populated at a time based on targetType)
-  contextLayerId   String?
-  knowledgeFileId  String?
+  contextLayerId  String?
+  knowledgeFileId String?
 
   // Recommendation content
-  title            String
-  description      String               @db.Text // Brief summary of what's changing
-  fullContent      String               @db.Text // Complete, production-ready content to apply
-  reasoning        String               @db.Text // Why this recommendation matters
+  title       String
+  description String @db.Text // Brief summary of what's changing
+  fullContent String @db.Text // Complete, production-ready content to apply
+  reasoning   String @db.Text // Why this recommendation matters
 
   // Metadata
-  confidence       Float // 0.0 to 1.0
-  impactLevel      ImpactLevel // LOW, MEDIUM, HIGH
-  priority         Int // Ordering within research run
+  confidence  Float // 0.0 to 1.0
+  impactLevel ImpactLevel // LOW, MEDIUM, HIGH
+  priority    Int // Ordering within research run
 
   // Approval workflow
-  status           RecommendationStatus @default(PENDING) // PENDING, APPROVED, REJECTED, APPLIED
-  reviewedAt       DateTime?
-  appliedAt        DateTime?
+  status     RecommendationStatus @default(PENDING) // PENDING, APPROVED, REJECTED, APPLIED
+  reviewedAt DateTime?
+  appliedAt  DateTime?
 
-  createdAt        DateTime             @default(now())
-  updatedAt        DateTime             @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  researchRun      ResearchRun          @relation(fields: [researchRunId], references: [id], onDelete: Cascade)
-  contextLayer     ContextLayer?        @relation("RecommendationToLayer", fields: [contextLayerId], references: [id], onDelete: SetNull)
-  knowledgeFile    KnowledgeFile?       @relation("RecommendationToFile", fields: [knowledgeFileId], references: [id], onDelete: SetNull)
+  researchRun      ResearchRun       @relation(fields: [researchRunId], references: [id], onDelete: Cascade)
+  contextLayer     ContextLayer?     @relation("RecommendationToLayer", fields: [contextLayerId], references: [id], onDelete: SetNull)
+  knowledgeFile    KnowledgeFile?    @relation("RecommendationToFile", fields: [knowledgeFileId], references: [id], onDelete: SetNull)
   applyChangesLogs ApplyChangesLog[]
 
   @@index([researchRunId, status])
@@ -172,45 +214,45 @@ model Recommendation {
 }
 
 model CorpusSnapshot {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   projectId   String
   name        String // Auto-generated or user-provided
-  description String?  @db.Text
+  description String? @db.Text
 
   // Snapshot data
-  layersData  Json // Snapshot of all ContextLayers
-  filesData   Json // Snapshot of all KnowledgeFiles
+  layersData Json // Snapshot of all ContextLayers
+  filesData  Json // Snapshot of all KnowledgeFiles
 
   // Metadata
-  createdAt   DateTime @default(now())
-  restoredAt  DateTime?
+  createdAt  DateTime  @default(now())
+  restoredAt DateTime?
 
   // Relations
-  project           Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  applyChangesLogs  ApplyChangesLog[]
+  project          Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  applyChangesLogs ApplyChangesLog[]
 
   @@index([projectId, createdAt])
 }
 
 model ApplyChangesLog {
-  id                   String   @id @default(cuid())
-  snapshotId           String // Pre-apply snapshot
-  recommendationId     String
+  id               String @id @default(cuid())
+  snapshotId       String // Pre-apply snapshot
+  recommendationId String
 
   // What was changed
-  changeType           RecommendationAction
-  targetType           TargetType
-  targetId             String? // ID of created/modified/deleted entity
+  changeType RecommendationAction
+  targetType TargetType
+  targetId   String? // ID of created/modified/deleted entity
 
   // Change details
-  previousValue        Json? // For EDIT/DELETE
-  newValue             Json? // For ADD/EDIT
+  previousValue Json? // For EDIT/DELETE
+  newValue      Json? // For ADD/EDIT
 
-  createdAt            DateTime @default(now())
+  createdAt DateTime @default(now())
 
   // Relations
-  snapshot             CorpusSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
-  recommendation       Recommendation @relation(fields: [recommendationId], references: [id], onDelete: Cascade)
+  snapshot       CorpusSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  recommendation Recommendation @relation(fields: [recommendationId], references: [id], onDelete: Cascade)
 
   @@index([snapshotId])
   @@index([recommendationId])
@@ -222,15 +264,19 @@ model ApplyChangesLog {
 
 // Reusable assessment definitions owned by users (the "library")
 model AssessmentDefinition {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   userId      String
   name        String
-  description String?  @db.Text
-  domain      String   // e.g., "backgammon", "chess", "poker"
-  engineType  String?  // e.g., "gnubg", "stockfish", null for manual
-  engineUrl   String?  // MCP server URL for engine integration
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  description String? @db.Text
+  domain      String // e.g., "backgammon", "chess", "poker"
+  engineType  String? // e.g., "gnubg", "stockfish", null for manual
+  engineUrl   String? // MCP server URL for engine integration
+
+  // Content validation capability
+  canValidateContent Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   projectAssessments ProjectAssessment[]
@@ -241,11 +287,15 @@ model AssessmentDefinition {
 
 // Junction table: links AssessmentDefinitions to Projects
 model ProjectAssessment {
-  id                     String   @id @default(cuid())
+  id                     String  @id @default(cuid())
   projectId              String
   assessmentDefinitionId String
-  isEnabled              Boolean  @default(true)
-  createdAt              DateTime @default(now())
+  isEnabled              Boolean @default(true)
+
+  // Use this assessment's engine for content validation during generation
+  useForContentValidation Boolean @default(false)
+
+  createdAt DateTime @default(now())
 
   project              Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
   assessmentDefinition AssessmentDefinition @relation(fields: [assessmentDefinitionId], references: [id], onDelete: Cascade)
@@ -261,8 +311,8 @@ model ProjectAssessment {
 // ============================================================================
 
 model SelfAssessmentConfig {
-  id        String   @id @default(cuid())
-  projectId String   @unique
+  id        String @id @default(cuid())
+  projectId String @unique
 
   engineUrl String  @default("https://gnubg-mcp-d1c3c7a814e8.herokuapp.com")
   isEnabled Boolean @default(true)
@@ -277,8 +327,8 @@ model SelfAssessmentConfig {
 }
 
 model AssessmentSession {
-  id       String @id @default(cuid())
-  configId String?  // DEPRECATED: legacy reference, nullable for new sessions
+  id       String  @id @default(cuid())
+  configId String? // DEPRECATED: legacy reference, nullable for new sessions
 
   // New architecture reference
   projectAssessmentId String?
@@ -321,48 +371,80 @@ model AssessmentResult {
 }
 
 // ============================================================================
+// GROUND TRUTH CONTENT VALIDATION
+// ============================================================================
+
+model GroundTruthCache {
+  id        String   @id @default(cuid())
+  cacheKey  String   @unique // e.g., "gt:opening:3-1"
+  response  Json // Engine response data
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([expiresAt])
+}
+
+// ============================================================================
 // GURU TEACHING ARTIFACTS
 // ============================================================================
 
 // Generated teaching artifact (mental models, curricula, drill series)
 model GuruArtifact {
-  id          String           @id @default(cuid())
-  projectId   String
+  id        String @id @default(cuid())
+  projectId String
 
-  type        GuruArtifactType
-  version     Int              @default(1)
+  type    GuruArtifactType
+  version Int              @default(1)
 
   // Structured content (JSON)
-  content     Json
+  content Json
 
   // Human-readable version (Markdown with ASCII wireframes for drills)
-  markdownContent String?      @db.Text
+  markdownContent String? @db.Text
 
   // Generation metadata
-  corpusHash      String?      // Hash of corpus state when generated
-  generatedAt     DateTime     @default(now())
+  corpusHash  String? // Hash of corpus state when generated
+  generatedAt DateTime @default(now())
 
   // Prompt versioning - tracks which prompts generated this artifact
-  systemPromptHash    String?   // Hash of system prompt used
-  userPromptHash      String?   // Hash of user prompt template used
-  promptConfigId      String?   // Reference to ProjectPromptConfig if custom prompts used
+  systemPromptHash String? // Hash of system prompt used
+  userPromptHash   String? // Hash of user prompt template used
+  promptConfigId   String? // Reference to ProjectPromptConfig if custom prompts used
 
   // For tracking dependencies
-  dependsOnArtifactId String?  // ID of artifact this one builds on
+  dependsOnArtifactId String? // ID of artifact this one builds on
+
+  // Position library references (for drill series with scenario-based positions)
+  positionsUsed String[] // Array of PositionLibrary IDs used in generation
 
   // Status tracking
-  status      ArtifactStatus   @default(COMPLETED)
+  status ArtifactStatus @default(COMPLETED)
 
   // Error message if failed
-  errorMessage String?         @db.Text
+  errorMessage String? @db.Text
+
+  // Ground truth verification tracking
+  verificationStatus   VerificationStatus?
+  verificationDetails  Json? // { toolCalls: [], claims: [], failures: [], cachedResponses: [] }
+  verificationAttempts Int                 @default(0)
+  lastVerifiedAt       DateTime?
+
+  // Drill validation tracking (separate from ground truth verification)
+  validationWarning String? @db.Text // Warning message if partial results accepted after retries
+  validationRetryCount Int @default(0) // Number of retry attempts during generation validation
 
   // Progress tracking (for UI display during generation)
-  progressStage String?        // Current phase key (e.g., "COMPOSING_CORPUS")
+  progressStage String? // Current phase key (e.g., "COMPOSING_CORPUS")
+
+  // Sub-task progress for detailed tracking during generation (especially verification phase)
+  subTaskProgress Json? // { phase, current, total, currentClaimText, updatedAt }
 
   // Relations
-  project     Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  dependsOn   GuruArtifact?    @relation("ArtifactDependency", fields: [dependsOnArtifactId], references: [id])
-  dependents  GuruArtifact[]   @relation("ArtifactDependency")
+  project    Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  dependsOn  GuruArtifact?  @relation("ArtifactDependency", fields: [dependsOnArtifactId], references: [id])
+  dependents GuruArtifact[] @relation("ArtifactDependency")
+  drills     Drill[]
 
   @@index([projectId, type])
   @@index([projectId, type, version])
@@ -375,23 +457,23 @@ model GuruArtifact {
 
 // Custom prompt configuration per project per artifact type
 model ProjectPromptConfig {
-  id          String   @id @default(cuid())
-  projectId   String
+  id        String @id @default(cuid())
+  projectId String
 
   // Which artifact type this config applies to
-  artifactType GuruArtifactType  // MENTAL_MODEL | CURRICULUM | DRILL_SERIES
+  artifactType GuruArtifactType // MENTAL_MODEL | CURRICULUM | DRILL_SERIES
 
   // Custom prompts (null means use default)
-  customSystemPrompt String?  @db.Text
-  customUserPrompt   String?  @db.Text
+  customSystemPrompt String? @db.Text
+  customUserPrompt   String? @db.Text
 
   // Metadata
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  history     PromptConfigHistory[]
+  project Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  history PromptConfigHistory[]
 
   // Unique constraint: one config per project per artifact type
   @@unique([projectId, artifactType])
@@ -400,22 +482,22 @@ model ProjectPromptConfig {
 
 // Track history of prompt changes for analysis
 model PromptConfigHistory {
-  id              String   @id @default(cuid())
-  configId        String
+  id       String @id @default(cuid())
+  configId String
 
   // Snapshot of prompts at this point in time
-  systemPrompt    String?  @db.Text
-  userPrompt      String?  @db.Text
+  systemPrompt String? @db.Text
+  userPrompt   String? @db.Text
 
   // Change metadata
-  changeType      PromptChangeType  // CREATED | UPDATED | RESET
-  changedAt       DateTime @default(now())
+  changeType PromptChangeType // CREATED | UPDATED | RESET
+  changedAt  DateTime         @default(now())
 
   // Hash for quick comparison (matches GuruArtifact.systemPromptHash/userPromptHash)
   systemPromptHash String?
   userPromptHash   String?
 
-  config          ProjectPromptConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+  config ProjectPromptConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
 
   @@index([configId, changedAt])
 }
@@ -442,40 +524,355 @@ enum ArtifactStatus {
   FAILED
 }
 
+enum DrillTier {
+  RECOGNITION
+  APPLICATION
+  TRANSFER
+}
+
+// ============================================================================
+// GROUND TRUTH ENGINE MODELS (Standalone - Decoupled from Assessments)
+// ============================================================================
+
+// Catalog of available ground truth engines (admin-seeded)
+model GroundTruthEngine {
+  id          String  @id @default(cuid())
+  name        String  // "GNU Backgammon"
+  domain      String  // "backgammon"
+  engineUrl   String  // MCP server URL
+  description String? @db.Text
+  iconUrl     String? // For UI display
+  isActive    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projectConfigs ProjectGroundTruthConfig[]
+  positions      PositionLibrary[]
+
+  @@index([domain])
+  @@index([isActive])
+}
+
+// Links a ground truth engine to a project
+model ProjectGroundTruthConfig {
+  id        String  @id @default(cuid())
+  projectId String
+  engineId  String
+  isEnabled Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  engine  GroundTruthEngine @relation(fields: [engineId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, engineId])
+  @@index([projectId])
+  @@index([engineId])
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
 enum ResearchDepth {
-  QUICK    // 1-2 minutes, 5 sources
+  QUICK // 1-2 minutes, 5 sources
   MODERATE // 3-5 minutes, 10 sources
-  DEEP     // 5-10 minutes, 20 sources
+  DEEP // 5-10 minutes, 20 sources
 }
 
 enum ResearchStatus {
-  PENDING    // Queued, not started
-  RUNNING    // Currently executing
-  COMPLETED  // Finished successfully
-  FAILED     // Error occurred
-  CANCELLED  // User cancelled
+  PENDING // Queued, not started
+  RUNNING // Currently executing
+  COMPLETED // Finished successfully
+  FAILED // Error occurred
+  CANCELLED // User cancelled
 }
 
 enum RecommendationAction {
-  ADD    // Create new layer or file
-  EDIT   // Modify existing
+  ADD // Create new layer or file
+  EDIT // Modify existing
   DELETE // Remove existing
 }
 
 enum TargetType {
-  LAYER          // ContextLayer
+  LAYER // ContextLayer
   KNOWLEDGE_FILE // KnowledgeFile
 }
 
 enum ImpactLevel {
-  LOW    // Minor improvement
+  LOW // Minor improvement
   MEDIUM // Moderate improvement
-  HIGH   // Significant improvement
+  HIGH // Significant improvement
 }
 
 enum RecommendationStatus {
-  PENDING  // Awaiting review
+  PENDING // Awaiting review
   APPROVED // Approved, ready to apply
   REJECTED // Rejected by user
-  APPLIED  // Successfully applied
+  APPLIED // Successfully applied
+}
+
+enum SynthesisMode {
+  VOICE
+  TEXT
+  MIXED
+}
+
+enum VerificationStatus {
+  VERIFIED // All mathematical claims verified against ground truth
+  NEEDS_REVIEW // Some claims failed verification, blocked for human review
+  UNVERIFIED // Generated without ground truth validation (legacy/disabled)
+  FAILED // Verification process itself encountered an error
+}
+
+// ============================================================================
+// POSITION LIBRARY ENUMS
+// ============================================================================
+
+enum GamePhase {
+  OPENING // First roll (move 1) - MVP
+  EARLY // Phase 2
+  MIDDLE // Phase 2
+  BEAROFF // Phase 2
+}
+
+enum PositionSource {
+  OPENING_CATALOG // The 21 standard openings
+  CURATED // Pre-seeded educational positions
+  SELF_PLAY // Phase 2
+  MATCH_MINING // Legacy - kept for backward compatibility
+  MATCH_IMPORT // Imported from match archives (Hardy, BigBrother, LittleSister)
+}
+
+enum ImportStatus {
+  PENDING // Queued, file uploaded
+  PARSING // Parsing JellyFish format
+  REPLAYING // Reconstructing board positions
+  VERIFYING // Verifying positions with ground truth engine
+  COMPLETED // Successfully imported
+  FAILED // Error during import
+}
+
+// ============================================================================
+// MATCH ARCHIVE IMPORT SYSTEM
+// ============================================================================
+
+// Archive of imported match files (e.g., a .txt file with multiple matches)
+model MatchArchive {
+  id               String       @id @default(cuid())
+  filename         String
+  sourceUrl        String? // Original URL if downloaded from web
+  sourceCollection String? // "Hardy", "BigBrother", "LittleSister", etc.
+
+  // Import statistics
+  totalMatches      Int @default(0)
+  totalGames        Int @default(0)
+  totalPositions    Int @default(0)
+  positionsVerified Int @default(0)
+
+  // Import status tracking
+  importStatus ImportStatus @default(PENDING)
+  errorMessage String?      @db.Text
+
+  // Timestamps
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  // Relations
+  matches   ImportedMatch[]
+  positions PositionLibrary[]
+
+  @@index([importStatus])
+  @@index([sourceCollection])
+}
+
+// Individual match within an archive (with rich metadata)
+model ImportedMatch {
+  id        String @id @default(cuid())
+  archiveId String
+
+  // Match metadata (for narrative richness)
+  tournamentName String? // Tournament/event name
+  matchLength    Int // Points to win (e.g., 7, 11, 15)
+
+  // Player info
+  player1Name    String
+  player1Country String? // ISO 3166-1 alpha-3 (e.g., "USA", "GBR")
+  player2Name    String
+  player2Country String? // ISO 3166-1 alpha-3
+
+  // Match results
+  totalGames Int
+  winner     Int? // 1 or 2
+
+  // Estimated date (from filename or metadata)
+  datePlayedEstimate DateTime?
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  archive   MatchArchive      @relation(fields: [archiveId], references: [id], onDelete: Cascade)
+  positions PositionLibrary[]
+
+  @@index([archiveId])
+  @@index([tournamentName])
+  @@index([player1Name])
+  @@index([player2Name])
+}
+
+// ============================================================================
+// POSITION LIBRARY (Scenario-Based Drill Seeding)
+// ============================================================================
+
+// Pre-computed positions with verified best moves from ground truth engine
+model PositionLibrary {
+  id String @id @default(cuid())
+
+  // GNUBG position identifier (14-char Base64)
+  positionId String @unique
+
+  // Classification
+  gamePhase GamePhase
+  diceRoll  String // e.g., "3-1", "6-6"
+
+  // Best moves from engine (equity-ordered)
+  bestMove       String
+  bestMoveEquity Float
+
+  secondBestMove String?
+  secondEquity   Float?
+
+  thirdBestMove String?
+  thirdEquity   Float?
+
+  // Detailed probability breakdown for all moves
+  // Structure: { best: {win, winG, winBG, lose, loseG, loseBG}, second: {...}, third: {...} }
+  probabilityBreakdown Json?
+
+  // ASCII board for display
+  asciiBoard String @db.Text
+
+  // Metadata
+  sourceType PositionSource
+  createdAt  DateTime       @default(now())
+
+  // Ground truth engine that validated this position
+  engineId String
+  engine   GroundTruthEngine @relation(fields: [engineId], references: [id])
+
+  // Match import context (optional - populated for MATCH_IMPORT positions)
+  archiveId  String?
+  archive    MatchArchive?  @relation(fields: [archiveId], references: [id], onDelete: SetNull)
+  matchId    String?
+  match      ImportedMatch? @relation(fields: [matchId], references: [id], onDelete: SetNull)
+  gameNumber Int? // Which game in the match (1-indexed)
+  moveNumber Int? // Which move in the game (1-indexed)
+
+  // Drills that use this position
+  drills Drill[]
+
+  @@index([gamePhase])
+  @@index([engineId, gamePhase])
+  @@index([archiveId])
+  @@index([matchId])
+}
+
+// ============================================================================
+// DRILL LIBRARY MODEL (Normalized Drill CRUD)
+// ============================================================================
+
+// Individual drill records for CRUD operations.
+// Supplements GuruArtifact.content JSON for granular management.
+model Drill {
+  id         String  @id @default(cuid())
+  artifactId String
+  positionId String?
+
+  // Phase and ordering
+  gamePhase  GamePhase
+  orderIndex Int
+
+  // Drill content (full drill JSON for flexibility)
+  content Json
+
+  // Denormalized for quick display/filtering
+  drillId      String
+  tier         DrillTier
+  principleIds String[]
+
+  // Soft delete for removal without losing history
+  deletedAt DateTime?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  artifact GuruArtifact     @relation(fields: [artifactId], references: [id], onDelete: Cascade)
+  position PositionLibrary? @relation(fields: [positionId], references: [positionId])
+
+  @@index([artifactId, gamePhase])
+  @@index([artifactId, deletedAt])
+  @@index([artifactId, orderIndex])
+}
+
+// ============================================================================
+// SIMPLIFIED FRONTEND WRAPPER (Gap Detection & Publishing)
+// ============================================================================
+
+// Pedagogical dimensions for gap detection (6 dimensions)
+model PedagogicalDimension {
+  id          String   @id @default(cuid())
+  key         String   @unique // 'foundations', 'progression', etc.
+  name        String   // Display name
+  icon        String   // Lucide icon name
+  description String   @db.Text // Long description
+  question    String   @db.Text // Guiding question for research
+  priority    Int      // Order in gap detection (lower = more critical)
+  isCritical  Boolean  @default(false) // True for essential dimensions
+  createdAt   DateTime @default(now())
+
+  tags CorpusDimensionTag[]
+
+  @@index([priority])
+  @@index([isCritical])
+}
+
+// Tags linking corpus content to pedagogical dimensions
+model CorpusDimensionTag {
+  id              String   @id @default(cuid())
+  dimensionId     String
+  contextLayerId  String?
+  knowledgeFileId String?
+  confidence      Float    @default(1.0) // AI confidence in tag
+  confirmedByUser Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  dimension     PedagogicalDimension @relation(fields: [dimensionId], references: [id], onDelete: Cascade)
+  contextLayer  ContextLayer?        @relation(fields: [contextLayerId], references: [id], onDelete: Cascade)
+  knowledgeFile KnowledgeFile?       @relation(fields: [knowledgeFileId], references: [id], onDelete: Cascade)
+
+  @@unique([dimensionId, contextLayerId])
+  @@unique([dimensionId, knowledgeFileId])
+  @@index([dimensionId])
+  @@index([contextLayerId])
+  @@index([knowledgeFileId])
+}
+
+// Published guru endpoints (/g/{shortId})
+model PublishedGuru {
+  id          String    @id @default(cuid())
+  projectId   String    @unique
+  shortId     String    @unique // nanoid(10) for /g/{shortId}
+  isPublished Boolean   @default(true)
+  publishedAt DateTime  @default(now())
+  revokedAt   DateTime?
+  viewCount   Int       @default(0)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([shortId])
+  @@index([isPublished])
 }

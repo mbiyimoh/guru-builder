@@ -1,0 +1,71 @@
+Backgammon Game Phases and Strategic Adjustments
+=================================================
+
+PHASE OVERVIEW
+--------------
+
+Backgammon games typically progress through distinct phases, each requiring
+different strategic approaches and priorities.
+
+1. OPENING PHASE (First 4-6 moves)
+   - Primary goal: Establish strong points
+   - Key points: 5-point, bar-point (7-point), 4-point
+   - Flexibility is paramount - don't commit too early
+   - Build multiple options for different game types
+
+2. EARLY MIDDLE GAME
+   - Transition phase where game type becomes clearer
+   - Continue point-making if possible
+   - Watch for priming opportunities
+   - Consider anchor establishment in opponent's home board
+
+3. MIDDLE GAME
+   - Game type is usually determined
+   - Execute your chosen strategy
+   - Attack timing becomes critical
+   - Cube decisions become more frequent
+
+4. BEAR-OFF PHASE
+   - Efficiency is everything
+   - Remove checkers whenever legal
+   - Maintain balance in bear-off
+   - Avoid wastage (using too many pips)
+
+STYLE MODIFIERS (Player Approach)
+---------------------------------
+
+AGGRESSIVE STYLE:
+- Prefers slotting early points
+- Willing to accept blots for positional gains
+- Plays for gammons more often
+- Takes more cube risks
+
+POSITIONAL STYLE:
+- Prioritizes safety
+- Builds points methodically
+- Avoids unnecessary blots
+- More conservative cube actions
+
+BALANCED STYLE:
+- Adapts to position requirements
+- Neither overly aggressive nor passive
+- Reads the game flow
+- Maximizes expected value
+
+PHASE-SPECIFIC ADJUSTMENTS
+--------------------------
+
+In the Opening:
+- Aggressive players slot more often
+- Positional players prefer builders
+- Both should make mandatory point-making rolls
+
+In the Middle Game:
+- Aggressive players attack weak positions immediately
+- Positional players wait for better timing
+- Both must recognize racing vs. priming games
+
+In the Bear-Off:
+- Both styles converge on efficiency
+- Safety vs. speed trade-offs emerge
+- Cube decisions become more calculated

@@ -6,6 +6,7 @@
  */
 
 import { Inngest, EventSchemas } from "inngest";
+import type { DrillGenerationConfig } from "@/lib/guruFunctions/types";
 
 // Define event schemas for type safety
 type Events = {
@@ -59,6 +60,38 @@ type Events = {
       mentalModelArtifactId: string;
       curriculumArtifactId: string;
       userNotes?: string;
+      drillConfig?: DrillGenerationConfig;
+    };
+  };
+  "guru/regenerate-artifact": {
+    data: {
+      artifactId: string;
+      projectId: string;
+      artifactType: "MENTAL_MODEL" | "CURRICULUM" | "DRILL_SERIES";
+      scope: "all" | "failed"; // 'all' = full regeneration, 'failed' = only failed claims (future)
+      previousFailures?: unknown; // Previous verification failures for context
+    };
+  };
+  // Match Archive Import Events
+  "match-archive/import.started": {
+    data: {
+      archiveId: string;
+      engineId: string;
+    };
+  };
+  "match-archive/verify-batch": {
+    data: {
+      archiveId: string;
+      positionIds: string[];
+      batchNumber: number;
+      totalBatches: number;
+      engineId: string;
+    };
+  };
+  "match-archive/scrape.started": {
+    data: {
+      collection: "Hardy";
+      engineId: string;
     };
   };
 };

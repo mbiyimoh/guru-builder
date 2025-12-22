@@ -6,6 +6,14 @@
 
 import { prisma } from "./db";
 import type { Prisma } from "@prisma/client";
+import { autoTagCorpusItem } from "./dimensions/autoTag";
+import { calculateReadinessScore } from "./readiness/scoring";
+
+// Auto-tag timeout to prevent blocking indefinitely
+// Rationale: Auto-tagging typically takes 1-2s per item via OpenAI API.
+// With parallelization, even 5-10 items complete in ~3s total.
+// 10s timeout ensures the request doesn't hang if OpenAI is slow/rate-limited.
+const AUTO_TAG_TIMEOUT_MS = 10000;
 
 export interface ApplyRecommendationsOptions {
   projectId: string;
@@ -22,6 +30,11 @@ export interface ApplyRecommendationsResult {
     added: number;
     edited: number;
     deleted: number;
+  };
+  readinessScore?: {
+    overall: number;
+    previousOverall?: number;
+    criticalGaps: string[];
   };
   error?: string;
 }
@@ -83,7 +96,24 @@ export async function applyRecommendations(
 
     console.log(`[Apply Changes] Created snapshot ${snapshot.id}`);
 
-    // 3. Apply each recommendation in a transaction (all-or-nothing)
+    // 3. Get current readiness score before applying (for comparison)
+    let previousReadinessScore: number | undefined;
+    try {
+      const { score: prevScore } = await calculateReadinessScore(projectId);
+      previousReadinessScore = prevScore.overall;
+    } catch (error) {
+      console.warn("[Apply Changes] Could not get previous readiness score:", error);
+    }
+
+    // 4. Apply each recommendation in a transaction (all-or-nothing)
+    // Collect items that need auto-tagging
+    const itemsToTag: Array<{
+      itemId: string;
+      itemType: "layer" | "file";
+      content: string;
+      title: string;
+    }> = [];
+
     const changes = await prisma.$transaction(async (tx) => {
       const changeStats = {
         added: 0,
@@ -92,7 +122,7 @@ export async function applyRecommendations(
       };
 
       for (const rec of recommendations) {
-        await applySingleRecommendationWithTx(tx, rec, snapshot.id);
+        const appliedItemId = await applySingleRecommendationWithTx(tx, rec, snapshot.id);
 
         if (rec.action === "ADD") changeStats.added++;
         else if (rec.action === "EDIT") changeStats.edited++;
@@ -108,16 +138,66 @@ export async function applyRecommendations(
         });
 
         console.log(`[Apply Changes] Applied recommendation ${rec.id} (${rec.action})`);
+
+        // Collect items for auto-tagging (will be done after transaction)
+        if (appliedItemId && (rec.action === "ADD" || rec.action === "EDIT")) {
+          itemsToTag.push({
+            itemId: appliedItemId,
+            itemType: rec.targetType === "LAYER" ? "layer" : "file",
+            content: rec.fullContent,
+            title: rec.title,
+          });
+        }
       }
 
       return changeStats;
     });
+
+    // 5. Auto-tag items with timeout (blocking to ensure tags exist before readiness calculation)
+    if (itemsToTag.length > 0) {
+      console.log(`[Apply Changes] Auto-tagging ${itemsToTag.length} items (blocking with ${AUTO_TAG_TIMEOUT_MS}ms timeout)...`);
+
+      const autoTagPromises = itemsToTag.map((item) =>
+        autoTagCorpusItem({
+          projectId,
+          itemId: item.itemId,
+          itemType: item.itemType,
+          content: item.content,
+          title: item.title,
+        }).catch((error) => {
+          console.error(`[Apply Changes] Auto-tag failed for ${item.itemType} ${item.itemId}:`, error);
+        })
+      );
+
+      // Wait for all auto-tags with timeout (don't let it block forever)
+      await Promise.race([
+        Promise.all(autoTagPromises),
+        new Promise((resolve) => setTimeout(resolve, AUTO_TAG_TIMEOUT_MS)),
+      ]);
+
+      console.log("[Apply Changes] Auto-tagging complete (or timed out)");
+    }
+
+    // 6. Calculate fresh readiness score after auto-tagging
+    let readinessScore: ApplyRecommendationsResult["readinessScore"];
+    try {
+      const { score: newScore } = await calculateReadinessScore(projectId);
+      readinessScore = {
+        overall: newScore.overall,
+        previousOverall: previousReadinessScore,
+        criticalGaps: newScore.criticalGaps,
+      };
+      console.log(`[Apply Changes] Readiness updated: ${previousReadinessScore ?? "?"} → ${newScore.overall}`);
+    } catch (error) {
+      console.error("[Apply Changes] Could not calculate new readiness score:", error);
+    }
 
     return {
       success: true,
       snapshotId: snapshot.id,
       appliedCount: recommendations.length,
       changes,
+      readinessScore,
     };
   } catch (error) {
     console.error("[Apply Changes] Error:", error);
@@ -133,6 +213,7 @@ export async function applyRecommendations(
 
 /**
  * Apply a single recommendation within a transaction
+ * Returns the ID of the created/updated item (null for DELETE actions)
  */
 async function applySingleRecommendationWithTx(
   tx: Prisma.TransactionClient,
@@ -149,7 +230,7 @@ async function applySingleRecommendationWithTx(
     };
   },
   snapshotId: string
-) {
+): Promise<string | null> {
   const { action, targetType, contextLayerId, knowledgeFileId, title, fullContent, researchRun } = recommendation;
   const projectId = researchRun.projectId;
 
@@ -180,6 +261,8 @@ async function applySingleRecommendationWithTx(
           newValue: layer as unknown as Prisma.JsonObject,
         },
       });
+
+      return layer.id;
     } else if (action === "EDIT" && targetId) {
       // Get current value
       const currentLayer = await tx.contextLayer.findUnique({
@@ -207,6 +290,8 @@ async function applySingleRecommendationWithTx(
           newValue: updated as unknown as Prisma.JsonObject,
         },
       });
+
+      return updated.id;
     } else if (action === "DELETE" && targetId) {
       // Get current value
       const currentLayer = await tx.contextLayer.findUnique({
@@ -229,6 +314,8 @@ async function applySingleRecommendationWithTx(
           previousValue: currentLayer as unknown as Prisma.JsonObject,
         },
       });
+
+      return null; // DELETE actions don't need tagging
     }
   } else if (targetType === "KNOWLEDGE_FILE") {
     if (action === "ADD") {
@@ -253,6 +340,8 @@ async function applySingleRecommendationWithTx(
           newValue: file as unknown as Prisma.JsonObject,
         },
       });
+
+      return file.id;
     } else if (action === "EDIT" && targetId) {
       // Get current value
       const currentFile = await tx.knowledgeFile.findUnique({
@@ -280,6 +369,8 @@ async function applySingleRecommendationWithTx(
           newValue: updated as unknown as Prisma.JsonObject,
         },
       });
+
+      return updated.id;
     } else if (action === "DELETE" && targetId) {
       // Get current value
       const currentFile = await tx.knowledgeFile.findUnique({
@@ -302,6 +393,11 @@ async function applySingleRecommendationWithTx(
           previousValue: currentFile as unknown as Prisma.JsonObject,
         },
       });
+
+      return null; // DELETE actions don't need tagging
     }
   }
+
+  // Fallback for unhandled cases
+  return null;
 }

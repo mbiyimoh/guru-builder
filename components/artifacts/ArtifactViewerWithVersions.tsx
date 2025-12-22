@@ -3,14 +3,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArtifactDetail, ArtifactSummary } from '@/lib/teaching/artifactClient';
-import { getArtifactSlug } from '@/lib/teaching/constants';
 import { ArtifactHeader } from './ArtifactHeader';
-import VersionHistoryPanel from './VersionHistoryPanel';
 import DiffContent from './DiffContent';
 import { ViewModeToggle, ViewMode } from './ViewModeToggle';
 import { TypeSpecificRenderer } from './renderers/TypeSpecificRenderer';
 import { PromptEditorModal } from '@/components/guru/PromptEditorModal';
-import type { PromptInfo } from '@/lib/teaching/artifactPageData';
+import type { PromptInfo } from '@/lib/teaching/types';
 
 interface ArtifactViewerWithVersionsProps {
   artifact: ArtifactDetail;
@@ -33,7 +31,6 @@ export function ArtifactViewerWithVersions({
   const [viewMode, setViewMode] = useState<ViewMode>('rendered');
   const [isPromptModalOpen, setIsPromptModalOpen] = useState(false);
 
-  const artifactSlug = getArtifactSlug(artifact.type);
   const canShowDiff = artifact.version > 1;
 
   // Map artifact type to the format expected by PromptEditorModal
@@ -58,15 +55,7 @@ export function ArtifactViewerWithVersions({
 
   return (
     <div className="flex h-full" data-testid="artifact-viewer-with-versions">
-      {/* Version History Panel */}
-      <VersionHistoryPanel
-        projectId={projectId}
-        artifactType={artifactSlug}
-        versions={allVersions}
-        currentVersion={artifact.version}
-      />
-
-      {/* Main Content Area */}
+      {/* Main Content Area - Full width now that sidebar is removed */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <ArtifactHeader
           artifact={artifact}
@@ -75,6 +64,7 @@ export function ArtifactViewerWithVersions({
           canShowDiff={canShowDiff}
           promptInfo={promptInfo}
           onEditPrompts={() => setIsPromptModalOpen(true)}
+          versions={allVersions}
         >
           <ViewModeToggle mode={viewMode} onChange={setViewMode} />
         </ArtifactHeader>

@@ -1,0 +1,58 @@
+Backgammon Training Exercises - Practice Problems
+=================================================
+
+MODULE 1: BASIC OPENING ROLLS
+
+Position Examples:
+- Opening 3-1: Correct play is 8/5, 6/5 (making the 5-point)
+- Opening 6-1: Correct play is 13/7, 8/7 (making the 7-point)
+- Opening 4-2: Correct play is 8/4, 6/4 (making the 4-point)
+- Opening 6-5: Correct play is 24/13 (running one back checker)
+
+Exercises:
+1. Memorize the top 3 plays for each opening roll from 1-1 through 6-6
+2. Practice quick recognition: Given an opening roll, name the best play within 3 seconds
+3. Explain why 3-1: 8/5, 6/5 is better than 3-1: 24/21, 13/12
+
+Practice Problems:
+- You open with 2-1. What's the best play and why?
+- Opponent opens 4-3 playing 24/21, 13/9. You roll 6-1. What do you play?
+- You open 5-3. Compare 13/8, 13/10 vs 13/10, 24/21. Which is better?
+
+---
+
+MODULE 2: SLOTTING STRATEGY
+
+Position Examples:
+- Opening 6-2: Aggressive slot: 24/18, 13/11 vs Safe play: 24/16
+- Opening 2-1: Bold slot: 13/11, 6/5 vs Conservative: 24/23, 13/11
+- Responding to 6-1 (13/7, 8/7): Rolling 5-2, do you play 24/17 or 13/8, 13/11?
+
+Exercises:
+1. Identify 5 opening rolls where slotting is the top choice
+2. Calculate: If you slot the 11-point, what are opponent's chances of hitting next turn?
+3. Compare risk/reward of different slotting options for the same roll
+
+Practice Problems:
+- You roll 5-4 to open. Compare 13/8, 13/9 vs 24/15. When would you choose each?
+- After opponent's 3-1 (8/5, 6/5), you roll 4-1. Analyze 24/20, 13/12 vs other plays
+- Opening 1-1: Is 8/7(2), 6/5(2) too bold? Compare with safer alternatives
+
+---
+
+MODULE 3: SPLITTING AND RUNNING
+
+Position Examples:
+- Opening 4-3: Run with 24/17 vs Split with 24/21, 13/9 vs Build with 13/9, 13/10
+- Opening 6-4: 24/14 vs 24/18, 13/9 vs 8/2, 6/2
+- Responding to opponent's split: They play 24/23, 13/11, you roll 6-3
+
+Exercises:
+1. Calculate how often your split checker gets attacked from the bar-point
+2. Practice identifying when early running is correct vs. risky
+3. Learn follow-up plays after successful splits
+
+Practice Problems:
+- You split 24/23 with part of your roll. Opponent makes their 4-point. Now what?
+- Compare opening 6-5: 24/13 vs 24/18, 18/13. Which is more flexible?
+- After 24/23 split, you're hit and re-enter on 2-point. How do you continue?

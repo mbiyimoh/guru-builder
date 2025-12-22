@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Version History', () => {
+test.describe('Version History (Dropdown UI)', () => {
   // These tests require a project with artifacts
   // Using existing test project or creating test data
 
@@ -13,7 +13,7 @@ test.describe('Version History', () => {
     await page.waitForURL(/\/projects/);
   });
 
-  test('displays version history panel on artifact page', async ({ page }) => {
+  test('displays version dropdown on artifact page', async ({ page }) => {
     // Navigate to any project's artifact page
     await page.goto('/projects');
 
@@ -27,13 +27,12 @@ test.describe('Version History', () => {
       if (await mentalModelLink.isVisible()) {
         await mentalModelLink.click();
 
-        // Verify version panel exists
-        const versionPanel = page.locator('[data-testid="version-panel"]');
-        await expect(versionPanel).toBeVisible();
+        // Verify version dropdown trigger exists in header
+        const versionDropdown = page.locator('[data-testid="version-dropdown-trigger"]');
+        await expect(versionDropdown).toBeVisible();
 
-        // Should show at least one version
-        const versions = page.locator('[data-testid^="version-"]');
-        await expect(versions.first()).toBeVisible();
+        // Should show current version number
+        await expect(versionDropdown).toContainText(/v\d+/);
       }
     }
   });
@@ -49,14 +48,17 @@ test.describe('Version History', () => {
       if (await mentalModelLink.isVisible()) {
         await mentalModelLink.click();
 
-        // Find the "Latest" badge
-        const latestBadge = page.getByText('Latest');
-        await expect(latestBadge).toBeVisible();
+        // Find the "Latest" badge in the dropdown trigger
+        const versionDropdown = page.locator('[data-testid="version-dropdown-trigger"]');
+        if (await versionDropdown.isVisible()) {
+          const latestBadge = versionDropdown.getByText('Latest');
+          await expect(latestBadge).toBeVisible();
+        }
       }
     }
   });
 
-  test('can switch between versions via panel', async ({ page }) => {
+  test('can open and close version dropdown', async ({ page }) => {
     await page.goto('/projects');
 
     const projectLink = page.locator('[data-testid="project-card"]').first();
@@ -67,13 +69,51 @@ test.describe('Version History', () => {
       if (await mentalModelLink.isVisible()) {
         await mentalModelLink.click();
 
-        // Check if v2 exists
-        const v2Button = page.locator('[data-testid="version-2"]');
-        if (await v2Button.isVisible()) {
-          await v2Button.click();
+        const versionDropdown = page.locator('[data-testid="version-dropdown-trigger"]');
+        if (await versionDropdown.isVisible()) {
+          // Open dropdown
+          await versionDropdown.click();
 
-          // Verify URL updates
-          await expect(page).toHaveURL(/\?v=2/);
+          // Verify dropdown menu is visible
+          const dropdownMenu = page.locator('[role="listbox"]');
+          await expect(dropdownMenu).toBeVisible();
+
+          // Close with Escape
+          await page.keyboard.press('Escape');
+          await expect(dropdownMenu).not.toBeVisible();
+        }
+      }
+    }
+  });
+
+  test('can switch between versions via dropdown', async ({ page }) => {
+    await page.goto('/projects');
+
+    const projectLink = page.locator('[data-testid="project-card"]').first();
+    if (await projectLink.isVisible()) {
+      await projectLink.click();
+
+      const mentalModelLink = page.locator('a[href*="/artifacts/teaching/mental-model"]');
+      if (await mentalModelLink.isVisible()) {
+        await mentalModelLink.click();
+
+        const versionDropdown = page.locator('[data-testid="version-dropdown-trigger"]');
+        if (await versionDropdown.isVisible()) {
+          // Open dropdown
+          await versionDropdown.click();
+
+          // Check if v2 exists in dropdown
+          const v2Option = page.locator('[data-testid="version-option-2"]');
+          if (await v2Option.isVisible()) {
+            await v2Option.click();
+
+            // Verify URL updates
+            await expect(page).toHaveURL(/\?v=2/);
+
+            // Verify dropdown closes after selection
+            const dropdownMenu = page.locator('[role="listbox"]');
+            await expect(dropdownMenu).not.toBeVisible();
+          }
         }
       }
     }
@@ -90,14 +130,19 @@ test.describe('Version History', () => {
       if (await mentalModelLink.isVisible()) {
         await mentalModelLink.click();
 
-        // Click v1 if it exists
-        const v1Button = page.locator('[data-testid="version-1"]');
-        if (await v1Button.isVisible()) {
-          await v1Button.click();
+        const versionDropdown = page.locator('[data-testid="version-dropdown-trigger"]');
+        if (await versionDropdown.isVisible()) {
+          // Open dropdown and click v1
+          await versionDropdown.click();
 
-          const diffToggle = page.locator('[data-testid="diff-toggle"]');
-          if (await diffToggle.isVisible()) {
-            await expect(diffToggle).toBeDisabled();
+          const v1Option = page.locator('[data-testid="version-option-1"]');
+          if (await v1Option.isVisible()) {
+            await v1Option.click();
+
+            const diffToggle = page.locator('[data-testid="diff-toggle"]');
+            if (await diffToggle.isVisible()) {
+              await expect(diffToggle).toBeDisabled();
+            }
           }
         }
       }
@@ -115,17 +160,22 @@ test.describe('Version History', () => {
       if (await mentalModelLink.isVisible()) {
         await mentalModelLink.click();
 
-        // Click v2 if it exists
-        const v2Button = page.locator('[data-testid="version-2"]');
-        if (await v2Button.isVisible()) {
-          await v2Button.click();
+        const versionDropdown = page.locator('[data-testid="version-dropdown-trigger"]');
+        if (await versionDropdown.isVisible()) {
+          // Open dropdown and click v2
+          await versionDropdown.click();
 
-          const diffToggle = page.locator('[data-testid="diff-toggle"]');
-          if (await diffToggle.isVisible() && await diffToggle.isEnabled()) {
-            await diffToggle.click();
+          const v2Option = page.locator('[data-testid="version-option-2"]');
+          if (await v2Option.isVisible()) {
+            await v2Option.click();
 
-            // Verify URL updates with diff param
-            await expect(page).toHaveURL(/diff/);
+            const diffToggle = page.locator('[data-testid="diff-toggle"]');
+            if (await diffToggle.isVisible() && await diffToggle.isEnabled()) {
+              await diffToggle.click();
+
+              // Verify URL updates with diff param
+              await expect(page).toHaveURL(/diff/);
+            }
           }
         }
       }
@@ -148,16 +198,18 @@ test.describe('Version History', () => {
         // Navigate directly to specific version with diff
         await page.goto(`/projects/${projectId}/artifacts/teaching/mental-model?v=1`);
 
-        // Verify viewer loads
-        const versionPanel = page.locator('[data-testid="version-panel"]');
-        if (await versionPanel.isVisible()) {
-          await expect(versionPanel).toBeVisible();
+        // Verify viewer loads with version dropdown
+        const versionDropdown = page.locator('[data-testid="version-dropdown-trigger"]');
+        if (await versionDropdown.isVisible()) {
+          await expect(versionDropdown).toBeVisible();
+          // Should show v1 in the dropdown trigger
+          await expect(versionDropdown).toContainText('v1');
         }
       }
     }
   });
 
-  test('shows corpus hash in tooltip', async ({ page }) => {
+  test('dropdown shows all versions in descending order', async ({ page }) => {
     await page.goto('/projects');
 
     const projectLink = page.locator('[data-testid="project-card"]').first();
@@ -168,16 +220,37 @@ test.describe('Version History', () => {
       if (await mentalModelLink.isVisible()) {
         await mentalModelLink.click();
 
-        // Find element with corpus hash title attribute
-        const corpusTooltip = page.locator('[title^="Corpus:"]');
-        if (await corpusTooltip.isVisible()) {
-          await expect(corpusTooltip).toBeVisible();
+        const versionDropdown = page.locator('[data-testid="version-dropdown-trigger"]');
+        if (await versionDropdown.isVisible()) {
+          // Open dropdown
+          await versionDropdown.click();
+
+          // Get all version options
+          const versionOptions = page.locator('[data-testid^="version-option-"]');
+          const count = await versionOptions.count();
+
+          if (count > 1) {
+            // Verify versions are in descending order (newest first)
+            const versions: number[] = [];
+            for (let i = 0; i < count; i++) {
+              const testId = await versionOptions.nth(i).getAttribute('data-testid');
+              if (testId) {
+                const version = parseInt(testId.replace('version-option-', ''));
+                versions.push(version);
+              }
+            }
+
+            // Check descending order
+            for (let i = 0; i < versions.length - 1; i++) {
+              expect(versions[i]).toBeGreaterThan(versions[i + 1]);
+            }
+          }
         }
       }
     }
   });
 
-  test('preserves diff param when switching versions', async ({ page }) => {
+  test('preserves diff param when switching versions via dropdown', async ({ page }) => {
     await page.goto('/projects');
 
     const projectLink = page.locator('[data-testid="project-card"]').first();
@@ -193,14 +266,48 @@ test.describe('Version History', () => {
         if (await diffToggle.isVisible() && await diffToggle.isEnabled()) {
           await diffToggle.click();
 
-          // Now switch versions and check diff param is preserved
-          const v2Button = page.locator('[data-testid="version-2"]');
-          if (await v2Button.isVisible()) {
-            await v2Button.click();
+          // Now switch versions via dropdown and check diff param is preserved
+          const versionDropdown = page.locator('[data-testid="version-dropdown-trigger"]');
+          if (await versionDropdown.isVisible()) {
+            await versionDropdown.click();
 
-            // URL should still have diff param
-            await expect(page).toHaveURL(/diff/);
+            const v2Option = page.locator('[data-testid="version-option-2"]');
+            if (await v2Option.isVisible()) {
+              await v2Option.click();
+
+              // URL should still have diff param
+              await expect(page).toHaveURL(/diff/);
+            }
           }
+        }
+      }
+    }
+  });
+
+  test('dropdown closes on outside click', async ({ page }) => {
+    await page.goto('/projects');
+
+    const projectLink = page.locator('[data-testid="project-card"]').first();
+    if (await projectLink.isVisible()) {
+      await projectLink.click();
+
+      const mentalModelLink = page.locator('a[href*="/artifacts/teaching/mental-model"]');
+      if (await mentalModelLink.isVisible()) {
+        await mentalModelLink.click();
+
+        const versionDropdown = page.locator('[data-testid="version-dropdown-trigger"]');
+        if (await versionDropdown.isVisible()) {
+          // Open dropdown
+          await versionDropdown.click();
+
+          const dropdownMenu = page.locator('[role="listbox"]');
+          await expect(dropdownMenu).toBeVisible();
+
+          // Click outside (on the main content area)
+          await page.click('body', { position: { x: 10, y: 10 } });
+
+          // Dropdown should close
+          await expect(dropdownMenu).not.toBeVisible();
         }
       }
     }

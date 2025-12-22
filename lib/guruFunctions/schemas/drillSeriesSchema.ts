@@ -49,6 +49,9 @@ export const drillSchema = z.object({
   tier: z.enum(['RECOGNITION', 'APPLICATION', 'TRANSFER']),
   // NEW: Methodology from the drill methodology index
   methodology: z.string().nullable().optional(),
+  // Position reference for scenario-based drills (from Position Library)
+  positionId: z.string().nullable().optional(),  // e.g., "opening-3-1"
+  gamePhase: z.enum(['OPENING', 'EARLY', 'MIDDLE', 'BEAROFF']).nullable().optional(),
   scenario: drillScenarioSchema,
   options: z.array(drillOptionSchema),
   correctAnswer: z.string(),

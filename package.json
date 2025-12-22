@@ -7,6 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "vitest",
+    "test:unit": "vitest run",
+    "test:unit:ui": "vitest --ui",
+    "test:unit:watch": "vitest watch",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
@@ -15,7 +19,14 @@
     "test:cleanup": "tsx scripts/cleanup-test-projects.ts",
     "db:backup": "bash scripts/backup-database.sh",
     "migrate:safe": "bash scripts/safe-migrate.sh",
-    "db:restore": "bash scripts/restore-database.sh"
+    "db:restore": "bash scripts/restore-database.sh",
+    "cache:warm": "tsx scripts/warm-ground-truth-cache.ts warm",
+    "cache:stats": "tsx scripts/warm-ground-truth-cache.ts stats",
+    "cache:clean": "tsx scripts/warm-ground-truth-cache.ts clean",
+    "seed:ground-truth-engines": "tsx prisma/seeds/seed-ground-truth-engines.ts",
+    "seed:pedagogical-dimensions": "tsx prisma/seeds/pedagogical-dimensions.ts",
+    "migrate:ground-truth": "tsx prisma/migrations/migrate-ground-truth-config.ts",
+    "inngest:dev": "npx inngest-cli dev -u http://localhost:3009/api/inngest"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -42,8 +53,11 @@
     "diff": "^8.0.2",
     "inngest": "^3.30.0",
     "lucide-react": "^0.462.0",
+    "mammoth": "^1.11.0",
+    "nanoid": "^5.1.6",
     "next": "^15.2.6",
     "openai": "^6.8.1",
+    "pdf-parse": "^1.1.4",
     "react": "19.1.1",
     "react-dom": "19.1.1",
     "react-markdown": "^10.1.0",
@@ -55,12 +69,16 @@
   "devDependencies": {
     "@playwright/test": "^1.56.1",
     "@types/node": "^20.17.6",
+    "@types/pdf-parse": "^1.1.5",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
+    "@vitest/ui": "^4.0.15",
+    "dotenv": "^17.2.3",
     "postcss": "^8.4.49",
     "prisma": "^5.22.0",
     "tailwindcss": "^3.4.15",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^4.0.15"
   }
 }

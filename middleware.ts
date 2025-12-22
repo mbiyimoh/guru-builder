@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 // Routes that don't require authentication
 const PUBLIC_ROUTES = ['/', '/login', '/signup', '/auth/callback']
+const PUBLIC_PREFIXES = ['/g/', '/auth/']
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -32,9 +33,8 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   const path = request.nextUrl.pathname
-  const isPublicRoute = PUBLIC_ROUTES.some(route =>
-    path === route || path.startsWith('/auth/')
-  )
+  const isPublicRoute = PUBLIC_ROUTES.some(route => path === route) ||
+    PUBLIC_PREFIXES.some(prefix => path.startsWith(prefix))
   const isApiRoute = path.startsWith('/api/')
 
   // Redirect unauthenticated users on protected page routes

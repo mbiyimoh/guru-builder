@@ -20,6 +20,27 @@ const generateDrillSeriesSchema = z.object({
   mentalModelArtifactId: z.string().optional(), // If not provided, uses latest
   curriculumArtifactId: z.string().optional(), // If not provided, uses latest
   userNotes: z.string().optional(),
+  // Drill configuration
+  drillConfig: z.object({
+    gamePhases: z.array(z.enum(['OPENING', 'EARLY', 'MIDDLE', 'BEAROFF']))
+      .min(1, 'At least one game phase must be selected')
+      .default(['OPENING']),
+    targetDrillCount: z.number()
+      .min(5, 'Minimum 5 drills')
+      .max(50, 'Maximum 50 drills')
+      .default(21),
+    directDrillRatio: z.number()
+      .min(0, 'Ratio must be between 0 and 1')
+      .max(1, 'Ratio must be between 0 and 1')
+      .default(0.7),
+    useExistingPositions: z.boolean().default(true),
+    fetchNewPositionCount: z.number().min(1).max(50).optional(),
+    maxPositionsPerPhase: z.number()
+      .min(1, 'Minimum 1 position per phase')
+      .max(100, 'Maximum 100 positions per phase')
+      .default(25)
+      .optional(),
+  }).optional(),
 });
 
 function handleAuthError(error: unknown) {
@@ -117,7 +138,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         { status: 400 }
       );
     }
-    const { mentalModelArtifactId, curriculumArtifactId, userNotes } = result.data;
+    const { mentalModelArtifactId, curriculumArtifactId, userNotes, drillConfig } = result.data;
 
     // Check project exists
     const project = await prisma.project.findUnique({
@@ -249,6 +270,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         mentalModelArtifactId: mentalModel.id,
         curriculumArtifactId: curriculum.id,
         userNotes,
+        drillConfig,
       },
     });
 

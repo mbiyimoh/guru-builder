@@ -1,4 +1,4 @@
-import type { GuruArtifactType, ArtifactStatus } from '@prisma/client';
+import type { GuruArtifactType, ArtifactStatus, VerificationStatus } from '@prisma/client';
 import { ArtifactTypeSlug, getApiKeyFromSlug } from './constants';
 import { prisma } from '@/lib/db';
 import { requireProjectOwnership } from '@/lib/auth';
@@ -22,6 +22,9 @@ export interface ArtifactDetail extends ArtifactSummary {
   systemPromptHash: string | null;
   userPromptHash: string | null;
   promptConfigId: string | null;
+  // Ground truth verification fields
+  verificationStatus: VerificationStatus | null;
+  verificationDetails: unknown;
 }
 
 export interface ArtifactSummariesResponse {
@@ -170,6 +173,9 @@ export async function getArtifactContent(
       systemPromptHash: artifact.systemPromptHash,
       userPromptHash: artifact.userPromptHash,
       promptConfigId: artifact.promptConfigId,
+      // Ground truth verification fields
+      verificationStatus: artifact.verificationStatus,
+      verificationDetails: artifact.verificationDetails,
     },
   };
 }

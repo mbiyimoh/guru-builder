@@ -10,6 +10,7 @@ import { buildMentalModelPrompt } from '../prompts/mentalModelPrompt'
 import { CREATIVE_TEACHING_SYSTEM_PROMPT } from '../prompts/creativeSystemPrompt'
 import { composeCorpusSummary, computeCorpusHash, countCorpusWords } from '../corpusHasher'
 import type { GeneratorOptions, GenerationResult } from '../types'
+import { buildProfilePromptBlock } from '@/lib/guruProfile/promptFormatter'
 
 // Lazy-load OpenAI client to avoid build-time errors
 let openaiClient: import('openai').default | null = null
@@ -38,6 +39,7 @@ export async function generateMentalModel(
     userNotes,
     customSystemPrompt,
     customUserPromptTemplate,
+    guruProfile,
   } = options
 
   // Validate corpus has content
@@ -67,8 +69,12 @@ export async function generateMentalModel(
     })
   }
 
-  // Use custom system prompt if provided
-  const systemPrompt = customSystemPrompt ?? CREATIVE_TEACHING_SYSTEM_PROMPT
+  // Build system prompt - inject guru profile if available
+  let systemPrompt = customSystemPrompt ?? CREATIVE_TEACHING_SYSTEM_PROMPT
+  if (guruProfile) {
+    const profileBlock = buildProfilePromptBlock(guruProfile)
+    systemPrompt = profileBlock + '\n\n' + systemPrompt
+  }
 
   const openai = getOpenAIClient()
 

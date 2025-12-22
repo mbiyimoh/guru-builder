@@ -32,3 +32,36 @@ export interface PromptInfo {
   /** The current prompt configuration for viewing/editing */
   currentConfig: PromptConfig;
 }
+
+// ============================================================================
+// SUB-TASK PROGRESS TRACKING
+// ============================================================================
+
+/**
+ * Progress tracking for sub-tasks during artifact generation.
+ * Used primarily for verification phase visibility.
+ */
+export interface SubTaskProgress {
+  /** Current phase name (e.g., 'VERIFYING_CONTENT') */
+  phase: string;
+  /** Current sub-task index (1-based for display) */
+  current: number;
+  /** Total sub-tasks in this phase */
+  total: number;
+  /** Human-readable detail of current sub-task (truncated claim text) */
+  currentClaimText?: string;
+  /** Timestamp when this progress was last updated */
+  updatedAt?: string;
+}
+
+/**
+ * Extended artifact data including sub-task progress.
+ * Used in API responses during polling.
+ */
+export interface ArtifactWithProgress {
+  id: string;
+  type: string;
+  status: string;
+  progressStage: string | null;
+  subTaskProgress: SubTaskProgress | null;
+}

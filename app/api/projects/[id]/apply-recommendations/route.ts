@@ -86,6 +86,7 @@ export async function POST(
       snapshotId: applyResult.snapshotId,
       appliedCount: applyResult.appliedCount,
       changes: applyResult.changes,
+      readinessScore: applyResult.readinessScore,
       message: `Successfully applied ${applyResult.appliedCount} recommendations`,
     });
   } catch (error) {

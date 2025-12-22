@@ -5,19 +5,49 @@ import type { ArtifactDetail } from '@/lib/teaching/artifactClient';
 import { MentalModelRenderer, generateMentalModelTOC } from './MentalModelRenderer';
 import { CurriculumRenderer, generateCurriculumTOC } from './CurriculumRenderer';
 import { DrillSeriesRenderer, generateDrillSeriesToc } from './DrillSeriesRenderer';
+import {
+  PhaseOrganizedDrillRenderer,
+  generatePhaseOrganizedDrillTOC,
+} from './PhaseOrganizedDrillRenderer';
 import { TableOfContents } from '../TableOfContents';
 import { useActiveSection } from '@/lib/teaching/hooks/useActiveSection';
 import type { TOCItem } from '@/lib/teaching/types/toc';
 import type { MentalModelOutput } from '@/lib/guruFunctions/schemas/mentalModelSchema';
 import type { CurriculumOutput } from '@/lib/guruFunctions/schemas/curriculumSchema';
 import type { DrillSeriesOutput } from '@/lib/guruFunctions/schemas/drillSeriesSchema';
+import type { PhaseOrganizedDrillSeries } from '@/lib/guruFunctions/schemas/phaseOrganizedDrillSchema';
 
 interface TypeSpecificRendererProps {
   artifact: ArtifactDetail;
+  /** Project ID for position attribution in phase-organized drills */
+  projectId?: string;
+  onDeleteDrill?: (drillId: string) => void;
   className?: string;
 }
 
-export function TypeSpecificRenderer({ artifact, className }: TypeSpecificRendererProps) {
+/**
+ * Check if drill series content is phase-organized (new format) vs legacy (series-based).
+ * Phase-organized format has a 'phases' array, legacy has 'series' array.
+ */
+function isPhaseOrganizedDrillSeries(content: unknown): content is PhaseOrganizedDrillSeries {
+  return (
+    typeof content === 'object' &&
+    content !== null &&
+    'phases' in content &&
+    Array.isArray((content as { phases: unknown }).phases)
+  );
+}
+
+export function TypeSpecificRenderer({
+  artifact,
+  projectId,
+  onDeleteDrill,
+  className,
+}: TypeSpecificRendererProps) {
+  // Determine if drill series is phase-organized (new) or legacy format
+  const isPhaseOrganized =
+    artifact.type === 'DRILL_SERIES' && isPhaseOrganizedDrillSeries(artifact.content);
+
   // Generate TOC based on artifact type
   const tocItems = useMemo<TOCItem[]>(() => {
     switch (artifact.type) {
@@ -26,6 +56,10 @@ export function TypeSpecificRenderer({ artifact, className }: TypeSpecificRender
       case 'CURRICULUM':
         return generateCurriculumTOC(artifact.content as CurriculumOutput);
       case 'DRILL_SERIES':
+        // Use appropriate TOC generator based on format
+        if (isPhaseOrganizedDrillSeries(artifact.content)) {
+          return generatePhaseOrganizedDrillTOC(artifact.content);
+        }
         return generateDrillSeriesToc(artifact.content as DrillSeriesOutput);
       default:
         return [];
@@ -72,7 +106,14 @@ export function TypeSpecificRenderer({ artifact, className }: TypeSpecificRender
         {artifact.type === 'CURRICULUM' && (
           <CurriculumRenderer content={artifact.content as CurriculumOutput} />
         )}
-        {artifact.type === 'DRILL_SERIES' && (
+        {artifact.type === 'DRILL_SERIES' && isPhaseOrganized && (
+          <PhaseOrganizedDrillRenderer
+            content={artifact.content as PhaseOrganizedDrillSeries}
+            projectId={projectId}
+            onDeleteDrill={onDeleteDrill}
+          />
+        )}
+        {artifact.type === 'DRILL_SERIES' && !isPhaseOrganized && (
           <DrillSeriesRenderer content={artifact.content as DrillSeriesOutput} />
         )}
       </div>

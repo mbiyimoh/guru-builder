@@ -75,6 +75,7 @@ export const CURRICULUM_PHASE_KEYS = {
   ANALYZING_MENTAL_MODEL: 'ANALYZING_MENTAL_MODEL',
   DESIGNING_PATH: 'DESIGNING_PATH',
   STRUCTURING_MODULES: 'STRUCTURING_MODULES',
+  VERIFYING_CONTENT: 'VERIFYING_CONTENT',
   SAVING_ARTIFACT: 'SAVING_ARTIFACT',
 } as const;
 
@@ -83,6 +84,8 @@ export const DRILL_SERIES_PHASE_KEYS = {
   ANALYZING_CURRICULUM: 'ANALYZING_CURRICULUM',
   DESIGNING_EXERCISES: 'DESIGNING_EXERCISES',
   GENERATING_CONTENT: 'GENERATING_CONTENT',
+  VALIDATING_OUTPUT: 'VALIDATING_OUTPUT',
+  VERIFYING_CONTENT: 'VERIFYING_CONTENT',
   SAVING_ARTIFACT: 'SAVING_ARTIFACT',
 } as const;
 
@@ -99,7 +102,8 @@ export const CURRICULUM_PHASES: TeachingPhase[] = [
   { key: CURRICULUM_PHASE_KEYS.ANALYZING_MENTAL_MODEL, label: 'Analyzing', icon: '2', estimatedTime: '~15s' },
   { key: CURRICULUM_PHASE_KEYS.DESIGNING_PATH, label: 'Designing', icon: '3', estimatedTime: '~30s' },
   { key: CURRICULUM_PHASE_KEYS.STRUCTURING_MODULES, label: 'Structuring', icon: '4', estimatedTime: '~25s' },
-  { key: CURRICULUM_PHASE_KEYS.SAVING_ARTIFACT, label: 'Saving', icon: '5', estimatedTime: '~5s' },
+  { key: CURRICULUM_PHASE_KEYS.VERIFYING_CONTENT, label: 'Verifying', icon: '5', estimatedTime: '~20s' },
+  { key: CURRICULUM_PHASE_KEYS.SAVING_ARTIFACT, label: 'Saving', icon: '6', estimatedTime: '~5s' },
 ];
 
 export const DRILL_SERIES_PHASES: TeachingPhase[] = [
@@ -107,7 +111,9 @@ export const DRILL_SERIES_PHASES: TeachingPhase[] = [
   { key: DRILL_SERIES_PHASE_KEYS.ANALYZING_CURRICULUM, label: 'Analyzing', icon: '2', estimatedTime: '~15s' },
   { key: DRILL_SERIES_PHASE_KEYS.DESIGNING_EXERCISES, label: 'Designing', icon: '3', estimatedTime: '~40s' },
   { key: DRILL_SERIES_PHASE_KEYS.GENERATING_CONTENT, label: 'Generating', icon: '4', estimatedTime: '~30s' },
-  { key: DRILL_SERIES_PHASE_KEYS.SAVING_ARTIFACT, label: 'Saving', icon: '5', estimatedTime: '~5s' },
+  { key: DRILL_SERIES_PHASE_KEYS.VALIDATING_OUTPUT, label: 'Validating', icon: '5', estimatedTime: '~10s' },
+  { key: DRILL_SERIES_PHASE_KEYS.VERIFYING_CONTENT, label: 'Verifying', icon: '6', estimatedTime: '~20s' },
+  { key: DRILL_SERIES_PHASE_KEYS.SAVING_ARTIFACT, label: 'Saving', icon: '7', estimatedTime: '~5s' },
 ];
 
 export function getPhasesForArtifactType(type: ArtifactType): TeachingPhase[] {

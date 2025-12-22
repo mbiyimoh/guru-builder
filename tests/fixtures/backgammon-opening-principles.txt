@@ -1,0 +1,59 @@
+Core Backgammon Opening Principles
+===================================
+
+These are the foundational concepts every backgammon player must understand.
+
+CORE COMMANDMENTS (Always-On Heuristics)
+----------------------------------------
+
+1. Make strong points early - especially the 5-point, bar-point, and your opponent's 5-point.
+
+2. Stay flexible - spread builders, avoid big stacks or buried checkers.
+
+3. Reduce exposure when behind, press when ahead - volatility is a tool, not a goal.
+
+4. Keep checkers connected - limit stranded men and long gaps between builders.
+
+5. Bear off efficiently - remove checkers whenever legal while maintaining balance.
+
+OPENING ROLL PRIORITY SYSTEM
+----------------------------
+
+Tier 1: Mandatory Point-Making (Must Make These Points)
+- 3-1: Make 5-point (8/5, 6/5) - 100% of time
+- 6-1: Make bar-point (13/7, 8/7) - 100% of time
+- 4-2: Make 4-point (8/4, 6/4) - 99% of time
+
+Tier 2: Strong Plays (Clear Best Moves)
+- 5-3: Build (13/8, 13/10) - 75% / Run (24/16) - 25%
+- 6-4: Run (24/14) - 60% / Split-build (24/18, 13/9) - 40%
+- 5-4: Split-build (24/20, 13/8) or (13/8, 13/9)
+
+Tier 3: Flexible Rolls (Style-Dependent)
+- Smaller rolls (2-1, 3-2, 4-3, 5-2): Multiple reasonable approaches
+- Choice depends on aggressive vs. positional style
+- All options within 2-3% of each other
+
+OPENING ROLL DECISION FRAMEWORK
+-------------------------------
+
+Ask yourself:
+1. Can I make a key point (5, 4, or 7)? -> If yes, make it
+2. Can I create good builders? -> If yes, do so
+3. Should I split my back checkers? -> Depends on roll and style
+4. Should I run with 6-5 or 6-4? -> Usually yes, unless specific position
+
+THE GOLDEN 3-1 (Making the 5-Point)
+-----------------------------------
+
+Roll: 3-1
+Play: 8/5, 6/5
+
+Analysis:
+- Makes the most valuable point on the board (5-point)
+- This is the only opening roll with a mandatory play
+- Creates immediate home board strength
+- Anchor point for future offense and defense
+- Computer analysis: 8/5, 6/5 is +12% better than alternatives
+
+Key Lesson: When you can make the 5-point on the opening roll, always do it.

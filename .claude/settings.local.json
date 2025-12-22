@@ -30,7 +30,12 @@
       "WebFetch(domain:wanago.io)",
       "WebFetch(domain:zenstack.dev)",
       "WebFetch(domain:www.prisma.io)",
-      "SlashCommand(/docs:sync)"
+      "SlashCommand(/docs:sync)",
+      "SlashCommand(/git:push)",
+      "WebFetch(domain:www.gnu.org)",
+      "WebFetch(domain:www.bkgm.com)",
+      "WebFetch(domain:www.hardyhuebener.de)",
+      "WebFetch(domain:localhost)"
     ],
     "deny": [],
     "ask": []

@@ -6,23 +6,51 @@
  *
  * Includes design protocol requiring explicit approach exploration
  * before generating output.
+ *
+ * Updated to produce phase-aligned curriculum structure that mirrors
+ * the drill library organization.
  */
 
 import type { MentalModelOutput } from '../schemas/mentalModelSchema'
+import {
+  UNIVERSAL_PRINCIPLES,
+  PHASE_PRINCIPLES,
+  getPrincipleDataForPrompt
+} from '@/lib/backgammon'
+import type { GamePhase } from '@prisma/client'
 
 interface CurriculumPromptParams {
   domain: string
   corpusSummary: string
   mentalModel: MentalModelOutput
   userNotes?: string
+  gamePhases?: GamePhase[]
 }
 
 export function buildCurriculumPrompt(params: CurriculumPromptParams): string {
-  const { domain, corpusSummary, mentalModel, userNotes } = params
+  const { domain, corpusSummary, mentalModel, userNotes, gamePhases = ['OPENING', 'EARLY', 'MIDDLE', 'BEAROFF'] } = params
+
+  // Get principle taxonomy for prompt injection
+  const principleData = getPrincipleDataForPrompt(gamePhases as GamePhase[])
 
   const userNotesSection = userNotes
     ? `\n## USER GUIDANCE\n\nThe user has provided these additional notes:\n${userNotes}\n\nIntegrate this guidance into your design process and final output.\n`
     : ''
+
+  // Format universal principles for prompt
+  const universalPrinciplesSection = principleData.universal
+    .map(p => `- **${p.name}** (${p.id}): ${p.description}`)
+    .join('\n')
+
+  // Format phase-specific principles for prompt
+  const phaseSpecificPrinciplesSection = Object.entries(principleData.phaseSpecific)
+    .map(([phase, principles]) => {
+      const principleList = principles
+        .map(p => `  - **${p.name}** (${p.id}): ${p.description}`)
+        .join('\n')
+      return `**${phase}:**\n${principleList}`
+    })
+    .join('\n\n')
 
   return `
 # TASK: Design Curriculum for ${domain}
@@ -101,9 +129,51 @@ ${corpusSummary}
 
 ---
 
-## CURRICULUM STRUCTURE
+## PRINCIPLE TAXONOMY
 
-Create a modular curriculum organized by the mental model's categories. Each module teaches ONE category's principles through four lesson types:
+This curriculum is organized around a hierarchy of principles:
+
+### Universal Principles (Apply to ALL game phases)
+
+${universalPrinciplesSection}
+
+### Phase-Specific Principles
+
+${phaseSpecificPrinciplesSection}
+
+---
+
+## CURRICULUM STRUCTURE REQUIREMENTS
+
+Generate a hierarchical curriculum that mirrors the drill library structure:
+
+### 1. Universal Principles Module (TAUGHT FIRST)
+
+Teach these foundational concepts BEFORE phase-specific content:
+
+${principleData.universal.map(p => `- **${p.name}** (${p.id})`).join('\n')}
+
+This module contains **3 principle units** (one for each universal principle).
+Each principle unit has **4 lessons**: CONCEPT, EXAMPLE, CONTRAST, PRACTICE.
+
+### 2. Phase Modules (Taught in Order)
+
+One module per game phase: ${gamePhases.join(' → ')}
+
+Each phase module contains:
+- Optional **phaseIntroLesson** to set context for the phase
+- **2 principle units** (one per phase-specific principle)
+- Each unit has **4 lessons**: CONCEPT, EXAMPLE, CONTRAST, PRACTICE
+
+### 3. Learning Path
+
+Universal principles FIRST, then phases in order.
+
+---
+
+## LESSON STRUCTURE
+
+Each principle is taught through four lesson types:
 
 ### Lesson Types (use all four for each principle)
 
@@ -133,26 +203,57 @@ Create a modular curriculum organized by the mental model's categories. Each mod
 
 ## OUTPUT REQUIREMENTS
 
-Generate a curriculum with these fields:
+Generate a curriculum with the hierarchical structure that mirrors the drill library:
 
-### Required Fields
+### Top-Level Fields
 - **curriculumTitle**: Human-readable title
 - **targetAudience**: Who this is for
 - **estimatedDuration**: Total time estimate
-- **modules**: Array of modules, each with:
-  - moduleId, categoryId, title, subtitle
-  - learningObjectives: 2-3 objectives
-  - prerequisites: Required prior modules
-  - lessons: Array of lessons with all 4 types per principle
-- **learningPath**: Object with recommended order of module IDs
+
+### Universal Principles Module (REQUIRED - taught first)
+- **universalPrinciplesModule**: Object containing:
+  - **moduleTitle**: "Foundational Principles" or similar
+  - **moduleDescription**: Why these universal concepts matter
+  - **principleUnits**: Array of 3 principle units (pip-count, risk-reward, cube-timing)
+  - **totalLessons**: Sum of all lessons in this module
+
+### Phase Modules (REQUIRED - taught after universal)
+- **phaseModules**: Array of phase modules, each containing:
+  - **phase**: "OPENING" | "EARLY" | "MIDDLE" | "BEAROFF"
+  - **phaseTitle**: Human-readable phase name
+  - **phaseDescription**: Brief overview of this game phase
+  - **phaseIntroLesson**: Optional introductory lesson (can be null)
+  - **principleUnits**: Array of 2 principle units (phase-specific principles)
+  - **totalLessons**: Sum of all lessons in this module
+
+### Principle Unit Structure
+Each principleUnit contains:
+- **principleId**: Must match taxonomy (e.g., "point-making", "priming")
+- **principleName**: Human-readable name
+- **principleDescription**: Brief description
+- **lessonCount**: Number of lessons (typically 4)
+- **lessons**: Array of 4 lessons (CONCEPT, EXAMPLE, CONTRAST, PRACTICE)
+
+### Lesson Structure
+Each lesson contains:
+- **lessonId**: Unique identifier
+- **principleId**: Which principle this teaches
+- **type**: "CONCEPT" | "EXAMPLE" | "CONTRAST" | "PRACTICE"
+- **title**: Lesson title
+- **content**: Object with headline, essence, expandedContent
+- **metadata**: Object with difficultyTier, estimatedMinutes
+
+### Learning Path
+- **learningPath**: Object with:
+  - **recommended**: Array of lessonIds in recommended order
 
 ### Design Rationale Field (Required)
 - **designRationale**: Object documenting your curriculum design thinking:
-  - approachesConsidered: Array of curriculum approaches you evaluated (e.g., "Mastery-Based", "Challenge-First")
+  - approachesConsidered: Array of approaches you evaluated
   - selectedApproach: The approach you chose
-  - selectionReasoning: 2-4 sentences explaining why this approach fits this domain and learner needs
-  - engagementStrategy: How you maintain learner motivation throughout (optional)
-  - progressionLogic: Why lessons and modules are ordered this way (optional)
+  - selectionReasoning: 2-4 sentences explaining why
+  - engagementStrategy: How you maintain motivation (optional)
+  - progressionLogic: Why this ordering (optional)
 
 ---
 

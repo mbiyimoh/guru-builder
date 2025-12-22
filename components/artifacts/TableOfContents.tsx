@@ -44,18 +44,23 @@ function TOCItemComponent({ item, activeId }: TOCItemComponentProps) {
       child.id === activeId || child.children?.some((gc) => gc.id === activeId)
   );
 
+  // Calculate indentation and styling based on level
+  const levelStyles = {
+    1: 'font-medium text-gray-700',
+    2: 'pl-3 text-gray-600 text-xs',
+    3: 'pl-6 text-gray-500 text-xs',
+  }[item.level] || 'pl-6 text-gray-500 text-xs';
+
   return (
     <li>
       <button
         onClick={() => scrollToSection(item.id)}
-        className={`w-full text-left text-sm py-1.5 px-2 rounded transition-colors ${
-          item.level === 1 ? 'font-medium' : 'pl-4 text-gray-600'
-        } ${
+        className={`w-full text-left py-1.5 px-2 rounded transition-colors ${levelStyles} ${
           isActive
             ? 'bg-blue-100 text-blue-800'
             : hasActiveChild
               ? 'text-blue-700'
-              : 'hover:bg-gray-100 text-gray-700'
+              : 'hover:bg-gray-100'
         }`}
         data-testid={`toc-item-${item.id}`}
       >

@@ -1,6 +1,6 @@
 'use client';
 
-import type { CurriculumOutput } from '@/lib/guruFunctions/schemas/curriculumSchema';
+import type { CurriculumOutput, PrincipleUnit } from '@/lib/guruFunctions/schemas/curriculumSchema';
 import { LessonCard } from './cards/LessonCard';
 import type { TOCItem } from '@/lib/teaching/types/toc';
 
@@ -64,56 +64,59 @@ export function CurriculumRenderer({ content, className }: CurriculumRendererPro
         </section>
       )}
 
-      {/* Modules */}
-      {content.modules.map((module, index) => (
+      {/* Universal Principles Module (taught FIRST) */}
+      <section id="universal-principles" className="mb-12">
+        <div className="mb-6">
+          <h2 className="text-xl font-semibold text-white bg-purple-700 px-4 py-3 rounded-r-lg border-l-8 border-purple-900 -ml-4">
+            {content.universalPrinciplesModule.moduleTitle}
+          </h2>
+          <p className="text-gray-600 mt-2 px-4">
+            {content.universalPrinciplesModule.moduleDescription}
+          </p>
+          <p className="text-sm text-gray-500 mt-1 px-4">
+            {content.universalPrinciplesModule.totalLessons} lessons
+          </p>
+        </div>
+
+        {/* Principle Units */}
+        <div className="space-y-8 px-4">
+          {content.universalPrinciplesModule.principleUnits.map((unit) => (
+            <PrincipleUnitSection key={unit.principleId} unit={unit} />
+          ))}
+        </div>
+      </section>
+
+      {/* Phase Modules */}
+      {content.phaseModules.map((phaseModule, index) => (
         <section
-          key={module.moduleId}
-          id={`module-${module.moduleId}`}
+          key={phaseModule.phase}
+          id={`phase-${phaseModule.phase.toLowerCase()}`}
           className="mb-12"
         >
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-white bg-blue-700 px-4 py-3 rounded-r-lg border-l-8 border-blue-900 -ml-4">
-              Module {index + 1}: {module.title}
+              {phaseModule.phaseTitle}
             </h2>
-            <p className="text-gray-600 mt-2 px-4">{module.subtitle}</p>
-
-            {/* Learning Objectives */}
-            {module.learningObjectives.length > 0 && (
-              <div className="mt-4 px-4">
-                <h3 className="text-sm font-semibold text-gray-700 mb-2">
-                  Learning Objectives
-                </h3>
-                <ul className="list-disc list-inside space-y-1 text-gray-600 text-sm">
-                  {module.learningObjectives.map((obj, i) => (
-                    <li key={i}>{obj}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Prerequisites */}
-            {module.prerequisites.length > 0 && (
-              <div className="mt-3 px-4">
-                <h3 className="text-sm font-semibold text-gray-700 mb-2">
-                  Prerequisites
-                </h3>
-                <ul className="list-disc list-inside space-y-1 text-gray-500 text-sm">
-                  {module.prerequisites.map((prereq, i) => (
-                    <li key={i}>{prereq}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            <p className="text-gray-600 mt-2 px-4">{phaseModule.phaseDescription}</p>
+            <p className="text-sm text-gray-500 mt-1 px-4">
+              {phaseModule.totalLessons} lessons
+            </p>
           </div>
 
-          {/* Lessons */}
-          <div className="space-y-4 px-4">
-            {module.lessons.map((lesson) => (
+          {/* Phase Intro Lesson */}
+          {phaseModule.phaseIntroLesson && (
+            <div className="mb-6 px-4">
               <LessonCard
-                key={lesson.lessonId}
-                id={`lesson-${lesson.lessonId}`}
-                lesson={lesson}
+                id={`lesson-${phaseModule.phaseIntroLesson.lessonId}`}
+                lesson={phaseModule.phaseIntroLesson}
               />
+            </div>
+          )}
+
+          {/* Principle Units */}
+          <div className="space-y-8 px-4">
+            {phaseModule.principleUnits.map((unit) => (
+              <PrincipleUnitSection key={unit.principleId} unit={unit} />
             ))}
           </div>
         </section>
@@ -129,12 +132,35 @@ export function CurriculumRenderer({ content, className }: CurriculumRendererPro
             Recommended Learning Path
           </h2>
           <ol className="list-decimal list-inside text-blue-700 text-sm space-y-1">
-            {content.learningPath.recommended.map((moduleId, i) => (
-              <li key={i}>{moduleId}</li>
+            {content.learningPath.recommended.map((item, i) => (
+              <li key={i}>{item}</li>
             ))}
           </ol>
         </section>
       )}
+    </div>
+  );
+}
+
+/**
+ * Render a principle unit with its lessons
+ */
+function PrincipleUnitSection({ unit }: { unit: PrincipleUnit }) {
+  return (
+    <div id={`principle-${unit.principleId}`} className="border-l-4 border-gray-300 pl-4">
+      <h3 className="text-lg font-semibold text-gray-800 mb-1">
+        {unit.principleName}
+      </h3>
+      <p className="text-sm text-gray-600 mb-4">{unit.principleDescription}</p>
+      <div className="space-y-4">
+        {unit.lessons.map((lesson) => (
+          <LessonCard
+            key={lesson.lessonId}
+            id={`lesson-${lesson.lessonId}`}
+            lesson={lesson}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -150,16 +176,61 @@ export function generateCurriculumTOC(content: CurriculumOutput): TOCItem[] {
     items.push({ id: 'design-rationale', label: 'Design Rationale', level: 1 });
   }
 
-  content.modules.forEach((mod) => {
-    items.push({
-      id: `module-${mod.moduleId}`,
-      label: mod.title,
-      level: 1,
-      children: mod.lessons.map((l) => ({
-        id: `lesson-${l.lessonId}`,
-        label: l.title,
+  // Universal Principles Module
+  const universalChildren: TOCItem[] = content.universalPrinciplesModule.principleUnits.flatMap(
+    (unit) => [
+      {
+        id: `principle-${unit.principleId}`,
+        label: unit.principleName,
         level: 2,
-      })),
+        children: unit.lessons.map((lesson) => ({
+          id: `lesson-${lesson.lessonId}`,
+          label: lesson.title,
+          level: 3,
+        })),
+      },
+    ]
+  );
+
+  items.push({
+    id: 'universal-principles',
+    label: content.universalPrinciplesModule.moduleTitle,
+    level: 1,
+    children: universalChildren,
+  });
+
+  // Phase Modules
+  content.phaseModules.forEach((phaseModule) => {
+    const phaseChildren: TOCItem[] = [];
+
+    // Add phase intro lesson if present
+    if (phaseModule.phaseIntroLesson) {
+      phaseChildren.push({
+        id: `lesson-${phaseModule.phaseIntroLesson.lessonId}`,
+        label: phaseModule.phaseIntroLesson.title,
+        level: 2,
+      });
+    }
+
+    // Add principle units
+    phaseModule.principleUnits.forEach((unit) => {
+      phaseChildren.push({
+        id: `principle-${unit.principleId}`,
+        label: unit.principleName,
+        level: 2,
+        children: unit.lessons.map((lesson) => ({
+          id: `lesson-${lesson.lessonId}`,
+          label: lesson.title,
+          level: 3,
+        })),
+      });
+    });
+
+    items.push({
+      id: `phase-${phaseModule.phase.toLowerCase()}`,
+      label: phaseModule.phaseTitle,
+      level: 1,
+      children: phaseChildren,
     });
   });
 

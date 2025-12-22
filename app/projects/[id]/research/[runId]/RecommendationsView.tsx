@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { TrendingUp, AlertCircle } from 'lucide-react';
 import { DiffViewer } from '@/components/recommendations/DiffViewer';
 
 interface Recommendation {
@@ -26,11 +27,18 @@ interface RecommendationsViewProps {
   runId: string;
 }
 
+interface ReadinessResult {
+  overall: number;
+  previousOverall?: number;
+  criticalGaps: string[];
+}
+
 export function RecommendationsView({ recommendations, projectId, runId }: RecommendationsViewProps) {
   const router = useRouter();
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [applyingAll, setApplyingAll] = useState(false);
   const [expandedDiffs, setExpandedDiffs] = useState<Set<string>>(new Set());
+  const [readinessResult, setReadinessResult] = useState<ReadinessResult | null>(null);
 
   const handleApprove = async (id: string) => {
     setLoadingId(id);
@@ -102,8 +110,14 @@ export function RecommendationsView({ recommendations, projectId, runId }: Recom
         throw new Error(error.message || 'Failed to apply recommendations');
       }
 
+      const result = await res.json();
+
+      // Store readiness result if available
+      if (result.readinessScore) {
+        setReadinessResult(result.readinessScore);
+      }
+
       router.refresh();
-      alert('Recommendations applied successfully!');
     } catch (error) {
       console.error('Error applying recommendations:', error);
       alert(error instanceof Error ? error.message : 'Failed to apply recommendations');
@@ -131,8 +145,44 @@ export function RecommendationsView({ recommendations, projectId, runId }: Recom
     HIGH: 'bg-orange-100 text-orange-800',
   };
 
+  const scoreDelta = readinessResult?.previousOverall !== undefined
+    ? readinessResult.overall - readinessResult.previousOverall
+    : 0;
+
   return (
     <div className="bg-white rounded-lg border">
+      {/* Readiness Result Banner - shown after apply */}
+      {readinessResult && (
+        <div className="px-6 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-b">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <span className="text-sm font-medium text-gray-700">Readiness Updated</span>
+              <span
+                data-testid="readiness-score"
+                className="text-xl font-bold text-green-600"
+              >
+                {Math.round(readinessResult.overall)}%
+              </span>
+              {scoreDelta > 0 && (
+                <span
+                  data-testid="score-improvement"
+                  className="flex items-center text-sm text-green-600 animate-pulse"
+                >
+                  <TrendingUp className="w-4 h-4 mr-1" />
+                  +{Math.round(scoreDelta)}%
+                </span>
+              )}
+            </div>
+            {readinessResult.criticalGaps.length > 0 && (
+              <span className="flex items-center text-sm text-amber-600">
+                <AlertCircle className="w-4 h-4 mr-1" />
+                {readinessResult.criticalGaps.length} critical gap{readinessResult.criticalGaps.length !== 1 ? 's' : ''} remaining
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="px-6 py-4 border-b flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Recommendations</h2>

@@ -2,9 +2,14 @@
 
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import type { GuruArtifactType, ArtifactStatus } from '@prisma/client';
+import type { GuruArtifactType, ArtifactStatus, VerificationStatus } from '@prisma/client';
 import { ARTIFACT_TYPE_CONFIG } from '@/lib/teaching/constants';
 import type { PromptInfo } from '@/lib/teaching/types';
+import { VerificationBadge } from './VerificationBadge';
+import { VerificationDetailsModal } from './VerificationDetailsModal';
+import type { ToolCallResult, ClaimVerificationResult } from '@/lib/groundTruth/types';
+import type { ArtifactSummary } from '@/lib/teaching/artifactClient';
+import { VersionDropdown } from './VersionDropdown';
 
 interface ArtifactDetail {
   id: string;
@@ -12,6 +17,8 @@ interface ArtifactDetail {
   version: number;
   generatedAt: string;
   status: ArtifactStatus;
+  verificationStatus?: VerificationStatus | null;
+  verificationDetails?: unknown;
 }
 
 interface ArtifactHeaderProps {
@@ -27,6 +34,8 @@ interface ArtifactHeaderProps {
   // Prompt integration
   promptInfo?: PromptInfo;
   onEditPrompts?: () => void;
+  // Version dropdown
+  versions?: ArtifactSummary[];
 }
 
 export function ArtifactHeader({
@@ -39,8 +48,10 @@ export function ArtifactHeader({
   children,
   promptInfo,
   onEditPrompts,
+  versions,
 }: ArtifactHeaderProps) {
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -96,12 +107,27 @@ export function ArtifactHeader({
           <h1 data-testid="artifact-title" className="text-2xl font-bold text-gray-900">
             {config.label}
           </h1>
-          <span className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-800">
-            v{artifact.version}
-          </span>
-          <span className="text-sm text-gray-500">
-            Generated {formatTimestamp(artifact.generatedAt)}
-          </span>
+          {versions && versions.length > 0 ? (
+            <VersionDropdown versions={versions} currentVersion={artifact.version} />
+          ) : (
+            <>
+              <span className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-800">
+                v{artifact.version}
+              </span>
+              <span className="text-sm text-gray-500">
+                Generated {formatTimestamp(artifact.generatedAt)}
+              </span>
+            </>
+          )}
+
+          {/* Verification Badge */}
+          {artifact.verificationStatus && (
+            <VerificationBadge
+              status={artifact.verificationStatus}
+              size="sm"
+              onClick={() => setShowVerificationModal(true)}
+            />
+          )}
 
           {/* Prompt indicator badges */}
           {promptInfo && (
@@ -217,6 +243,16 @@ export function ArtifactHeader({
           </button>
         </div>
       </div>
+
+      {/* Verification Details Modal */}
+      <VerificationDetailsModal
+        open={showVerificationModal}
+        onOpenChange={setShowVerificationModal}
+        verificationDetails={artifact.verificationDetails as Parameters<typeof VerificationDetailsModal>[0]['verificationDetails']}
+        status={artifact.verificationStatus ?? null}
+        artifactId={artifact.id}
+        onDrillsFixed={() => router.refresh()}
+      />
     </div>
   );
 }

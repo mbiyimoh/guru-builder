@@ -124,7 +124,7 @@ pkill -f "next dev" || true
 pkill -f "inngest-cli dev" || true
 rm -rf .next node_modules/.cache
 npx prisma generate
-PORT=3002 npm run dev   # Terminal 1
+PORT=3009 npm run dev   # Terminal 1
 npx inngest-cli dev     # Terminal 2
 ```
 

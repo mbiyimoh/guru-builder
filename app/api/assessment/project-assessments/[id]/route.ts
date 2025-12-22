@@ -92,6 +92,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         project: {
           select: { userId: true },
         },
+        assessmentDefinition: true,
       },
     })
 
@@ -118,6 +119,22 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         },
         { status: 400 }
       )
+    }
+
+    // DEPRECATED: useForContentValidation is deprecated in favor of Ground Truth Engine Manager
+    // This validation is kept for backward compatibility during migration period
+    // Users should use the new Project > Ground Truth Engine UI instead
+    if (result.data.useForContentValidation) {
+      console.warn(
+        `[DEPRECATED] Project ${existing.projectId} is using deprecated useForContentValidation. ` +
+        'Use Ground Truth Engine Manager instead.'
+      )
+      if (!existing.assessmentDefinition.canValidateContent) {
+        return NextResponse.json(
+          { error: 'This assessment does not support content validation. Use Ground Truth Engine Manager in project settings.' },
+          { status: 400 }
+        )
+      }
     }
 
     const projectAssessment = await prisma.projectAssessment.update({

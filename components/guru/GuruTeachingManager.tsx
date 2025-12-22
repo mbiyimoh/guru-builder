@@ -2,10 +2,15 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
+import { Info } from 'lucide-react';
 import type { GuruArtifactType, ArtifactStatus } from '@prisma/client';
 import { getArtifactSlug } from '@/lib/teaching/constants';
-import { TeachingProgressTracker } from './TeachingProgressTracker';
+import { FullWidthProgressTracker } from './FullWidthProgressTracker';
 import { PromptEditorModal } from './PromptEditorModal';
+import { ArtifactInfoModal } from '@/components/artifacts/ArtifactInfoModal';
+import { DrillConfigurationPanel, DEFAULT_DRILL_CONFIG } from './DrillConfigurationPanel';
+import type { DrillGenerationConfig } from '@/lib/guruFunctions/types';
+import type { SubTaskProgress } from '@/lib/teaching/types';
 
 interface ArtifactSummary {
   id: string;
@@ -16,6 +21,7 @@ interface ArtifactSummary {
   corpusHash: string | null;
   errorMessage: string | null;
   progressStage: string | null;
+  subTaskProgress: SubTaskProgress | null;
 }
 
 interface ArtifactsResponse {
@@ -64,11 +70,26 @@ export function GuruTeachingManager({ projectId }: GuruTeachingManagerProps) {
   const pollingStartTime = useRef<number | null>(null);
   const MAX_POLL_DURATION_MS = 600000; // 10 minutes
 
+  // Drill configuration state
+  const [drillConfig, setDrillConfig] = useState<DrillGenerationConfig>({ ...DEFAULT_DRILL_CONFIG });
+  const [groundTruthEngineId, setGroundTruthEngineId] = useState<string | null>(null);
+  const [drillConfigValid, setDrillConfigValid] = useState(true);
+  const [drillConfigValidationMsg, setDrillConfigValidationMsg] = useState<string | undefined>();
+
+  // Handle drill config validation changes
+  const handleDrillValidationChange = (canGenerate: boolean, reason?: string) => {
+    setDrillConfigValid(canGenerate);
+    setDrillConfigValidationMsg(reason);
+  };
+
   // Prompt customization state
   const [promptConfigs, setPromptConfigs] = useState<PromptConfigsResponse | null>(null);
   const [promptEditorOpen, setPromptEditorOpen] = useState<{
     artifactType: 'MENTAL_MODEL' | 'CURRICULUM' | 'DRILL_SERIES';
   } | null>(null);
+
+  // Info modal state
+  const [infoModalType, setInfoModalType] = useState<'MENTAL_MODEL' | 'CURRICULUM' | 'DRILL_SERIES' | null>(null);
 
   const fetchArtifacts = useCallback(async () => {
     try {
@@ -95,10 +116,30 @@ export function GuruTeachingManager({ projectId }: GuruTeachingManagerProps) {
     }
   }, [projectId]);
 
+  // Fetch ground truth config to get engine ID for drill configuration
+  const fetchGroundTruthConfig = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/ground-truth-config`);
+      if (res.ok) {
+        const data = await res.json();
+        // API returns activeConfig (the enabled config with engine details)
+        if (data.activeConfig?.engine?.id) {
+          setGroundTruthEngineId(data.activeConfig.engine.id);
+        } else {
+          setGroundTruthEngineId(null);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch ground truth config:', error);
+      setGroundTruthEngineId(null);
+    }
+  }, [projectId]);
+
   useEffect(() => {
     fetchArtifacts();
     fetchPromptConfigs();
-  }, [fetchArtifacts, fetchPromptConfigs]);
+    fetchGroundTruthConfig();
+  }, [fetchArtifacts, fetchPromptConfigs, fetchGroundTruthConfig]);
 
   // Poll for updates when something is generating
   useEffect(() => {
@@ -144,6 +185,14 @@ export function GuruTeachingManager({ projectId }: GuruTeachingManagerProps) {
   function openUserNotesModal(type: ArtifactTypeKey) {
     setUserNotesModal(type);
     setUserNotes('');
+    // Reset drill config and re-fetch ground truth config when opening drill-series modal
+    if (type === 'drill-series') {
+      setDrillConfig({ ...DEFAULT_DRILL_CONFIG });
+      setDrillConfigValid(true); // Reset validation state
+      setDrillConfigValidationMsg(undefined);
+      // Re-fetch ground truth config to ensure we have the latest
+      fetchGroundTruthConfig();
+    }
   }
 
   function closeUserNotesModal() {
@@ -170,10 +219,16 @@ export function GuruTeachingManager({ projectId }: GuruTeachingManagerProps) {
     setGenerating(type);
     pollingStartTime.current = Date.now();
     try {
+      // Build request body - include drillConfig for drill-series
+      const body: Record<string, unknown> = { userNotes: notes || undefined };
+      if (type === 'drill-series') {
+        body.drillConfig = drillConfig;
+      }
+
       const res = await fetch(`/api/projects/${projectId}/guru/${type}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userNotes: notes || undefined }),
+        body: JSON.stringify(body),
       });
 
       if (!res.ok) {
@@ -230,6 +285,7 @@ export function GuruTeachingManager({ projectId }: GuruTeachingManagerProps) {
               promptConfigs?.promptConfigs.find(c => c.artifactType === 'MENTAL_MODEL')?.userPrompt.isCustom
             }
             onEditPrompts={() => setPromptEditorOpen({ artifactType: 'MENTAL_MODEL' })}
+            onShowInfo={() => setInfoModalType('MENTAL_MODEL')}
           />
 
           {/* Curriculum */}
@@ -247,6 +303,7 @@ export function GuruTeachingManager({ projectId }: GuruTeachingManagerProps) {
               promptConfigs?.promptConfigs.find(c => c.artifactType === 'CURRICULUM')?.userPrompt.isCustom
             }
             onEditPrompts={() => setPromptEditorOpen({ artifactType: 'CURRICULUM' })}
+            onShowInfo={() => setInfoModalType('CURRICULUM')}
           />
 
           {/* Drill Series */}
@@ -270,22 +327,57 @@ export function GuruTeachingManager({ projectId }: GuruTeachingManagerProps) {
               promptConfigs?.promptConfigs.find(c => c.artifactType === 'DRILL_SERIES')?.userPrompt.isCustom
             }
             onEditPrompts={() => setPromptEditorOpen({ artifactType: 'DRILL_SERIES' })}
+            onShowInfo={() => setInfoModalType('DRILL_SERIES')}
           />
         </div>
+
+        {/* Full-width Progress Tracker - shows when any artifact is generating */}
+        {(() => {
+          const generatingArtifact = [
+            latest?.mentalModel,
+            latest?.curriculum,
+            latest?.drillSeries
+          ].find(a => a?.status === 'GENERATING');
+
+          if (!generatingArtifact) return null;
+
+          return (
+            <FullWidthProgressTracker
+              artifactType={generatingArtifact.type}
+              currentStage={generatingArtifact.progressStage}
+              subTaskProgress={generatingArtifact.subTaskProgress}
+              isComplete={false}
+            />
+          );
+        })()}
 
         {/* User Notes Modal */}
         {userNotesModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
+            <div className={`bg-white rounded-lg shadow-xl w-full ${userNotesModal === 'drill-series' ? 'max-w-2xl' : 'max-w-lg'}`}>
               <div className="p-6 border-b">
                 <h3 className="text-lg font-semibold text-gray-900">
                   Generate {userNotesModal === 'mental-model' ? 'Mental Model' : userNotesModal === 'curriculum' ? 'Curriculum' : 'Drill Series'}
                 </h3>
                 <p className="text-sm text-gray-500 mt-1">
-                  Optionally add guidance for the AI to consider during generation
+                  {userNotesModal === 'drill-series'
+                    ? 'Configure drill options and optionally add guidance for the AI'
+                    : 'Optionally add guidance for the AI to consider during generation'}
                 </p>
               </div>
-              <div className="p-6">
+              <div className="p-6 max-h-[70vh] overflow-y-auto">
+                {/* Drill Configuration Panel for drill-series */}
+                {userNotesModal === 'drill-series' && (
+                  <div className="mb-6 pb-6 border-b border-gray-200">
+                    <DrillConfigurationPanel
+                      engineId={groundTruthEngineId}
+                      config={drillConfig}
+                      onConfigChange={setDrillConfig}
+                      onValidationChange={handleDrillValidationChange}
+                    />
+                  </div>
+                )}
+
                 <label htmlFor="user-notes" className="block text-sm font-medium text-gray-700 mb-2">
                   User Notes (optional)
                 </label>
@@ -310,7 +402,13 @@ export function GuruTeachingManager({ projectId }: GuruTeachingManagerProps) {
                 </button>
                 <button
                   onClick={() => handleGenerate(userNotesModal, userNotes.trim() || undefined)}
-                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
+                  disabled={userNotesModal === 'drill-series' && !drillConfigValid}
+                  className={`px-4 py-2 text-sm font-medium rounded-md ${
+                    userNotesModal === 'drill-series' && !drillConfigValid
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'text-white bg-blue-600 hover:bg-blue-700'
+                  }`}
+                  title={userNotesModal === 'drill-series' && !drillConfigValid ? drillConfigValidationMsg : undefined}
                   data-testid="generate-button"
                 >
                   Generate
@@ -380,6 +478,15 @@ export function GuruTeachingManager({ projectId }: GuruTeachingManagerProps) {
             />
           );
         })()}
+
+        {/* Artifact Info Modal */}
+        {infoModalType && (
+          <ArtifactInfoModal
+            artifactType={infoModalType}
+            isOpen={!!infoModalType}
+            onClose={() => setInfoModalType(null)}
+          />
+        )}
       </div>
     </div>
   );
@@ -396,6 +503,7 @@ interface ArtifactCardProps {
   prerequisite?: string;
   hasCustomPrompts?: boolean;
   onEditPrompts?: () => void;
+  onShowInfo?: () => void;
 }
 
 function ArtifactCard({
@@ -409,6 +517,7 @@ function ArtifactCard({
   prerequisite,
   hasCustomPrompts,
   onEditPrompts,
+  onShowInfo,
 }: ArtifactCardProps) {
   const status = artifact?.status;
   const isCompleted = status === 'COMPLETED';
@@ -458,6 +567,16 @@ function ArtifactCard({
           )}
         </div>
         <div className="flex items-center gap-2">
+          {onShowInfo && (
+            <button
+              onClick={onShowInfo}
+              className="p-1.5 text-gray-400 hover:text-gray-600 rounded hover:bg-gray-100"
+              title="How this is created"
+              aria-label="How this is created"
+            >
+              <Info className="w-4 h-4" />
+            </button>
+          )}
           {onEditPrompts && (
             <button
               onClick={onEditPrompts}
@@ -499,19 +618,9 @@ function ArtifactCard({
         <p className="text-sm text-amber-600 mb-4">{prerequisite}</p>
       )}
 
-      {isInProgress && (
-        <div className="mb-4">
-          {artifact?.progressStage ? (
-            <TeachingProgressTracker
-              artifactType={artifact.type}
-              currentStage={artifact.progressStage}
-              isComplete={false}
-            />
-          ) : (
-            <div className="text-sm text-blue-600">
-              Generating... This may take a few minutes.
-            </div>
-          )}
+      {isInProgress && !artifact?.progressStage && (
+        <div className="text-sm text-blue-600 mb-4">
+          Generating...
         </div>
       )}
 

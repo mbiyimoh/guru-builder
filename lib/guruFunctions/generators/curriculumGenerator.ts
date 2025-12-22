@@ -6,12 +6,13 @@
  */
 
 import { zodResponseFormat } from 'openai/helpers/zod'
-import { curriculumSchema, type CurriculumOutput } from '../schemas/curriculumSchema'
+import { curriculumSchema, type CurriculumOutput, type Lesson } from '../schemas/curriculumSchema'
 import type { MentalModelOutput } from '../schemas/mentalModelSchema'
 import { buildCurriculumPrompt } from '../prompts/curriculumPrompt'
 import { CREATIVE_TEACHING_SYSTEM_PROMPT } from '../prompts/creativeSystemPrompt'
 import { composeCorpusSummary, computeCorpusHash } from '../corpusHasher'
 import type { GeneratorOptions, GenerationResult } from '../types'
+import { buildProfilePromptBlock } from '@/lib/guruProfile/promptFormatter'
 
 // Lazy-load OpenAI client to avoid build-time errors
 let openaiClient: import('openai').default | null = null
@@ -45,6 +46,7 @@ export async function generateCurriculum(
     mentalModel,
     customSystemPrompt,
     customUserPromptTemplate,
+    guruProfile,
   } = options
 
   // Validate inputs
@@ -77,8 +79,12 @@ export async function generateCurriculum(
     })
   }
 
-  // Use custom system prompt if provided
-  const systemPrompt = customSystemPrompt ?? CREATIVE_TEACHING_SYSTEM_PROMPT
+  // Build system prompt - inject guru profile if available
+  let systemPrompt = customSystemPrompt ?? CREATIVE_TEACHING_SYSTEM_PROMPT
+  if (guruProfile) {
+    const profileBlock = buildProfilePromptBlock(guruProfile)
+    systemPrompt = profileBlock + '\n\n' + systemPrompt
+  }
 
   const openai = getOpenAIClient()
 
@@ -165,58 +171,86 @@ export function renderCurriculumMarkdown(curriculum: CurriculumOutput): string {
   lines.push(`Recommended order: ${curriculum.learningPath.recommended.join(' → ')}`)
   lines.push('')
 
-  // Modules
-  for (const module of curriculum.modules) {
-    lines.push(`---`)
+  // Helper function to render a lesson
+  const renderLesson = (lesson: Lesson) => {
+    const typeEmoji: Record<string, string> = {
+      CONCEPT: '💡',
+      EXAMPLE: '📖',
+      CONTRAST: '⚖️',
+      PRACTICE: '🎯',
+    }
+    const emoji = typeEmoji[lesson.type] || '📝'
+
+    lines.push(`#### ${emoji} ${lesson.title} (${lesson.type})`)
     lines.push('')
-    lines.push(`## Module: ${module.title}`)
+    lines.push(`**${lesson.content.headline}**`)
     lines.push('')
-    lines.push(`*${module.subtitle}*`)
+    lines.push(lesson.content.essence)
     lines.push('')
 
-    if (module.prerequisites.length > 0) {
-      lines.push(`**Prerequisites:** ${module.prerequisites.join(', ')}`)
+    if (lesson.content.expandedContent) {
+      lines.push('<details>')
+      lines.push('<summary>Learn more...</summary>')
+      lines.push('')
+      lines.push(lesson.content.expandedContent)
+      lines.push('')
+      lines.push('</details>')
       lines.push('')
     }
 
-    lines.push('### Learning Objectives')
+    lines.push(`*Difficulty: ${lesson.metadata.difficultyTier} | ~${lesson.metadata.estimatedMinutes} min*`)
     lines.push('')
-    module.learningObjectives.forEach((obj, i) => {
-      lines.push(`${i + 1}. ${obj}`)
-    })
+  }
+
+  // Universal Principles Module (taught FIRST)
+  lines.push(`---`)
+  lines.push('')
+  lines.push(`## ${curriculum.universalPrinciplesModule.moduleTitle}`)
+  lines.push('')
+  lines.push(`*${curriculum.universalPrinciplesModule.moduleDescription}*`)
+  lines.push('')
+  lines.push(`**Total Lessons:** ${curriculum.universalPrinciplesModule.totalLessons}`)
+  lines.push('')
+
+  for (const unit of curriculum.universalPrinciplesModule.principleUnits) {
+    lines.push(`### ${unit.principleName}`)
+    lines.push('')
+    lines.push(unit.principleDescription)
     lines.push('')
 
-    // Lessons
-    lines.push('### Lessons')
+    for (const lesson of unit.lessons) {
+      renderLesson(lesson)
+    }
+  }
+
+  // Phase Modules
+  for (const phaseModule of curriculum.phaseModules) {
+    lines.push(`---`)
+    lines.push('')
+    lines.push(`## ${phaseModule.phaseTitle}`)
+    lines.push('')
+    lines.push(`*${phaseModule.phaseDescription}*`)
+    lines.push('')
+    lines.push(`**Total Lessons:** ${phaseModule.totalLessons}`)
     lines.push('')
 
-    for (const lesson of module.lessons) {
-      const typeEmoji = {
-        CONCEPT: '💡',
-        EXAMPLE: '📖',
-        CONTRAST: '⚖️',
-        PRACTICE: '🎯',
-      }[lesson.type]
+    // Phase intro lesson if present
+    if (phaseModule.phaseIntroLesson) {
+      lines.push('### Introduction')
+      lines.push('')
+      renderLesson(phaseModule.phaseIntroLesson)
+    }
 
-      lines.push(`#### ${typeEmoji} ${lesson.title} (${lesson.type})`)
+    // Principle units
+    for (const unit of phaseModule.principleUnits) {
+      lines.push(`### ${unit.principleName}`)
       lines.push('')
-      lines.push(`**${lesson.content.headline}**`)
-      lines.push('')
-      lines.push(lesson.content.essence)
+      lines.push(unit.principleDescription)
       lines.push('')
 
-      if (lesson.content.expandedContent) {
-        lines.push('<details>')
-        lines.push('<summary>Learn more...</summary>')
-        lines.push('')
-        lines.push(lesson.content.expandedContent)
-        lines.push('')
-        lines.push('</details>')
-        lines.push('')
+      for (const lesson of unit.lessons) {
+        renderLesson(lesson)
       }
-
-      lines.push(`*Difficulty: ${lesson.metadata.difficultyTier} | ~${lesson.metadata.estimatedMinutes} min*`)
-      lines.push('')
     }
   }
 

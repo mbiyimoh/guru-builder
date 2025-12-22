@@ -29,12 +29,6 @@ export const backgammonMoveSchema = z.object({
   evaluation: moveEvaluationSchema.optional(),
 })
 
-// DEPRECATED: Legacy config schema - kept for backwards compatibility
-export const assessmentConfigSchema = z.object({
-  engineUrl: z.string().url().default('https://gnubg-mcp-d1c3c7a814e8.herokuapp.com'),
-  isEnabled: z.boolean().default(true),
-})
-
 // ============================================================================
 // NEW LIBRARY ARCHITECTURE SCHEMAS
 // ============================================================================
@@ -77,6 +71,7 @@ export const createProjectAssessmentSchema = z.object({
 
 export const updateProjectAssessmentSchema = z.object({
   isEnabled: z.boolean().optional(),
+  useForContentValidation: z.boolean().optional(),
 })
 
 export const projectAssessmentSchema = z.object({
