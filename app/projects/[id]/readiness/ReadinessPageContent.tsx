@@ -6,8 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, AlertTriangle, ArrowRight, RefreshCw, Loader2 } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, ArrowRight, RefreshCw, Loader2, Zap } from 'lucide-react';
 import type { ReadinessScore, DimensionCoverage } from '@/lib/wizard/types';
+
+interface GTStatus {
+  enabled: boolean;
+  engineName: string | null;
+  positionCount: number;
+}
 
 interface Props {
   projectId: string;
@@ -19,6 +25,11 @@ export function ReadinessPageContent({ projectId }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reassessing, setReassessing] = useState(false);
+  const [gtStatus, setGtStatus] = useState<GTStatus>({
+    enabled: false,
+    engineName: null,
+    positionCount: 0,
+  });
 
   useEffect(() => {
     async function fetchReadiness() {
@@ -42,6 +53,47 @@ export function ReadinessPageContent({ projectId }: Props) {
       }
     }
     fetchReadiness();
+  }, [projectId]);
+
+  // Fetch GT status
+  useEffect(() => {
+    async function fetchGTStatus() {
+      try {
+        const res = await fetch(`/api/projects/${projectId}/ground-truth-config`, {
+          credentials: 'include',
+        });
+        if (!res.ok) return;
+
+        const data = await res.json();
+        const activeConfig = data.activeConfig;
+
+        if (activeConfig?.isEnabled && activeConfig?.engine?.id) {
+          // Fetch position counts
+          const countsRes = await fetch(
+            `/api/position-library/counts?engineId=${activeConfig.engine.id}`,
+            { credentials: 'include' }
+          );
+          const counts = countsRes.ok
+            ? await countsRes.json()
+            : { OPENING: 0, EARLY: 0, MIDDLE: 0, BEAROFF: 0 };
+
+          const totalPositions = Object.values(counts).reduce(
+            (a: number, b: unknown) => a + (b as number),
+            0
+          );
+
+          setGtStatus({
+            enabled: true,
+            engineName: activeConfig.engine.name,
+            positionCount: totalPositions,
+          });
+        }
+      } catch (err) {
+        // Silently fail - GT status is optional
+        console.error('Failed to fetch GT status:', err);
+      }
+    }
+    fetchGTStatus();
   }, [projectId]);
 
   const handleReassess = async () => {
@@ -137,6 +189,21 @@ export function ReadinessPageContent({ projectId }: Props) {
           </div>
         </CardContent>
       </Card>
+
+      {/* GT Status */}
+      {gtStatus.enabled && (
+        <div className="p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
+          <div className="flex items-center gap-2">
+            <Zap className="h-4 w-4 text-green-600" />
+            <span className="font-medium text-green-700 dark:text-green-400">
+              Accuracy Tools Enabled
+            </span>
+          </div>
+          <p className="text-sm text-green-600 dark:text-green-500 mt-1">
+            {gtStatus.engineName} connected with {gtStatus.positionCount} positions
+          </p>
+        </div>
+      )}
 
       {/* Critical Gaps */}
       {score.criticalGaps.length > 0 && (

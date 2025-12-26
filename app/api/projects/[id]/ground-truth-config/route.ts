@@ -8,37 +8,42 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { getCurrentUser } from '@/lib/auth'
+import { requireProjectOwnership } from '@/lib/auth'
 import { z } from 'zod'
+import { POSITION_LIBRARY_THRESHOLDS } from '@/lib/teaching/constants'
+
+const { MINIMUM_POSITIONS, WARNING_THRESHOLD } = POSITION_LIBRARY_THRESHOLDS
 
 const EnableEngineSchema = z.object({
   engineId: z.string().min(1, 'Engine ID is required'),
 })
+
+function handleAuthError(error: unknown) {
+  const message = error instanceof Error ? error.message : 'Error'
+  if (message === 'Unauthorized') {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  if (message === 'Forbidden') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+  if (message === 'Project not found') {
+    return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+  }
+  return null
+}
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const { id: projectId } = await params
 
-    // Verify project ownership
-    const project = await prisma.project.findUnique({
-      where: { id: projectId },
-      select: { userId: true },
-    })
-
-    if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
-    }
-
-    if (project.userId !== user.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    try {
+      await requireProjectOwnership(projectId)
+    } catch (error) {
+      const authError = handleAuthError(error)
+      if (authError) return authError
     }
 
     // Get project's ground truth configs with engine details
@@ -63,9 +68,42 @@ export async function GET(
     // Find the active (enabled) config
     const activeConfig = configs.find(c => c.isEnabled && c.engine.isActive)
 
+    // Fetch position library stats if enabled
+    let positionLibrary = null
+    if (activeConfig?.engineId) {
+      const counts = await prisma.positionLibrary.groupBy({
+        by: ['gamePhase'],
+        where: { engineId: activeConfig.engineId },
+        _count: true,
+      })
+
+      const byPhase: Record<string, number> = {
+        OPENING: 0,
+        EARLY: 0,
+        MIDDLE: 0,
+        BEAROFF: 0,
+      }
+      for (const c of counts) {
+        byPhase[c.gamePhase] = c._count
+      }
+
+      const total = Object.values(byPhase).reduce((a, b) => a + b, 0)
+      const nonOpeningTotal = total - byPhase.OPENING
+
+      positionLibrary = {
+        total,
+        byPhase,
+        sufficientForDrills: nonOpeningTotal >= MINIMUM_POSITIONS,
+        warning: nonOpeningTotal < WARNING_THRESHOLD && nonOpeningTotal >= MINIMUM_POSITIONS
+          ? `Position library has only ${nonOpeningTotal} non-opening positions. Consider generating more for better drill variety.`
+          : null,
+      }
+    }
+
     return NextResponse.json({
       configs,
       activeConfig: activeConfig || null,
+      positionLibrary,
     })
   } catch (error) {
     console.error('Error fetching ground truth config:', error)
@@ -81,25 +119,13 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const { id: projectId } = await params
 
-    // Verify project ownership
-    const project = await prisma.project.findUnique({
-      where: { id: projectId },
-      select: { userId: true },
-    })
-
-    if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
-    }
-
-    if (project.userId !== user.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    try {
+      await requireProjectOwnership(projectId)
+    } catch (error) {
+      const authError = handleAuthError(error)
+      if (authError) return authError
     }
 
     const body = await request.json()
@@ -159,7 +185,36 @@ export async function POST(
       },
     })
 
-    return NextResponse.json({ config }, { status: 201 })
+    // Fetch position library stats for the newly enabled engine
+    const counts = await prisma.positionLibrary.groupBy({
+      by: ['gamePhase'],
+      where: { engineId },
+      _count: true,
+    })
+
+    const byPhase: Record<string, number> = {
+      OPENING: 0,
+      EARLY: 0,
+      MIDDLE: 0,
+      BEAROFF: 0,
+    }
+    for (const c of counts) {
+      byPhase[c.gamePhase] = c._count
+    }
+
+    const total = Object.values(byPhase).reduce((a, b) => a + b, 0)
+    const nonOpeningTotal = total - byPhase.OPENING
+
+    const positionLibrary = {
+      total,
+      byPhase,
+      sufficientForDrills: nonOpeningTotal >= MINIMUM_POSITIONS,
+      warning: nonOpeningTotal < WARNING_THRESHOLD && nonOpeningTotal >= MINIMUM_POSITIONS
+        ? `Position library has only ${nonOpeningTotal} non-opening positions. Consider generating more for better drill variety.`
+        : null,
+    }
+
+    return NextResponse.json({ config, positionLibrary }, { status: 201 })
   } catch (error) {
     console.error('Error enabling ground truth engine:', error)
     return NextResponse.json(
@@ -174,25 +229,13 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const { id: projectId } = await params
 
-    // Verify project ownership
-    const project = await prisma.project.findUnique({
-      where: { id: projectId },
-      select: { userId: true },
-    })
-
-    if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
-    }
-
-    if (project.userId !== user.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    try {
+      await requireProjectOwnership(projectId)
+    } catch (error) {
+      const authError = handleAuthError(error)
+      if (authError) return authError
     }
 
     // Disable all ground truth configs for this project

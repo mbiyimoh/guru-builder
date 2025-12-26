@@ -36,6 +36,8 @@ interface ArtifactHeaderProps {
   onEditPrompts?: () => void;
   // Version dropdown
   versions?: ArtifactSummary[];
+  // Error callback (replaces blocking alert())
+  onError?: (message: string) => void;
 }
 
 export function ArtifactHeader({
@@ -49,6 +51,7 @@ export function ArtifactHeader({
   promptInfo,
   onEditPrompts,
   versions,
+  onError,
 }: ArtifactHeaderProps) {
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [showVerificationModal, setShowVerificationModal] = useState(false);
@@ -87,7 +90,9 @@ export function ArtifactHeader({
       router.push(`/projects/${projectId}`);
     } catch (error) {
       console.error('Error regenerating artifact:', error);
-      alert('Failed to regenerate artifact. Please try again.');
+      if (onError) {
+        onError('Failed to regenerate artifact. Please try again.');
+      }
       setIsRegenerating(false);
     }
   };

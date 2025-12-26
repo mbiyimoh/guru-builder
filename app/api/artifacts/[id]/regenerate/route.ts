@@ -9,6 +9,7 @@ import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { inngest } from '@/lib/inngest';
 import { GROUND_TRUTH_LIMITS } from '@/lib/groundTruth/types';
+import { getInitialProgressStage } from '@/lib/teaching/constants';
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -100,7 +101,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       where: { id: artifactId },
       data: {
         status: 'GENERATING',
-        progressStage: 'REGENERATING',
+        progressStage: getInitialProgressStage(artifact.type),
         verificationAttempts: { increment: 1 },
         errorMessage: null, // Clear any previous error
       },

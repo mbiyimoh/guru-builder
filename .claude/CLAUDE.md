@@ -93,6 +93,39 @@ Three view modes: **Rendered**, **Markdown**, **JSON**. Each artifact type has s
 - `components/artifacts/renderers/*Renderer.tsx` (MentalModel, Curriculum, DrillSeries)
 - `lib/teaching/hooks/useActiveSection.ts` - Uses `JSON.stringify(sectionIds)` in deps to avoid infinite re-renders
 
+### Unified Teaching Artifact Page
+
+Single-page artifact management with sidebar navigation and inline generation.
+
+**Key Files:**
+- `components/artifacts/UnifiedArtifactPage.tsx` - Main orchestrator component
+- `components/artifacts/ArtifactListSidebar.tsx` - Sidebar with artifact list
+- `components/artifacts/ArtifactDetailPanel.tsx` - Detail view with renderers
+- `components/artifacts/EmptyStateGuidance.tsx` - Onboarding when no artifacts exist
+
+**Architecture:**
+- `hasValidContent()` validates artifact structure before rendering (checks for `{}` or incomplete content)
+- Error types: `network`, `api`, `timeout`, `generation` with specialized UI feedback
+- Default drill config: ALL phases for Simple Mode (not just OPENING)
+
+**Content Validation:**
+```typescript
+// Mental Model: requires categories array
+'categories' in content && content.categories.length > 0
+
+// Curriculum: requires universalPrinciplesModule and phaseModules
+'universalPrinciplesModule' in content && 'phaseModules' in content
+
+// Drill Series: supports legacy (series[]) or phase-organized (phases[])
+('series' in content && content.series.length > 0) ||
+('phases' in content && content.phases.length > 0)
+```
+
+**Gotchas:**
+- During generation, content may be `{}` - use `hasValidContent()` check
+- Use `Cache-Control: no-store` on artifact fetch endpoints
+- Poll for `COMPLETED` status AND valid content structure
+
 ### Prisma Polymorphic Associations
 
 Use **separate nullable FK fields** for models referencing multiple tables:
@@ -160,18 +193,28 @@ Mathematical verification using external engines (GNU Backgammon).
 
 Stores pre-verified positions from GNUBG for scenario-based drill generation.
 
-**Models:** `PositionLibrary`, `GamePhase` enum (OPENING, EARLY, MIDDLE, BEAROFF)
+**Models:** `PositionLibrary`, `GamePhase` enum (OPENING, EARLY, MIDDLE, BEAROFF), `SelfPlayBatch`
 
-**Key Files:** `lib/positionLibrary/` (types, openings, asciiRenderer, seeder)
+**Key Files:** `lib/positionLibrary/` (types, openings, asciiRenderer, seeder, selfPlayGenerator)
 
 **Flow:** Population → Seeding → Generation → Tracking (`GuruArtifact.positionsUsed`)
+
+**Population Methods:**
+1. **Match Import** - Extract positions from `.mat` match files
+2. **Self-Play** - Simulate games via GNUBG, collect all positions
+
+**Self-Play Generation:**
+- Admin UI: Ground Truth Engine → Position Library → Self-Play Generator
+- API: `POST /api/position-library/self-play` (admin-only)
+- Inngest job: `selfPlayGenerationJob`
+- Config: `gamesCount` (1-100), `skipOpening` (default true)
 
 **DEPRECATED (DO NOT RECREATE):**
 - `lib/positionLibrary/positionSeeds.ts`
 - `lib/positionLibrary/nonOpeningPositions.ts`
 - `seedOpeningPositions()` - Use `seedPositionsForPhase(engineId, 'OPENING')`
 
-Positions now from Match Import system, not hardcoded arrays.
+Positions now from Match Import or Self-Play, not hardcoded arrays.
 
 ### Phase-Organized Drill Schema
 
@@ -250,16 +293,29 @@ try {
 
 ## SOPs
 
-### Dev Server Clean Restart
+### Fresh Start (Dev Server Clean Restart)
+
+When user asks for a "fresh start" or "clean restart", Claude MUST run these commands automatically (never just print them for the user to run manually):
+
 ```bash
-pkill -f "next dev" || true && pkill -f "inngest-cli dev" || true
+# Kill existing processes
+pkill -f "next dev" || true
+pkill -f "inngest-cli dev" || true
+
+# Clean caches
 rm -rf .next node_modules/.cache
+
+# Regenerate Prisma client
 npx prisma generate
-PORT=3009 npm run dev  # Terminal 1
-npx inngest-cli dev    # Terminal 2
+
+# Start Next.js (background)
+PORT=3009 npm run dev &
+
+# Wait for Next.js to be ready, then start Inngest
+sleep 5 && npm run inngest:dev
 ```
 
-**Quick:** `npm run clean && PORT=3009 npm run dev`
+**Important:** Always run these commands when asked - do not provide them as instructions for the user to execute.
 
 ### Database Safety
 
@@ -350,7 +406,8 @@ npx tsc --noEmit                   # Type check
 | Schema mismatch | `npm run db:backup && npm run migrate:safe -- fix` |
 | OpenAI API error | Check Zod schema validation in logs |
 | Ground truth timeout | Check engine URL, increase timeout |
-| Position Library empty | Populate via Match Import (`/api/match-import`) |
+| Position Library empty | Populate via Match Import (`/api/match-import`) or Self-Play (`/api/position-library/self-play`) |
+| Self-play batch stuck | Check Inngest UI - `selfPlayGenerationJob` may have engine timeout |
 | ZodError options | GPT returned strings instead of `{id, text, isCorrect}` |
 | 429 TPM | Prompt too large (target <25K tokens) |
 | Auto-tagging fails silently | Check server logs - likely auth issue from HTTP calls |

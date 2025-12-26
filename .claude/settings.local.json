@@ -35,7 +35,9 @@
       "WebFetch(domain:www.gnu.org)",
       "WebFetch(domain:www.bkgm.com)",
       "WebFetch(domain:www.hardyhuebener.de)",
-      "WebFetch(domain:localhost)"
+      "WebFetch(domain:localhost)",
+      "WebFetch(domain:cloudscape.design)",
+      "WebFetch(domain:www.eleken.co)"
     ],
     "deny": [],
     "ask": []

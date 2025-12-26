@@ -909,6 +909,16 @@ export const drillSeriesGenerationJob = inngest.createFunction(
       await updateArtifactProgress(artifactId, DRILL_SERIES_PHASE_KEYS.GENERATING_CONTENT);
     });
 
+    // Initialize sub-task progress for generation phase (shows target drill count to users)
+    await step.run('init-generation-progress', async () => {
+      await updateSubTaskProgress(artifactId, {
+        phase: 'GENERATING_CONTENT',
+        current: 0,
+        total: drillConfig.targetDrillCount,
+        currentClaimText: `Generating ${drillConfig.targetDrillCount} drills...`
+      });
+    });
+
     // Generate drill series with validation
     let result;
     try {
@@ -942,6 +952,23 @@ export const drillSeriesGenerationJob = inngest.createFunction(
       } else {
         console.log(`[Drill Series ${artifactId}] Validation passed (${result.retryCount === 0 ? 'first attempt' : `after ${result.retryCount} retries`})`);
       }
+
+      // Calculate actual drill count from generated content
+      const actualDrillCount = result.content.phases?.reduce(
+        (sum: number, phase: { principleGroups: Array<{ drills: unknown[] }> }) => sum + phase.principleGroups.reduce(
+          (groupSum: number, group: { drills: unknown[] }) => groupSum + group.drills.length, 0
+        ), 0
+      ) || 0;
+
+      // Update generation progress to show completion
+      await step.run('complete-generation-progress', async () => {
+        await updateSubTaskProgress(artifactId, {
+          phase: 'GENERATING_CONTENT',
+          current: actualDrillCount,
+          total: drillConfig.targetDrillCount,
+          currentClaimText: `Generated ${actualDrillCount} drills`
+        });
+      });
     } catch (error) {
       await step.run('mark-failed-generation', async () => {
         await prisma.guruArtifact.update({
@@ -1777,6 +1804,208 @@ export const verifyPositionBatchJob = inngest.createFunction(
   }
 )
 
+// =============================================================================
+// SELF-PLAY POSITION GENERATION
+// =============================================================================
+
+import { runSelfPlayBatch } from './positionLibrary/selfPlayGenerator'
+import type { SelfPlayConfig, GeneratedPosition } from './positionLibrary/selfPlayGenerator'
+
+/**
+ * Self-play position generation job
+ *
+ * Simulates backgammon games using GNUBG engine and stores all positions
+ * to the Position Library for scenario-based drill generation.
+ */
+export const selfPlayGenerationJob = inngest.createFunction(
+  {
+    id: 'self-play-generation',
+    name: 'Self-Play Position Generation',
+    concurrency: { limit: 1 }, // Only one self-play job at a time
+    retries: 2,
+  },
+  { event: 'position-library/self-play.started' },
+  async ({ event, step }) => {
+    const { batchId, engineId, gamesCount, skipOpening } = event.data as {
+      batchId: string
+      engineId: string
+      gamesCount: number
+      skipOpening: boolean
+    }
+
+    // Step 1: Update batch status to RUNNING
+    await step.run('update-status-running', async () => {
+      await prisma.selfPlayBatch.update({
+        where: { id: batchId },
+        data: {
+          status: 'RUNNING',
+          startedAt: new Date(),
+        },
+      })
+    })
+
+    // Step 2: Get engine config
+    const engineConfig = await step.run('get-engine-config', async () => {
+      const engine = await prisma.groundTruthEngine.findUnique({
+        where: { id: engineId },
+      })
+
+      if (!engine) {
+        throw new Error(`Engine not found: ${engineId}`)
+      }
+
+      if (!engine.isActive) {
+        throw new Error(`Engine is not active: ${engine.name}`)
+      }
+
+      return {
+        enabled: true,
+        engineUrl: engine.engineUrl,
+        engineId: engine.id,
+        engineName: engine.name,
+        domain: engine.domain,
+        configId: '',
+      } as GroundTruthConfig
+    })
+
+    // Step 3: Run self-play simulation
+    const result = await step.run('simulate-games', async () => {
+      const config: SelfPlayConfig = {
+        gamesCount,
+        skipOpening,
+        engineConfig,
+        batchId,
+        onProgress: async (progress) => {
+          // Update batch progress in database
+          // Note: This runs frequently, so we batch updates every 5 games
+          if (progress.gamesCompleted % 5 === 0 || progress.gamesCompleted === gamesCount) {
+            await prisma.selfPlayBatch.update({
+              where: { id: batchId },
+              data: {
+                gamesCompleted: progress.gamesCompleted,
+                positionsStored: progress.positionsStored,
+                duplicatesSkipped: progress.duplicatesSkipped,
+              },
+            })
+          }
+        },
+      }
+
+      return runSelfPlayBatch(config)
+    })
+
+    // Step 4: Filter against existing positions in database
+    // Cast result.positions back to GeneratedPosition[] since Inngest serializes step results
+    const generatedPositions = result.positions as unknown as GeneratedPosition[]
+
+    const newPositions = await step.run('filter-existing', async () => {
+      if (generatedPositions.length === 0) return [] as GeneratedPosition[]
+
+      // Get existing position IDs from database
+      const positionIds = generatedPositions.map((p) => p.positionId)
+      const existingPositions = await prisma.positionLibrary.findMany({
+        where: { positionId: { in: positionIds } },
+        select: { positionId: true },
+      })
+
+      const existingIds = new Set(existingPositions.map((p) => p.positionId))
+      const filtered = generatedPositions.filter((p) => !existingIds.has(p.positionId))
+
+      console.log(
+        `[Self-Play ${batchId}] Filtered: ${generatedPositions.length} generated, ${existingIds.size} already exist, ${filtered.length} new`
+      )
+
+      return filtered
+    }) as GeneratedPosition[]
+
+    // Step 5: Store new positions in database
+    const storeResult = await step.run('store-positions', async () => {
+      if (newPositions.length === 0) {
+        return { stored: 0, byPhase: { OPENING: 0, EARLY: 0, MIDDLE: 0, BEAROFF: 0 } }
+      }
+
+      const byPhase: Record<string, number> = { OPENING: 0, EARLY: 0, MIDDLE: 0, BEAROFF: 0 }
+
+      // Store in batches of 50
+      const BATCH_SIZE = 50
+      let stored = 0
+
+      for (let i = 0; i < newPositions.length; i += BATCH_SIZE) {
+        const batch = newPositions.slice(i, i + BATCH_SIZE)
+
+        await prisma.positionLibrary.createMany({
+          data: batch.map((pos) => ({
+            positionId: pos.positionId,
+            gamePhase: pos.gamePhase,
+            diceRoll: pos.diceRoll,
+            bestMove: pos.bestMove,
+            bestMoveEquity: pos.bestMoveEquity,
+            secondBestMove: pos.secondBestMove,
+            secondEquity: pos.secondEquity,
+            thirdBestMove: pos.thirdBestMove,
+            thirdEquity: pos.thirdEquity,
+            probabilityBreakdown: pos.probabilityBreakdown as Prisma.InputJsonValue,
+            asciiBoard: pos.asciiBoard,
+            sourceType: 'SELF_PLAY',
+            engineId,
+            selfPlayBatchId: batchId,
+            selfPlayGameNum: pos.gameNumber,
+            selfPlayMoveNum: pos.moveNumber,
+          })),
+          skipDuplicates: true,
+        })
+
+        // Count by phase
+        for (const pos of batch) {
+          byPhase[pos.gamePhase]++
+        }
+
+        stored += batch.length
+      }
+
+      return { stored, byPhase }
+    })
+
+    // Step 6: Mark batch as complete
+    await step.run('mark-complete', async () => {
+      const totalDuplicates =
+        result.duplicatesSkipped + (result.positions.length - newPositions.length)
+
+      await prisma.selfPlayBatch.update({
+        where: { id: batchId },
+        data: {
+          status: 'COMPLETED',
+          gamesCompleted: gamesCount,
+          positionsStored: storeResult.stored,
+          duplicatesSkipped: totalDuplicates,
+          openingCount: storeResult.byPhase.OPENING,
+          earlyCount: storeResult.byPhase.EARLY,
+          middleCount: storeResult.byPhase.MIDDLE,
+          bearoffCount: storeResult.byPhase.BEAROFF,
+          errors: result.errors,
+          completedAt: new Date(),
+        },
+      })
+    })
+
+    console.log(
+      `[Self-Play ${batchId}] Complete: ${gamesCount} games, ${storeResult.stored} positions stored ` +
+        `(OPENING=${storeResult.byPhase.OPENING}, EARLY=${storeResult.byPhase.EARLY}, ` +
+        `MIDDLE=${storeResult.byPhase.MIDDLE}, BEAROFF=${storeResult.byPhase.BEAROFF})`
+    )
+
+    return {
+      success: true,
+      batchId,
+      gamesPlayed: gamesCount,
+      positionsStored: storeResult.stored,
+      duplicatesSkipped: result.duplicatesSkipped + (result.positions.length - newPositions.length),
+      byPhase: storeResult.byPhase,
+      errors: result.errors.length,
+    }
+  }
+)
+
 /**
  * Export all functions as an array for registration
  */
@@ -1791,4 +2020,5 @@ export const inngestFunctions = [
   scrapeMatchArchivesJob,
   matchArchiveImportJob,
   verifyPositionBatchJob,
+  selfPlayGenerationJob,
 ];

@@ -10,6 +10,18 @@ interface CurriculumRendererProps {
 }
 
 export function CurriculumRenderer({ content, className }: CurriculumRendererProps) {
+  // Guard against incomplete content (during generation or on error)
+  if (!content || !content.universalPrinciplesModule || !content.phaseModules) {
+    return (
+      <div className={className} data-testid="curriculum-renderer">
+        <div className="p-8 text-center text-gray-500">
+          <p>Content is being generated...</p>
+          <p className="text-sm mt-2">This usually takes 30-60 seconds.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={className} data-testid="curriculum-renderer">
       {/* Header */}
@@ -167,8 +179,14 @@ function PrincipleUnitSection({ unit }: { unit: PrincipleUnit }) {
 
 /**
  * Generate TOC items for curriculum
+ * Returns empty array if content is null/undefined or incomplete (mid-generation)
  */
-export function generateCurriculumTOC(content: CurriculumOutput): TOCItem[] {
+export function generateCurriculumTOC(content: CurriculumOutput | null | undefined): TOCItem[] {
+  // Guard against null/undefined content (happens during generation or on error)
+  if (!content || !content.universalPrinciplesModule || !content.phaseModules) {
+    return [];
+  }
+
   const items: TOCItem[] = [];
 
   // Add Design Rationale to TOC if present

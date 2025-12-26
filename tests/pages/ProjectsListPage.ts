@@ -1,25 +1,22 @@
 import { Page, Locator } from '@playwright/test';
 
+/**
+ * ProjectsListPage - Page Object for /projects
+ *
+ * Updated for new navigation flow: "New Guru" button navigates to
+ * /projects/new/profile wizard instead of opening a modal.
+ */
 export class ProjectsListPage {
   readonly page: Page;
   readonly heading: Locator;
-  readonly newProjectButton: Locator;
-  readonly projectNameInput: Locator;
-  readonly projectDescriptionInput: Locator;
-  readonly createProjectSubmitButton: Locator;
-  readonly cancelButton: Locator;
-  readonly modalHeading: Locator;
+  readonly newGuruButton: Locator;
   readonly emptyStateMessage: Locator;
 
   constructor(page: Page) {
     this.page = page;
     this.heading = page.getByRole('heading', { name: 'Projects', level: 1 });
-    this.newProjectButton = page.getByRole('button', { name: /New Project/i });
-    this.projectNameInput = page.getByLabel(/Project Name/i);
-    this.projectDescriptionInput = page.getByLabel(/Description/i);
-    this.createProjectSubmitButton = page.getByRole('button', { name: /Create Project/i });
-    this.cancelButton = page.getByRole('button', { name: 'Cancel' });
-    this.modalHeading = page.getByRole('heading', { name: 'Create New Project' });
+    // Updated: Button now says "New Guru" and navigates to wizard
+    this.newGuruButton = page.getByRole('button', { name: /New Guru/i });
     this.emptyStateMessage = page.getByText(/No projects/i);
   }
 
@@ -27,26 +24,58 @@ export class ProjectsListPage {
     await this.page.goto('/projects');
   }
 
-  async clickNewProject() {
+  /**
+   * Clicks the "New Guru" button and waits for navigation to profile wizard
+   */
+  async clickNewGuru() {
     // Use .first() because there might be two buttons (one in header, one in empty state)
-    await this.newProjectButton.first().click();
+    await this.newGuruButton.first().click();
+    // Wait for navigation to profile wizard
+    await this.page.waitForURL(/\/projects\/new\/profile/);
   }
 
-  async fillProjectForm(name: string, description?: string) {
-    await this.projectNameInput.fill(name);
-    if (description) {
-      await this.projectDescriptionInput.fill(description);
-    }
+  /**
+   * @deprecated Modal-based project creation no longer exists.
+   * Use clickNewGuru() and complete the wizard flow instead.
+   */
+  async clickNewProject() {
+    await this.clickNewGuru();
   }
 
-  async submitProjectForm() {
-    await this.createProjectSubmitButton.click();
-  }
-
+  /**
+   * Creates a project through the wizard flow.
+   * This replaces the old modal-based creation.
+   *
+   * @param name - Used as part of the brain dump description
+   * @param description - Additional description text (optional)
+   */
   async createProject(name: string, description?: string) {
-    await this.clickNewProject();
-    await this.fillProjectForm(name, description);
-    await this.submitProjectForm();
+    await this.clickNewGuru();
+
+    // Fill in the chat mode with a description based on name
+    const textarea = this.page.locator('textarea').first();
+    const fullDescription = description
+      ? `${name} - ${description}`
+      : `Test Guru for ${name} - teaches programming concepts to beginners`;
+    await textarea.fill(fullDescription);
+
+    // Click Continue/Synthesize to proceed
+    const continueButton = this.page.getByRole('button', { name: /Continue|Synthesize/i });
+    await continueButton.click();
+
+    // Wait for synthesis and preview step
+    await this.page.waitForSelector('input', { timeout: 30000 });
+
+    // Fill in project name
+    const projectNameInput = this.page.locator('input').first();
+    await projectNameInput.fill(name);
+
+    // Click Save to create the project
+    const saveButton = this.page.getByRole('button', { name: /Save|Create/i });
+    await saveButton.click();
+
+    // Wait for redirect to project page
+    await this.page.waitForURL(/\/projects\/[^/]+/, { timeout: 30000 });
   }
 
   async getProjectCard(projectName: string) {

@@ -67,6 +67,18 @@ export function PhaseOrganizedDrillRenderer({
   onDeleteDrill,
   className,
 }: PhaseOrganizedDrillRendererProps) {
+  // Guard against incomplete content (during generation or on error)
+  if (!content || !content.phases || !Array.isArray(content.phases)) {
+    return (
+      <div className={cn('space-y-8', className)} data-testid="phase-organized-drill-renderer">
+        <div className="p-8 text-center text-gray-500">
+          <p>Content is being generated...</p>
+          <p className="text-sm mt-2">This usually takes 30-60 seconds.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={cn('space-y-8', className)} data-testid="phase-organized-drill-renderer">
       {/* Header */}
@@ -428,8 +440,14 @@ function PhaseDrillCard({
 /**
  * Generate TOC items for phase-organized drill series
  * Creates hierarchical structure: Phase → Principle Group → Drills
+ * Returns empty array if content is null/undefined or incomplete (mid-generation)
  */
-export function generatePhaseOrganizedDrillTOC(content: PhaseOrganizedDrillSeries): TOCItem[] {
+export function generatePhaseOrganizedDrillTOC(content: PhaseOrganizedDrillSeries | null | undefined): TOCItem[] {
+  // Guard against null/undefined content (happens during generation or on error)
+  if (!content || !content.phases) {
+    return [];
+  }
+
   const items: TOCItem[] = [];
 
   // Add Design Thoughts to TOC if present

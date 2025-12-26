@@ -1,5 +1,6 @@
-import { ArtifactViewerWithVersions } from '@/components/artifacts/ArtifactViewerWithVersions';
-import NoArtifactPlaceholder from '@/components/artifacts/NoArtifactPlaceholder';
+import { notFound } from 'next/navigation';
+import { UnifiedArtifactPage } from '@/components/artifacts/UnifiedArtifactPage';
+import { getArtifactSummaries } from '@/lib/teaching/artifactClient';
 import { fetchArtifactPageData } from '@/lib/teaching/artifactPageData';
 
 export const dynamic = 'force-dynamic';
@@ -13,20 +14,30 @@ export default async function MentalModelPage({ params, searchParams }: PageProp
   const { id: projectId } = await params;
   const resolvedSearchParams = await searchParams;
 
-  const data = await fetchArtifactPageData(projectId, 'mental-model', resolvedSearchParams);
+  // Fetch all data in parallel
+  const [summaries, pageData] = await Promise.all([
+    getArtifactSummaries(projectId),
+    fetchArtifactPageData(projectId, 'mental-model', resolvedSearchParams).catch(() => null),
+  ]);
 
-  if (!data) {
-    return <NoArtifactPlaceholder type="mental-model" projectId={projectId} />;
-  }
+  // Default prompt info if no artifact exists
+  const defaultPromptInfo = {
+    isCustom: false,
+    hasPromptDrift: false,
+    currentConfig: {
+      systemPrompt: { current: '', default: '', isCustom: false },
+      userPrompt: { current: '', default: '', isCustom: false },
+    },
+  };
 
   return (
-    <ArtifactViewerWithVersions
-      artifact={data.artifact}
-      previousArtifact={data.previousArtifact}
-      allVersions={data.allVersions}
+    <UnifiedArtifactPage
       projectId={projectId}
-      showDiff={data.showDiff}
-      promptInfo={data.promptInfo}
+      artifactType="mental-model"
+      initialArtifact={pageData?.artifact ?? null}
+      initialPromptInfo={pageData?.promptInfo ?? defaultPromptInfo}
+      allArtifactsSummary={summaries}
+      allVersions={pageData?.allVersions ?? []}
     />
   );
 }

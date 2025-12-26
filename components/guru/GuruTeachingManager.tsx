@@ -9,6 +9,7 @@ import { FullWidthProgressTracker } from './FullWidthProgressTracker';
 import { PromptEditorModal } from './PromptEditorModal';
 import { ArtifactInfoModal } from '@/components/artifacts/ArtifactInfoModal';
 import { DrillConfigurationPanel, DEFAULT_DRILL_CONFIG } from './DrillConfigurationPanel';
+import { DebugTerminal, useDebugLogs } from './DebugTerminal';
 import type { DrillGenerationConfig } from '@/lib/guruFunctions/types';
 import type { SubTaskProgress } from '@/lib/teaching/types';
 
@@ -70,6 +71,9 @@ export function GuruTeachingManager({ projectId }: GuruTeachingManagerProps) {
   const pollingStartTime = useRef<number | null>(null);
   const MAX_POLL_DURATION_MS = 600000; // 10 minutes
 
+  // Debug logging
+  const { logs, log, clearLogs } = useDebugLogs();
+
   // Drill configuration state
   const [drillConfig, setDrillConfig] = useState<DrillGenerationConfig>({ ...DEFAULT_DRILL_CONFIG });
   const [groundTruthEngineId, setGroundTruthEngineId] = useState<string | null>(null);
@@ -92,63 +96,123 @@ export function GuruTeachingManager({ projectId }: GuruTeachingManagerProps) {
   const [infoModalType, setInfoModalType] = useState<'MENTAL_MODEL' | 'CURRICULUM' | 'DRILL_SERIES' | null>(null);
 
   const fetchArtifacts = useCallback(async () => {
+    const url = `/api/projects/${projectId}/guru/artifacts`;
+    log.debug('API', `Fetching ${url}`);
     try {
-      const res = await fetch(`/api/projects/${projectId}/guru/artifacts`);
-      if (!res.ok) throw new Error('Failed to fetch artifacts');
+      const res = await fetch(url, { credentials: 'include' });
+      log.debug('API', `Response status: ${res.status}`, { url, status: res.status });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+        log.error('API', `Artifacts fetch failed: ${res.status}`, errorData);
+        throw new Error(errorData.error || 'Failed to fetch artifacts');
+      }
       const data = await res.json();
+      log.success('API', 'Artifacts fetched successfully', {
+        total: data.counts?.total,
+        generating: Object.values(data.latest || {}).some((a: unknown) => (a as { status?: string })?.status === 'GENERATING'),
+      });
       setArtifacts(data);
     } catch (error) {
+      log.error('API', `Fetch error: ${error instanceof Error ? error.message : 'Unknown'}`, { error: String(error) });
       console.error('Failed to fetch artifacts:', error);
     } finally {
       setIsLoading(false);
     }
-  }, [projectId]);
+  }, [projectId, log]);
 
   const fetchPromptConfigs = useCallback(async () => {
+    const url = `/api/projects/${projectId}/guru/prompts`;
+    log.debug('API', `Fetching ${url}`);
     try {
-      const res = await fetch(`/api/projects/${projectId}/guru/prompts`);
+      const res = await fetch(url, { credentials: 'include' });
+      log.debug('API', `Response status: ${res.status}`, { url, status: res.status });
       if (res.ok) {
         const data = await res.json();
+        log.success('API', 'Prompt configs fetched');
         setPromptConfigs(data);
+      } else {
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+        log.error('API', `Prompt configs fetch failed: ${res.status}`, errorData);
       }
     } catch (error) {
+      log.error('API', `Fetch error: ${error instanceof Error ? error.message : 'Unknown'}`, { error: String(error) });
       console.error('Failed to fetch prompt configs:', error);
     }
-  }, [projectId]);
+  }, [projectId, log]);
 
   // Fetch ground truth config to get engine ID for drill configuration
   const fetchGroundTruthConfig = useCallback(async () => {
+    const url = `/api/projects/${projectId}/ground-truth-config`;
+    log.debug('API', `Fetching ${url}`);
     try {
-      const res = await fetch(`/api/projects/${projectId}/ground-truth-config`);
+      const res = await fetch(url, { credentials: 'include' });
+      log.debug('API', `Response status: ${res.status}`, { url, status: res.status });
       if (res.ok) {
         const data = await res.json();
         // API returns activeConfig (the enabled config with engine details)
         if (data.activeConfig?.engine?.id) {
+          log.success('API', 'Ground truth config fetched', { engineId: data.activeConfig.engine.id });
           setGroundTruthEngineId(data.activeConfig.engine.id);
         } else {
+          log.debug('API', 'No active ground truth engine configured');
           setGroundTruthEngineId(null);
         }
+      } else {
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+        log.error('API', `Ground truth config fetch failed: ${res.status}`, errorData);
       }
     } catch (error) {
+      log.error('API', `Fetch error: ${error instanceof Error ? error.message : 'Unknown'}`, { error: String(error) });
       console.error('Failed to fetch ground truth config:', error);
       setGroundTruthEngineId(null);
     }
-  }, [projectId]);
+  }, [projectId, log]);
+
+  // Check auth state on mount and log it
+  const checkAuthState = useCallback(async () => {
+    log.debug('Auth', 'Checking authentication state...');
+    try {
+      const res = await fetch('/api/auth/status', { credentials: 'include' });
+      const authState = await res.json();
+      if (authState.authenticated) {
+        log.success('Auth', 'Authenticated', {
+          userId: authState.prisma?.userId,
+          email: authState.prisma?.email,
+        });
+      } else {
+        log.warn('Auth', 'Not authenticated', {
+          supabaseSession: authState.supabase?.hasSession,
+          supabaseUser: authState.supabase?.hasUser,
+          supabaseError: authState.supabase?.sessionError || authState.supabase?.userError,
+          prismaSynced: authState.prisma?.synced,
+        });
+      }
+      return authState.authenticated;
+    } catch (error) {
+      log.error('Auth', 'Failed to check auth state', { error: String(error) });
+      return false;
+    }
+  }, [log]);
 
   useEffect(() => {
-    fetchArtifacts();
-    fetchPromptConfigs();
-    fetchGroundTruthConfig();
-  }, [fetchArtifacts, fetchPromptConfigs, fetchGroundTruthConfig]);
+    // Check auth first, then fetch data
+    checkAuthState().then(() => {
+      fetchArtifacts();
+      fetchPromptConfigs();
+      fetchGroundTruthConfig();
+    });
+  }, [checkAuthState, fetchArtifacts, fetchPromptConfigs, fetchGroundTruthConfig]);
 
   // Poll for updates when something is generating
   useEffect(() => {
     if (!generating) return;
 
+    log.info('Polling', `Started polling for ${generating} generation`);
+
     const interval = setInterval(async () => {
       // Check timeout
       if (pollingStartTime.current && Date.now() - pollingStartTime.current > MAX_POLL_DURATION_MS) {
-        console.warn('[GuruTeachingManager] Polling timeout exceeded');
+        log.error('Polling', 'Timeout exceeded (10 min), stopping poll');
         alert('Generation is taking longer than expected. Please refresh the page to check status.');
         setGenerating(null);
         pollingStartTime.current = null;
@@ -168,19 +232,30 @@ export function GuruTeachingManager({ projectId }: GuruTeachingManagerProps) {
         // Wait for BOTH status completion AND content availability (corpusHash indicates content is ready)
         if (artifact && artifact.status === 'COMPLETED') {
           if (artifact.corpusHash) {
+            log.success('Polling', `${generating} generation completed!`, {
+              version: artifact.version,
+              id: artifact.id
+            });
             setGenerating(null);
             pollingStartTime.current = null;
+          } else {
+            log.debug('Polling', 'Artifact complete but content not ready yet, continuing...');
           }
-          // else: artifact marked complete but content not yet available, continue polling
         } else if (artifact && artifact.status === 'FAILED') {
+          log.error('Polling', `${generating} generation failed`, { error: artifact.errorMessage });
           setGenerating(null);
           pollingStartTime.current = null;
+        } else if (artifact && artifact.status === 'GENERATING') {
+          log.debug('Polling', `Still generating: ${artifact.progressStage || 'unknown stage'}`);
         }
       }
     }, 3000);
 
-    return () => clearInterval(interval);
-  }, [generating, artifacts, fetchArtifacts]);
+    return () => {
+      clearInterval(interval);
+      log.debug('Polling', 'Stopped polling');
+    };
+  }, [generating, artifacts, fetchArtifacts, log]);
 
   function openUserNotesModal(type: ArtifactTypeKey) {
     setUserNotesModal(type);
@@ -218,27 +293,46 @@ export function GuruTeachingManager({ projectId }: GuruTeachingManagerProps) {
     setUserNotesModal(null);
     setGenerating(type);
     pollingStartTime.current = Date.now();
+
+    log.info('Generation', `Starting ${type} generation...`);
+
     try {
       // Build request body - include drillConfig for drill-series
       const body: Record<string, unknown> = { userNotes: notes || undefined };
       if (type === 'drill-series') {
         body.drillConfig = drillConfig;
+        log.debug('Generation', 'Using drill config', drillConfig);
       }
 
-      const res = await fetch(`/api/projects/${projectId}/guru/${type}`, {
+      const url = `/api/projects/${projectId}/guru/${type}`;
+      log.info('Generation', `POST ${url}`, { body });
+
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(body),
       });
 
+      log.debug('Generation', `Response received`, { status: res.status, statusText: res.statusText });
+
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || 'Failed to start generation');
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+        log.error('Generation', `Failed with status ${res.status}`, errorData);
+        throw new Error(errorData.error || 'Failed to start generation');
       }
+
+      const result = await res.json();
+      log.success('Generation', `${type} generation started!`, {
+        artifactId: result.artifactId,
+        version: result.version,
+      });
 
       await fetchArtifacts();
     } catch (error) {
-      console.error('Failed to start generation:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      log.error('Generation', `Failed: ${errorMessage}`, { error: String(error) });
+      console.error('[GuruTeachingManager] Failed to start generation:', error);
       alert(error instanceof Error ? error.message : 'Failed to start generation');
       setGenerating(null);
     }
@@ -444,6 +538,18 @@ export function GuruTeachingManager({ projectId }: GuruTeachingManagerProps) {
             />
           </div>
         </div>
+
+        {/* Debug Terminal - shows when there are logs */}
+        {logs.length > 0 && (
+          <div className="mt-6">
+            <DebugTerminal
+              logs={logs}
+              title="Pipeline Debug Log"
+              maxHeight="250px"
+              onClear={clearLogs}
+            />
+          </div>
+        )}
 
         {/* Prompt Editor Modal */}
         {promptEditorOpen && promptConfigs && (() => {

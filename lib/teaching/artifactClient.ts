@@ -13,6 +13,7 @@ export interface ArtifactSummary {
   corpusHash: string | null;
   errorMessage: string | null;
   progressStage: string | null;
+  subTaskProgress: unknown | null;  // JSON field for detailed progress tracking
 }
 
 export interface ArtifactDetail extends ArtifactSummary {
@@ -74,6 +75,7 @@ export async function getArtifactSummaries(projectId: string): Promise<ArtifactS
         generatedAt: true,
         errorMessage: true,
         progressStage: true,
+        subTaskProgress: true,
       },
     });
 
@@ -167,6 +169,7 @@ export async function getArtifactContent(
       corpusHash: artifact.corpusHash,
       errorMessage: artifact.errorMessage,
       progressStage: artifact.progressStage,
+      subTaskProgress: artifact.subTaskProgress,
       content: artifact.content,
       markdownContent: artifact.markdownContent,
       // Prompt versioning fields

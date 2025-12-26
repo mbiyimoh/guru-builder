@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { MatchImportModal, ImportProgressList } from '@/components/match-import'
-import { PositionLibraryBrowser } from '@/components/position-library'
+import { PositionLibraryBrowser, SelfPlayGenerator } from '@/components/position-library'
 import type { GamePhase } from '@/components/position-library'
 
 interface GroundTruthEngine {
@@ -569,6 +569,14 @@ export function GroundTruthEngineManager({ projectId }: Props) {
                 No positions imported yet. Use the scraper or upload match files to build your library.
               </p>
             )}
+          </div>
+
+          {/* Self-Play Generator */}
+          <div className="mt-4">
+            <SelfPlayGenerator
+              engineId={activeConfig.engineId}
+              onPositionsGenerated={fetchLibraryStats}
+            />
           </div>
         </div>
 

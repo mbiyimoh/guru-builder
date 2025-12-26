@@ -10,6 +10,18 @@ interface MentalModelRendererProps {
 }
 
 export function MentalModelRenderer({ content, className }: MentalModelRendererProps) {
+  // Guard against incomplete content (during generation or on error)
+  if (!content || !content.categories || !Array.isArray(content.categories)) {
+    return (
+      <div className={className} data-testid="mental-model-renderer">
+        <div className="p-8 text-center text-gray-500">
+          <p>Content is being generated...</p>
+          <p className="text-sm mt-2">This usually takes 30-60 seconds.</p>
+        </div>
+      </div>
+    );
+  }
+
   const sortedCategories = [...content.categories].sort(
     (a, b) => a.orderInLearningPath - b.orderInLearningPath
   );
@@ -124,8 +136,14 @@ export function MentalModelRenderer({ content, className }: MentalModelRendererP
 
 /**
  * Generate TOC items for mental model
+ * Returns empty array if content is null/undefined or incomplete (mid-generation)
  */
-export function generateMentalModelTOC(content: MentalModelOutput): TOCItem[] {
+export function generateMentalModelTOC(content: MentalModelOutput | null | undefined): TOCItem[] {
+  // Guard against null/undefined content (happens during generation or on error)
+  if (!content || !content.categories) {
+    return [];
+  }
+
   const items: TOCItem[] = [];
 
   // Add Design Rationale to TOC if present

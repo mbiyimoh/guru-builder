@@ -24,10 +24,10 @@ export default function NoArtifactPlaceholder({ type, projectId }: NoArtifactPla
       </p>
 
       <Link
-        href={`/projects/${projectId}`}
+        href={`/projects/${projectId}/artifacts/teaching`}
         className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
       >
-        Go to Teaching Dashboard
+        Go to Artifacts Dashboard
       </Link>
     </div>
   );

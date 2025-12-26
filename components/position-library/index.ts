@@ -2,6 +2,7 @@
 export { PositionLibraryBrowser } from './PositionLibraryBrowser'
 export { PositionCard } from './PositionCard'
 export { PositionDetailModal } from './PositionDetailModal'
+export { SelfPlayGenerator } from './SelfPlayGenerator'
 export type {
   PositionWithRelations,
   PositionLibraryResponse,

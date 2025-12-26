@@ -375,13 +375,84 @@ Positions extracted from match archives:
 - Query ground truth engine for analysis
 - Store in Position Library with match context
 
-### Self-Play (Future)
+### Self-Play Generation
 
-Engine generates positions through self-play:
-- Configure position generation parameters
-- Run simulated games
-- Extract varied positions across phases
-- Analyze and store
+Engine generates positions through simulated games using GNUBG:
+
+**Admin UI Location:** Ground Truth Engine section → Position Library → Self-Play Generator
+
+**How It Works:**
+1. Admin specifies number of games to simulate (1-100)
+2. Inngest background job (`selfPlayGenerationJob`) runs asynchronously
+3. For each game:
+   - Starts from initial position
+   - Rolls dice, queries GNUBG for best move
+   - Applies move, records position with analysis
+   - Continues until game ends
+4. Positions deduplicated within batch and against existing library
+5. Stored in `PositionLibrary` with `sourceType: SELF_PLAY`
+
+**Key Files:**
+- `lib/positionLibrary/selfPlayGenerator.ts` - Core simulation logic
+- `lib/inngest-functions.ts` - `selfPlayGenerationJob`
+- `app/api/position-library/self-play/route.ts` - API endpoints
+- `components/position-library/SelfPlayGenerator.tsx` - Admin UI
+
+**Database Model:**
+```prisma
+model SelfPlayBatch {
+  id                String          @id @default(cuid())
+  engineId          String
+  gamesRequested    Int
+  gamesCompleted    Int             @default(0)
+  positionsStored   Int             @default(0)
+  duplicatesSkipped Int             @default(0)
+  skipOpening       Boolean         @default(true)
+  status            SelfPlayStatus  @default(PENDING)
+  openingCount      Int             @default(0)
+  earlyCount        Int             @default(0)
+  middleCount       Int             @default(0)
+  bearoffCount      Int             @default(0)
+  errors            String[]
+  startedAt         DateTime?
+  completedAt       DateTime?
+  createdAt         DateTime        @default(now())
+}
+
+enum SelfPlayStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+```
+
+**API Endpoints:**
+- `POST /api/position-library/self-play` - Start new batch
+- `GET /api/position-library/self-play` - List recent batches
+- `GET /api/position-library/self-play/[batchId]` - Get batch status
+
+**Usage:**
+```typescript
+// Start a batch
+const response = await fetch('/api/position-library/self-play', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    engineId: 'gnubg-engine-id',
+    gamesCount: 10,
+    skipOpening: true  // Skip opening positions (already catalogued)
+  })
+});
+
+// Poll for status
+const status = await fetch(`/api/position-library/self-play/${batchId}`);
+```
+
+**Skip Opening Option:**
+- Default: `true` (recommended)
+- Opening positions are already comprehensively catalogued (21 unique rolls)
+- Skipping saves storage and avoids duplicates
 
 ---
 

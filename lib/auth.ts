@@ -70,7 +70,20 @@ export const getCurrentUser = cache(async () => {
   const supabase = await createClient()
   const { data: { user }, error } = await supabase.auth.getUser()
 
-  if (error || !user || !user.email) return null
+  if (error) {
+    console.warn('[Auth] Supabase auth error:', error.message)
+    return null
+  }
+
+  if (!user) {
+    console.warn('[Auth] No user in session')
+    return null
+  }
+
+  if (!user.email) {
+    console.warn('[Auth] User has no email:', user.id)
+    return null
+  }
 
   return syncUserToPrisma({
     id: user.id,
@@ -109,6 +122,72 @@ export async function requireProjectOwnership(projectId: string) {
   }
 
   return user
+}
+
+/**
+ * Check if current user is an admin (non-throwing)
+ * Returns authorization status and user object for flexible API handling
+ */
+export async function checkAdminAuth(): Promise<{ authorized: boolean; user: User | null }> {
+  const user = await getCurrentUser()
+  if (!user) {
+    return { authorized: false, user: null }
+  }
+
+  const adminEmail = process.env.ADMIN_EMAIL?.toLowerCase()
+  if (!adminEmail) {
+    console.warn('[Auth] ADMIN_EMAIL not configured')
+    return { authorized: false, user }
+  }
+
+  const isAdmin = user.email.toLowerCase() === adminEmail
+  return { authorized: isAdmin, user }
+}
+
+/**
+ * Require admin user - throws if not authenticated or not admin
+ * Consistent with requireUser() and requireProjectOwnership() patterns
+ */
+export async function requireAdmin(): Promise<User> {
+  const { authorized, user } = await checkAdminAuth()
+  if (!user) {
+    throw new Error('Unauthorized')
+  }
+  if (!authorized) {
+    throw new Error('Forbidden')
+  }
+  return user
+}
+
+/**
+ * Check if current user is the project owner or an admin (non-throwing)
+ * Returns authorization status and user object for flexible API handling
+ */
+export async function checkProjectOwnerOrAdmin(
+  projectId: string
+): Promise<{ authorized: boolean; user: User | null }> {
+  const user = await getCurrentUser()
+  if (!user) {
+    return { authorized: false, user: null }
+  }
+
+  // Check if admin
+  const adminEmail = process.env.ADMIN_EMAIL?.toLowerCase()
+  if (adminEmail && user.email.toLowerCase() === adminEmail) {
+    return { authorized: true, user }
+  }
+
+  // Check if project owner
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { userId: true },
+  })
+
+  if (project?.userId === user.id) {
+    return { authorized: true, user }
+  }
+
+  return { authorized: false, user }
 }
 
 /**

@@ -94,6 +94,15 @@ type Events = {
       engineId: string;
     };
   };
+  // Self-Play Position Generation Events
+  "position-library/self-play.started": {
+    data: {
+      batchId: string;
+      engineId: string;
+      gamesCount: number;
+      skipOpening: boolean;
+    };
+  };
 };
 
 // Create Inngest client with type-safe events

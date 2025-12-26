@@ -547,8 +547,9 @@ model GroundTruthEngine {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  projectConfigs ProjectGroundTruthConfig[]
-  positions      PositionLibrary[]
+  projectConfigs  ProjectGroundTruthConfig[]
+  positions       PositionLibrary[]
+  selfPlayBatches SelfPlayBatch[]
 
   @@index([domain])
   @@index([isActive])
@@ -570,6 +571,55 @@ model ProjectGroundTruthConfig {
   @@unique([projectId, engineId])
   @@index([projectId])
   @@index([engineId])
+}
+
+// ============================================================================
+// SELF-PLAY POSITION GENERATION
+// ============================================================================
+
+// Batch tracking for self-play position generation runs
+model SelfPlayBatch {
+  id       String            @id @default(cuid())
+  engineId String
+  engine   GroundTruthEngine @relation(fields: [engineId], references: [id])
+
+  // Configuration
+  gamesRequested Int // How many games to simulate
+  skipOpening    Boolean @default(true) // Don't store opening positions (we have catalog)
+
+  // Progress tracking
+  status            SelfPlayStatus @default(PENDING)
+  gamesCompleted    Int            @default(0)
+  positionsStored   Int            @default(0)
+  duplicatesSkipped Int            @default(0)
+
+  // Results by phase
+  openingCount Int @default(0)
+  earlyCount   Int @default(0)
+  middleCount  Int @default(0)
+  bearoffCount Int @default(0)
+
+  // Errors
+  errors String[] @default([])
+
+  // Timestamps
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  positions PositionLibrary[]
+
+  @@index([engineId])
+  @@index([status])
+}
+
+enum SelfPlayStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
 }
 
 // ============================================================================
@@ -770,6 +820,12 @@ model PositionLibrary {
   gameNumber Int? // Which game in the match (1-indexed)
   moveNumber Int? // Which move in the game (1-indexed)
 
+  // Self-play context (optional - populated for SELF_PLAY positions)
+  selfPlayBatchId String?
+  selfPlayBatch   SelfPlayBatch? @relation(fields: [selfPlayBatchId], references: [id], onDelete: SetNull)
+  selfPlayGameNum Int? // Game number within batch (1-indexed)
+  selfPlayMoveNum Int? // Move number within game (1-indexed)
+
   // Drills that use this position
   drills Drill[]
 
@@ -777,6 +833,7 @@ model PositionLibrary {
   @@index([engineId, gamePhase])
   @@index([archiveId])
   @@index([matchId])
+  @@index([selfPlayBatchId])
 }
 
 // ============================================================================

@@ -39,7 +39,7 @@ test.describe('Wizard UX Improvements', () => {
         return;
       }
 
-      await page.goto(`/projects/${projectId}/dashboard`);
+      await page.goto(`/projects/${projectId}`);
 
       // Wait for dashboard to load
       await page.waitForLoadState('networkidle');
@@ -71,7 +71,7 @@ test.describe('Wizard UX Improvements', () => {
         return;
       }
 
-      await page.goto(`/projects/${projectId}/dashboard`);
+      await page.goto(`/projects/${projectId}`);
       await page.waitForLoadState('networkidle');
 
       // Verify activity tile labels exist
@@ -104,7 +104,7 @@ test.describe('Wizard UX Improvements', () => {
         return;
       }
 
-      await page.goto(`/projects/${projectId}/dashboard`);
+      await page.goto(`/projects/${projectId}`);
       await page.waitForLoadState('networkidle');
 
       // Verify Corpus link exists
@@ -168,11 +168,11 @@ test.describe('Wizard UX Improvements', () => {
       const submitButton = page.getByRole('button', { name: /Continue|Save|Create/i });
       await submitButton.click();
 
-      // Wait for redirect - should go to dashboard now instead of research
-      await page.waitForURL(/\/projects\/[^/]+\/dashboard/, { timeout: 30000 });
+      // Wait for redirect - should go to project root (dashboard) now instead of research
+      await page.waitForURL(/\/projects\/[^/]+$/, { timeout: 30000 });
 
-      // Verify we're on the dashboard
-      expect(page.url()).toContain('/dashboard');
+      // Verify we're on the project page (the dashboard)
+      expect(page.url()).toMatch(/\/projects\/[^/]+$/);
     });
   });
 
@@ -235,8 +235,8 @@ test.describe('Wizard UX Improvements', () => {
 
   test.describe('Dashboard Auth Protection', () => {
     test('T-UX.9: dashboard-requires-auth - Dashboard redirects unauthenticated users', async ({ page }) => {
-      // Try to access dashboard without auth
-      await page.goto('/projects/some-project-id/dashboard');
+      // Try to access project page (dashboard) without auth
+      await page.goto('/projects/some-project-id');
 
       // Should redirect to login
       await page.waitForURL(/\/login/, { timeout: 15000 });

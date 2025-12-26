@@ -1,6 +1,3 @@
-import TeachingArtifactNav from '@/components/artifacts/TeachingArtifactNav';
-import { getArtifactSummaries, type ArtifactSummary } from '@/lib/teaching/artifactClient';
-
 export const dynamic = 'force-dynamic';
 
 interface LayoutProps {
@@ -9,27 +6,10 @@ interface LayoutProps {
 }
 
 export default async function TeachingArtifactLayout({ children, params }: LayoutProps) {
-  const { id: projectId } = await params;
-
-  let artifacts: {
-    mentalModel: ArtifactSummary | null;
-    curriculum: ArtifactSummary | null;
-    drillSeries: ArtifactSummary | null;
-  } = { mentalModel: null, curriculum: null, drillSeries: null };
-
-  try {
-    const data = await getArtifactSummaries(projectId);
-    artifacts = data.latest;
-  } catch (error) {
-    console.error('Failed to fetch artifact summaries:', error);
-  }
-
+  // Layout is now minimal - TeachingPageHeader and ArtifactTabBar
+  // are rendered inside UnifiedArtifactPage to have access to state
   return (
-    <div className="flex h-screen bg-white">
-      <TeachingArtifactNav
-        projectId={projectId}
-        artifacts={artifacts}
-      />
+    <div className="flex flex-col h-screen bg-white dark:bg-background">
       <main className="flex-1 overflow-hidden">
         {children}
       </main>

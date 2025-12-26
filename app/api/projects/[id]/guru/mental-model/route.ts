@@ -11,6 +11,7 @@ import { requireProjectOwnership } from "@/lib/auth";
 import { inngest } from "@/lib/inngest";
 import { z } from "zod";
 import { getActiveGeneratingArtifact } from "@/lib/teaching/staleArtifactHandler";
+import { getInitialProgressStage } from "@/lib/teaching/constants";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -160,26 +161,36 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const nextVersion = (latestVersion?.version ?? 0) + 1;
 
-    // Create placeholder artifact
+    // Create placeholder artifact with initial progress stage for UI feedback
+    console.log("[Mental Model API] Creating artifact...", { projectId, nextVersion });
     const artifact = await prisma.guruArtifact.create({
       data: {
         projectId,
         type: "MENTAL_MODEL",
         version: nextVersion,
         status: "GENERATING",
+        progressStage: getInitialProgressStage("MENTAL_MODEL"),
         content: {},
       },
     });
+    console.log("[Mental Model API] Artifact created:", artifact.id);
 
     // Trigger Inngest job
-    await inngest.send({
-      name: "guru/generate-mental-model",
-      data: {
-        projectId,
-        artifactId: artifact.id,
-        userNotes,
-      },
-    });
+    console.log("[Mental Model API] Sending Inngest event guru/generate-mental-model...");
+    try {
+      const sendResult = await inngest.send({
+        name: "guru/generate-mental-model",
+        data: {
+          projectId,
+          artifactId: artifact.id,
+          userNotes,
+        },
+      });
+      console.log("[Mental Model API] Inngest event sent successfully:", sendResult);
+    } catch (inngestError) {
+      console.error("[Mental Model API] Inngest event FAILED:", inngestError);
+      // Don't fail the request - we still created the artifact
+    }
 
     return NextResponse.json({
       message: "Mental model generation started",

@@ -10,6 +10,18 @@ interface DrillSeriesRendererProps {
 }
 
 export function DrillSeriesRenderer({ content, className }: DrillSeriesRendererProps) {
+  // Guard against incomplete content (during generation or on error)
+  if (!content || !content.series || !Array.isArray(content.series)) {
+    return (
+      <div className={className} data-testid="drill-series-renderer">
+        <div className="p-8 text-center text-gray-500">
+          <p>Content is being generated...</p>
+          <p className="text-sm mt-2">This usually takes 30-60 seconds.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={className} data-testid="drill-series-renderer">
       {/* Header */}
@@ -125,8 +137,14 @@ export function DrillSeriesRenderer({ content, className }: DrillSeriesRendererP
 
 /**
  * Generate TOC items for drill series
+ * Returns empty array if content is null/undefined or incomplete (mid-generation)
  */
-export function generateDrillSeriesToc(content: DrillSeriesOutput): TOCItem[] {
+export function generateDrillSeriesToc(content: DrillSeriesOutput | null | undefined): TOCItem[] {
+  // Guard against null/undefined content (happens during generation or on error)
+  if (!content || !content.series) {
+    return [];
+  }
+
   const items: TOCItem[] = [];
 
   // Add Design Thoughts to TOC if present
@@ -139,11 +157,11 @@ export function generateDrillSeriesToc(content: DrillSeriesOutput): TOCItem[] {
       id: `series-${s.seriesId}`,
       label: s.principleName,
       level: 1,
-      children: s.drills.map((d, i) => ({
+      children: s.drills?.map((d, i) => ({
         id: `drill-${d.drillId}`,
         label: `Drill ${i + 1}`,
         level: 2,
-      })),
+      })) || [],
     });
   });
 

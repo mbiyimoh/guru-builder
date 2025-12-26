@@ -20,10 +20,12 @@ import { Label } from '@/components/ui/label'
 import ProfileChatMode from '@/components/wizard/profile/ProfileChatMode'
 import ProfilePreview from '@/components/wizard/profile/ProfilePreview'
 import ProfileDocumentMode from '@/components/wizard/profile/ProfileDocumentMode'
+import { DomainToolsPrompt } from '@/components/wizard/DomainToolsPrompt'
 import type { SynthesisResult } from '@/lib/guruProfile/types'
+import type { DomainDetectionResult } from '@/lib/domainDetection'
 
 type Mode = 'chat' | 'voice' | 'document'
-type Step = 'input' | 'preview'
+type Step = 'input' | 'preview' | 'domain-prompt'
 
 export default function ProfileCreationPage() {
   const router = useRouter()
@@ -32,6 +34,8 @@ export default function ProfileCreationPage() {
   const [synthesisResult, setSynthesisResult] = useState<SynthesisResult | null>(null)
   const [projectName, setProjectName] = useState('')
   const [saving, setSaving] = useState(false)
+  const [createdProjectId, setCreatedProjectId] = useState<string | null>(null)
+  const [detectedDomain, setDetectedDomain] = useState<DomainDetectionResult | null>(null)
 
   /**
    * Handle synthesis completion from any mode
@@ -81,13 +85,60 @@ export default function ProfileCreationPage() {
       }
 
       const { project } = await response.json()
+      console.log('[Profile Page] Project created:', project.id)
+      setCreatedProjectId(project.id)
 
-      // Continue to dashboard (new UX flow)
-      router.push(`/projects/${project.id}/dashboard`)
+      // Run domain detection to check for available GT engines
+      try {
+        console.log('[Profile Page] Calling domain detection...')
+        const detectRes = await fetch(`/api/projects/${project.id}/detect-domain`, {
+          method: 'POST',
+          credentials: 'include',
+        })
+
+        console.log('[Profile Page] Domain detection response status:', detectRes.status)
+        const domainResult: DomainDetectionResult = await detectRes.json()
+        console.log('[Profile Page] Domain detection result:', domainResult)
+
+        if (domainResult.detected && domainResult.suggestedEngine) {
+          console.log('[Profile Page] Domain detected! Showing prompt.')
+          // Show domain tools prompt
+          setDetectedDomain(domainResult)
+          setStep('domain-prompt')
+          setSaving(false)
+          return
+        }
+        console.log('[Profile Page] No domain detected or no engine suggested')
+      } catch (error) {
+        // Fail silently per spec - proceed without prompt
+        console.error('[Profile Page] Domain detection error:', error)
+      }
+
+      // No domain detected or error - continue to dashboard
+      console.log('[Profile Page] Redirecting to dashboard')
+      router.push(`/projects/${project.id}`)
     } catch (error) {
       console.error('Failed to save project:', error)
       alert(error instanceof Error ? error.message : 'Failed to save project')
       setSaving(false)
+    }
+  }
+
+  /**
+   * Handle domain tools enable - GT already configured by DomainToolsPrompt
+   */
+  const handleDomainEnable = async () => {
+    if (createdProjectId) {
+      router.push(`/projects/${createdProjectId}`)
+    }
+  }
+
+  /**
+   * Handle domain tools skip
+   */
+  const handleDomainSkip = () => {
+    if (createdProjectId) {
+      router.push(`/projects/${createdProjectId}`)
     }
   }
 
@@ -100,7 +151,7 @@ export default function ProfileCreationPage() {
         </p>
       </div>
 
-      {step === 'input' ? (
+      {step === 'input' && (
         <Card>
           <CardHeader className="p-4 sm:p-6">
             <CardTitle className="text-lg sm:text-xl">Choose Your Input Method</CardTitle>
@@ -146,7 +197,9 @@ export default function ProfileCreationPage() {
             </Tabs>
           </CardContent>
         </Card>
-      ) : (
+      )}
+
+      {step === 'preview' && (
         <ProfilePreview
           result={synthesisResult!}
           projectName={projectName}
@@ -155,6 +208,17 @@ export default function ProfileCreationPage() {
           onSave={handleSave}
           saving={saving}
         />
+      )}
+
+      {step === 'domain-prompt' && createdProjectId && detectedDomain && (
+        <div className="py-12">
+          <DomainToolsPrompt
+            projectId={createdProjectId}
+            detectedDomain={detectedDomain}
+            onEnable={handleDomainEnable}
+            onSkip={handleDomainSkip}
+          />
+        </div>
       )}
     </div>
   )

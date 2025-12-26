@@ -33,6 +33,7 @@ import { ProfileSummary } from './ProfileSummary';
 import { RecentActivityList } from './RecentActivityList';
 import { RecommendedSteps } from './RecommendedSteps';
 import { ReadinessSummary } from './ReadinessSummary';
+import { GTStatusIndicator } from './GTStatusIndicator';
 
 // Type for the project with its relations
 export type ProjectWithRelations = Project & {
@@ -162,6 +163,9 @@ export function SimplifiedDashboard({ project, isNewProject }: SimplifiedDashboa
           isStatus
         />
       </div>
+
+      {/* Ground Truth Status (only shown when enabled) */}
+      {hasProfile && <GTStatusIndicator projectId={project.id} />}
 
       {/* Profile Summary & Recent Activity */}
       <div className="grid lg:grid-cols-2 gap-6">

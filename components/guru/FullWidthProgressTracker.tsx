@@ -29,9 +29,13 @@ export function FullWidthProgressTracker({
   const [showingSummary, setShowingSummary] = useState(false);
   const phases = getPhasesForArtifactType(artifactType);
 
+  // When currentStage is null but we're not complete, show first phase as in-progress
+  // This handles the initial state when artifact is created but Inngest hasn't started yet
   const currentIndex = isComplete
     ? phases.length
-    : phases.findIndex(p => p.key === currentStage);
+    : currentStage
+      ? phases.findIndex(p => p.key === currentStage)
+      : 0;  // Default to first phase when generation just started
 
   // Handle completion fade-out
   useEffect(() => {
@@ -49,6 +53,7 @@ export function FullWidthProgressTracker({
 
   const isVerifying = currentStage === 'VERIFYING_CONTENT';
   const isValidating = currentStage === 'VALIDATING_OUTPUT';
+  const isGeneratingContent = currentStage === 'GENERATING_CONTENT';
   const artifactLabel = artifactType === 'MENTAL_MODEL' ? 'Mental Model'
     : artifactType === 'CURRICULUM' ? 'Curriculum'
     : 'Drill Series';
@@ -129,6 +134,26 @@ export function FullWidthProgressTracker({
           })}
         </div>
       </div>
+
+      {/* Sub-task detail for generation phase (drill series) */}
+      {isGeneratingContent && subTaskProgress && !isComplete && (
+        <div className="mt-4 p-3 bg-background rounded border">
+          <div className="flex items-center gap-2 text-sm">
+            <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
+            <span className="text-muted-foreground">Progress:</span>
+            <span className="font-medium">
+              {subTaskProgress.currentClaimText || `Generating ${subTaskProgress.total} drills (this may take 30-60s)...`}
+            </span>
+          </div>
+          {/* Mini progress bar for drills */}
+          <div className="mt-2 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-blue-600 transition-all duration-300"
+              style={{ width: `${subTaskProgress.total > 0 ? (subTaskProgress.current / subTaskProgress.total) * 100 : 0}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Sub-task detail for verification phase */}
       {isVerifying && subTaskProgress && !isComplete && (

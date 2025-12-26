@@ -123,3 +123,28 @@ export function getPhasesForArtifactType(type: ArtifactType): TeachingPhase[] {
     case 'DRILL_SERIES': return DRILL_SERIES_PHASES;
   }
 }
+
+/**
+ * Get the initial progressStage for a given artifact type.
+ * This is set when the artifact is created in GENERATING status,
+ * providing immediate UI feedback before the Inngest job starts.
+ */
+export function getInitialProgressStage(type: ArtifactType): string {
+  switch (type) {
+    case 'MENTAL_MODEL':
+      return MENTAL_MODEL_PHASE_KEYS.COMPOSING_CORPUS;
+    case 'CURRICULUM':
+      return CURRICULUM_PHASE_KEYS.LOADING_PREREQUISITES;
+    case 'DRILL_SERIES':
+      return DRILL_SERIES_PHASE_KEYS.LOADING_PREREQUISITES;
+  }
+}
+
+// Position Library Thresholds
+// Used by AccuracyToolsPanel (UI warnings) and drill-series API (generation blocks)
+export const POSITION_LIBRARY_THRESHOLDS = {
+  /** Minimum non-opening positions required for drill generation (hard block) */
+  MINIMUM_POSITIONS: 21,
+  /** Show warning below this threshold (but allow generation) */
+  WARNING_THRESHOLD: 100,
+} as const;

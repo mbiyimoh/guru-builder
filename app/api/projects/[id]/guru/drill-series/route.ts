@@ -11,6 +11,10 @@ import { requireProjectOwnership } from "@/lib/auth";
 import { inngest } from "@/lib/inngest";
 import { z } from "zod";
 import { getActiveGeneratingArtifact } from "@/lib/teaching/staleArtifactHandler";
+import { getInitialProgressStage, POSITION_LIBRARY_THRESHOLDS } from "@/lib/teaching/constants";
+import { resolveGroundTruthConfig } from "@/lib/groundTruth/config";
+
+const { MINIMUM_POSITIONS } = POSITION_LIBRARY_THRESHOLDS;
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -224,6 +228,36 @@ export async function POST(request: NextRequest, context: RouteContext) {
       }
     }
 
+    // Validate position library if GT is enabled
+    const gtConfig = await resolveGroundTruthConfig(projectId);
+    if (gtConfig?.enabled) {
+      const counts = await prisma.positionLibrary.groupBy({
+        by: ['gamePhase'],
+        where: { engineId: gtConfig.engineId },
+        _count: true,
+      });
+
+      // Calculate non-opening total (OPENING phase has fixed 21 positions)
+      const totalNonOpening = counts
+        .filter(c => c.gamePhase !== 'OPENING')
+        .reduce((sum, c) => sum + c._count, 0);
+
+      // Hard block if below minimum
+      if (totalNonOpening < MINIMUM_POSITIONS) {
+        const positionCounts = counts.reduce((acc, c) => {
+          acc[c.gamePhase] = c._count;
+          return acc;
+        }, {} as Record<string, number>);
+
+        return NextResponse.json({
+          error: 'Insufficient positions in library',
+          details: `At least ${MINIMUM_POSITIONS} non-opening positions required for drill generation. Use "Generate More" in Accuracy Tools to add positions.`,
+          positionCounts,
+          totalNonOpening,
+        }, { status: 400 });
+      }
+    }
+
     // Check for existing in-progress generation (auto-clears stale ones)
     const existingGeneration = await getActiveGeneratingArtifact(projectId, "DRILL_SERIES");
 
@@ -249,13 +283,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const nextVersion = (latestVersion?.version ?? 0) + 1;
 
-    // Create placeholder artifact (depends on curriculum)
+    // Create placeholder artifact (depends on curriculum) with initial progress stage for UI feedback
     const artifact = await prisma.guruArtifact.create({
       data: {
         projectId,
         type: "DRILL_SERIES",
         version: nextVersion,
         status: "GENERATING",
+        progressStage: getInitialProgressStage("DRILL_SERIES"),
         content: {},
         dependsOnArtifactId: curriculum.id,
       },

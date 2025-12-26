@@ -23,6 +23,8 @@ interface TypeSpecificRendererProps {
   projectId?: string;
   onDeleteDrill?: (drillId: string) => void;
   className?: string;
+  /** Whether to show the Table of Contents sidebar. Defaults to true for backward compat. */
+  showTOC?: boolean;
 }
 
 /**
@@ -43,6 +45,7 @@ export function TypeSpecificRenderer({
   projectId,
   onDeleteDrill,
   className,
+  showTOC = true,
 }: TypeSpecificRendererProps) {
   // Determine if drill series is phase-organized (new) or legacy format
   const isPhaseOrganized =
@@ -95,11 +98,11 @@ export function TypeSpecificRenderer({
 
   return (
     <div className={`flex ${className || ''}`} data-testid="type-specific-renderer">
-      {/* Table of Contents */}
-      <TableOfContents items={tocItems} activeId={activeId} />
+      {/* Table of Contents - hidden in Simple Mode */}
+      {showTOC && <TableOfContents items={tocItems} activeId={activeId} />}
 
       {/* Content Area */}
-      <div className="flex-1 p-6 overflow-y-auto" id="artifact-content-scroll">
+      <div className={`flex-1 p-6 overflow-y-auto ${!showTOC ? 'max-w-4xl mx-auto' : ''}`} id="artifact-content-scroll">
         {artifact.type === 'MENTAL_MODEL' && (
           <MentalModelRenderer content={artifact.content as MentalModelOutput} />
         )}
