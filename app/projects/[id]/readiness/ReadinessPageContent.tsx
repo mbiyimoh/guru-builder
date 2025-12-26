@@ -7,6 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, AlertTriangle, ArrowRight, RefreshCw, Loader2, Zap } from 'lucide-react';
+import { TourPageButton } from '@/lib/onboarding/TourPageButton';
 import type { ReadinessScore, DimensionCoverage } from '@/lib/wizard/types';
 
 interface GTStatus {
@@ -145,8 +146,14 @@ export function ReadinessPageContent({ projectId }: Props) {
 
   return (
     <div className="space-y-6">
+      {/* Page Header with Tour Button */}
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Readiness Score</h1>
+        <TourPageButton tourId="readiness" />
+      </div>
+
       {/* Overall Score */}
-      <Card className={isReady ? 'border-green-200' : 'border-amber-200'}>
+      <Card data-tour="overall-score" className={isReady ? 'border-green-200' : 'border-amber-200'}>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span className="flex items-center gap-2">
@@ -163,7 +170,7 @@ export function ReadinessPageContent({ projectId }: Props) {
         <CardContent>
           <Progress value={score.overall} className="h-4 mb-6" />
 
-          <div className="grid md:grid-cols-2 gap-6">
+          <div data-tour="score-breakdown" className="grid md:grid-cols-2 gap-6">
             <div>
               <div className="text-sm font-medium text-muted-foreground mb-2">Profile Completeness</div>
               <Progress value={score.profile} className="h-2" />
@@ -207,7 +214,7 @@ export function ReadinessPageContent({ projectId }: Props) {
 
       {/* Critical Gaps */}
       {score.criticalGaps.length > 0 && (
-        <Card className="border-red-200">
+        <Card data-tour="critical-gaps" className="border-red-200">
           <CardHeader>
             <CardTitle className="text-lg text-red-700 dark:text-red-400">
               Critical Gaps
@@ -241,7 +248,7 @@ export function ReadinessPageContent({ projectId }: Props) {
       )}
 
       {/* Dimension Coverage */}
-      <Card>
+      <Card data-tour="dimension-coverage">
         <CardHeader>
           <CardTitle className="text-lg">Dimension Coverage</CardTitle>
         </CardHeader>
@@ -274,6 +281,7 @@ export function ReadinessPageContent({ projectId }: Props) {
             </Link>
           </Button>
           <Button
+            data-tour="reassess-button"
             variant="outline"
             onClick={handleReassess}
             disabled={reassessing}

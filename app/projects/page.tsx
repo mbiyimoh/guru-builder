@@ -1,8 +1,8 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { CreateProjectButton } from './CreateProjectButton';
+import { ClickableCard } from '@/components/ui/clickable-card';
 
 // Force dynamic rendering to ensure fresh data
 export const dynamic = 'force-dynamic';
@@ -34,16 +34,16 @@ export default async function ProjectsPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Projects</h1>
-          <p className="mt-2 text-gray-600">Manage your AI knowledge base projects</p>
+          <h1 className="text-3xl font-bold">Projects</h1>
+          <p className="mt-2 text-muted-foreground">Manage your AI knowledge base projects</p>
         </div>
         <CreateProjectButton />
       </div>
 
       {projects.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-lg border">
+        <div className="text-center py-12 bg-card rounded-lg border">
           <svg
-            className="mx-auto h-12 w-12 text-gray-400"
+            className="mx-auto h-12 w-12 text-muted-foreground"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -55,8 +55,8 @@ export default async function ProjectsPage() {
               d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"
             />
           </svg>
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No projects</h3>
-          <p className="mt-1 text-sm text-gray-500">Get started by creating a new project.</p>
+          <h3 className="mt-2 text-sm font-medium">No projects</h3>
+          <p className="mt-1 text-sm text-muted-foreground">Get started by creating a new project.</p>
           <div className="mt-6">
             <CreateProjectButton />
           </div>
@@ -64,22 +64,22 @@ export default async function ProjectsPage() {
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {projects.map((project) => (
-            <Link
+            <ClickableCard
               key={project.id}
               href={`/projects/${project.id}`}
-              className="block bg-white rounded-lg border hover:shadow-md transition-shadow"
+              className="bg-card rounded-lg border hover:shadow-md transition-shadow"
             >
               <div className="p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                <h3 className="text-lg font-semibold mb-2">
                   {project.name}
                 </h3>
                 {project.description && (
-                  <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                  <p className="text-muted-foreground text-sm mb-4 line-clamp-2">
                     {project.description}
                   </p>
                 )}
 
-                <div className="flex flex-wrap gap-4 text-sm text-gray-500">
+                <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                   <div className="flex items-center">
                     <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
@@ -100,11 +100,11 @@ export default async function ProjectsPage() {
                   </div>
                 </div>
 
-                <div className="mt-4 pt-4 border-t text-xs text-gray-400">
+                <div className="mt-4 pt-4 border-t text-xs text-muted-foreground/60">
                   Created {new Date(project.createdAt).toLocaleDateString()}
                 </div>
               </div>
-            </Link>
+            </ClickableCard>
           ))}
         </div>
       )}

@@ -60,3 +60,4 @@ backups/
 
 # Quick checks (ephemeral tests)
 .quick-checks/
+*.png

@@ -1,5 +1,6 @@
 'use client';
 
+import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
@@ -12,12 +13,16 @@ import { Plus } from 'lucide-react';
  */
 export function CreateProjectButton() {
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+
+  const handleClick = () => {
+    startTransition(() => {
+      router.push('/projects/new/profile');
+    });
+  };
 
   return (
-    <Button
-      onClick={() => router.push('/projects/new/profile')}
-      size="default"
-    >
+    <Button onClick={handleClick} size="default" loading={isPending}>
       <Plus className="h-4 w-4 mr-2" />
       New Guru
     </Button>

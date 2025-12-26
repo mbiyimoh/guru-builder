@@ -12,6 +12,7 @@ import { FullWidthProgressTracker } from '@/components/guru/FullWidthProgressTra
 import { EmptyStateGuidance } from './EmptyStateGuidance';
 import { getArtifactTypeFromSlug } from '@/lib/teaching/constants';
 import { Button } from '@/components/ui/button';
+import { TourPageButton } from '@/lib/onboarding/TourPageButton';
 import type { ArtifactSummariesResponse, ArtifactDetail, ArtifactSummary } from '@/lib/teaching/artifactClient';
 import type { PromptInfo, SubTaskProgress } from '@/lib/teaching/types';
 import type { DrillGenerationConfig } from '@/lib/guruFunctions/types';
@@ -314,16 +315,24 @@ export function UnifiedArtifactPage({
 
   return (
     <div className="h-full flex flex-col">
-      <TeachingPageHeader
-        projectId={projectId}
-        advancedMode={advancedMode}
-        onAdvancedModeChange={setAdvancedMode}
-      />
+      {/* Header with Tour Button */}
+      <div className="flex items-center justify-between px-6 pt-4">
+        <div data-tour="mode-toggle" className="flex-1">
+          <TeachingPageHeader
+            projectId={projectId}
+            advancedMode={advancedMode}
+            onAdvancedModeChange={setAdvancedMode}
+          />
+        </div>
+        <TourPageButton tourId="artifacts" />
+      </div>
 
-      <ArtifactTabBar
-        projectId={projectId}
-        artifactsSummary={allArtifactsSummary}
-      />
+      <div data-tour="artifact-tabs">
+        <ArtifactTabBar
+          projectId={projectId}
+          artifactsSummary={allArtifactsSummary}
+        />
+      </div>
 
       <div className="flex-1 overflow-auto">
         {isGenerating ? (
@@ -425,11 +434,13 @@ export function UnifiedArtifactPage({
 
             {/* Artifact Content - only render if artifact is completed with valid content structure */}
             {artifact && artifact.status === 'COMPLETED' && hasValidContent(artifact) && (
-              <TypeSpecificRenderer
-                artifact={artifact}
-                projectId={projectId}
-                showTOC={advancedMode}
-              />
+              <div data-tour="artifact-content">
+                <TypeSpecificRenderer
+                  artifact={artifact}
+                  projectId={projectId}
+                  showTOC={advancedMode}
+                />
+              </div>
             )}
 
             {/* Simple mode - no artifact empty state */}

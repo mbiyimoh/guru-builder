@@ -67,3 +67,42 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Driver.js Onboarding Tour Styling */
+.driver-popover {
+  background-color: hsl(var(--popover)) !important;
+  color: hsl(var(--popover-foreground)) !important;
+}
+
+.driver-popover-title {
+  color: hsl(var(--popover-foreground)) !important;
+  font-weight: 600;
+}
+
+.driver-popover-description {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.driver-popover-progress-text {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.driver-popover-prev-btn,
+.driver-popover-next-btn {
+  background-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+  border-radius: calc(var(--radius) - 2px) !important;
+}
+
+.driver-popover-prev-btn:hover,
+.driver-popover-next-btn:hover {
+  opacity: 0.9;
+}
+
+.driver-popover-close-btn {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.driver-popover-close-btn:hover {
+  color: hsl(var(--foreground)) !important;
+}

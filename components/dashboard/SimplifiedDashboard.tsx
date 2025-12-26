@@ -34,6 +34,7 @@ import { RecentActivityList } from './RecentActivityList';
 import { RecommendedSteps } from './RecommendedSteps';
 import { ReadinessSummary } from './ReadinessSummary';
 import { GTStatusIndicator } from './GTStatusIndicator';
+import { TourPageButton } from '@/lib/onboarding/TourPageButton';
 
 // Type for the project with its relations
 export type ProjectWithRelations = Project & {
@@ -69,6 +70,7 @@ export function SimplifiedDashboard({ project, isNewProject }: SimplifiedDashboa
           </p>
         </div>
         <div className="flex gap-2">
+          <TourPageButton tourId="dashboard" />
           <Button asChild variant="outline" size="sm">
             <Link href={`/projects/${project.id}`}>
               <FileText className="w-4 h-4 mr-2" />
@@ -86,7 +88,7 @@ export function SimplifiedDashboard({ project, isNewProject }: SimplifiedDashboa
 
       {/* Getting Started (for new projects) */}
       {isNewProject && (
-        <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950/20">
+        <Card data-tour="getting-started" className="border-blue-200 bg-blue-50 dark:bg-blue-950/20">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div>
@@ -136,7 +138,7 @@ export function SimplifiedDashboard({ project, isNewProject }: SimplifiedDashboa
       )}
 
       {/* Activity Tiles */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div data-tour="activity-tiles" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <ActivityTile
           title="Research Runs"
           value={project.researchRuns.length}
@@ -159,7 +161,7 @@ export function SimplifiedDashboard({ project, isNewProject }: SimplifiedDashboa
           title="Profile"
           value={hasProfile ? 'Active' : 'Not Set'}
           icon={<Brain className="w-5 h-5" />}
-          href={hasProfile ? `/projects/${project.id}/profile` : `/projects/new/profile?projectId=${project.id}`}
+          href={`/projects/${project.id}/profile`}
           isStatus
         />
       </div>
@@ -170,7 +172,7 @@ export function SimplifiedDashboard({ project, isNewProject }: SimplifiedDashboa
       {/* Profile Summary & Recent Activity */}
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Profile Summary */}
-        <Card>
+        <Card data-tour="guru-profile">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <User className="w-5 h-5" />
@@ -195,7 +197,7 @@ export function SimplifiedDashboard({ project, isNewProject }: SimplifiedDashboa
         </Card>
 
         {/* Recent Activity */}
-        <Card>
+        <Card data-tour="recent-activity">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <Target className="w-5 h-5" />
@@ -226,7 +228,9 @@ export function SimplifiedDashboard({ project, isNewProject }: SimplifiedDashboa
 
       {/* Readiness Summary - shows when profile exists, replaces generic Recommended Steps */}
       {hasProfile && (
-        <ReadinessSummary projectId={project.id} />
+        <div data-tour="readiness-summary">
+          <ReadinessSummary projectId={project.id} />
+        </div>
       )}
 
       {/* Recommended Next Steps - only for projects without a profile */}

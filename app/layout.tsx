@@ -32,18 +32,18 @@ export default async function RootLayout({
       <body className={inter.className}>
         <div className="min-h-screen flex flex-col">
           {/* Navigation */}
-          <nav className="border-b bg-white">
+          <nav className="border-b bg-card">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex justify-between h-16">
                 <div className="flex">
-                  <Link href="/" className="flex items-center text-xl font-bold text-gray-900">
+                  <Link href="/" className="flex items-center text-xl font-bold">
                     Guru Builder
                   </Link>
                   {user && (
                     <div className="hidden sm:ml-8 sm:flex sm:space-x-8">
                       <Link
                         href="/projects"
-                        className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-900 hover:text-gray-700"
+                        className="inline-flex items-center px-1 pt-1 text-sm font-medium hover:text-muted-foreground"
                       >
                         Projects
                       </Link>
@@ -53,11 +53,11 @@ export default async function RootLayout({
                 <div className="flex items-center space-x-4">
                   {user ? (
                     <>
-                      <span className="text-sm text-gray-600">{user.email}</span>
+                      <span className="text-sm text-muted-foreground">{user.email}</span>
                       <form action={handleSignOut}>
                         <button
                           type="submit"
-                          className="text-sm text-gray-600 hover:text-gray-900"
+                          className="text-sm text-muted-foreground hover:text-foreground"
                         >
                           Sign out
                         </button>
@@ -65,12 +65,12 @@ export default async function RootLayout({
                     </>
                   ) : (
                     <>
-                      <Link href="/login" className="text-sm text-gray-600 hover:text-gray-900">
+                      <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground">
                         Sign in
                       </Link>
                       <Link
                         href="/signup"
-                        className="text-sm bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700"
+                        className="text-sm bg-primary text-primary-foreground px-3 py-1.5 rounded-md hover:bg-primary/90"
                       >
                         Sign up
                       </Link>
@@ -82,14 +82,14 @@ export default async function RootLayout({
           </nav>
 
           {/* Main content */}
-          <main className="flex-1 bg-gray-50">
+          <main className="flex-1 bg-background">
             {children}
           </main>
 
           {/* Footer */}
-          <footer className="border-t bg-white">
+          <footer className="border-t bg-card">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-              <p className="text-sm text-gray-500 text-center">
+              <p className="text-sm text-muted-foreground text-center">
                 Guru Builder - AI Knowledge Corpus Management System
               </p>
             </div>

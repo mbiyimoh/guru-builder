@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, Lightbulb, Search, Loader2 } from 'lucide-react';
 import { ResearchChatAssistant, type ResearchChatAssistantRef } from '@/components/wizard/research/ResearchChatAssistant';
 import { InlineReadinessIndicator } from '@/components/research/InlineReadinessIndicator';
+import { TourPageButton } from '@/lib/onboarding/TourPageButton';
 import type { GuruProfile, ResearchRun } from '@prisma/client';
 import type { ReadinessScore, DimensionCoverage } from '@/lib/wizard/types';
 import type { ResearchPlan } from '@/lib/research/chat-types';
@@ -97,15 +98,23 @@ export function ResearchPageContent({ projectId, profile, researchRuns }: Props)
 
   return (
     <div className="space-y-8">
+      {/* Page Header with Tour Button */}
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Research</h1>
+        <TourPageButton tourId="research" />
+      </div>
+
       {/* Inline Readiness Indicator */}
-      <InlineReadinessIndicator
-        projectId={projectId}
-        refreshTrigger={readinessRefreshTrigger}
-      />
+      <div data-tour="readiness-indicator">
+        <InlineReadinessIndicator
+          projectId={projectId}
+          refreshTrigger={readinessRefreshTrigger}
+        />
+      </div>
 
       {/* Gap Suggestions */}
       {readiness && (readiness.score.criticalGaps.length > 0 || readiness.score.suggestedGaps.length > 0) && (
-        <Card>
+        <Card data-tour="suggested-topics">
           <CardHeader>
             <CardTitle className="text-lg">Suggested Research Topics</CardTitle>
           </CardHeader>
@@ -172,7 +181,7 @@ export function ResearchPageContent({ projectId, profile, researchRuns }: Props)
       )}
 
       {/* Research Interface */}
-      <Card>
+      <Card data-tour="research-assistant">
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <Search className="w-5 h-5" />
@@ -198,7 +207,7 @@ export function ResearchPageContent({ projectId, profile, researchRuns }: Props)
 
       {/* Research History */}
       {researchRuns.length > 0 && (
-        <Card>
+        <Card data-tour="research-history">
           <CardHeader>
             <CardTitle className="text-lg">Research History</CardTitle>
           </CardHeader>

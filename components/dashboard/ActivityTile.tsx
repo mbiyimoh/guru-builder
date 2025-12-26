@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { ClickableCard } from '@/components/ui/clickable-card';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
@@ -14,7 +14,7 @@ interface ActivityTileProps {
 
 export function ActivityTile({ title, value, icon, href, isStatus }: ActivityTileProps) {
   return (
-    <Link href={href}>
+    <ClickableCard href={href}>
       <Card className="hover:bg-accent/50 transition-colors cursor-pointer h-full">
         <CardContent className="pt-4 pb-4">
           <div className="flex items-center justify-between mb-2">
@@ -30,6 +30,6 @@ export function ActivityTile({ title, value, icon, href, isStatus }: ActivityTil
           <div className="text-xs text-muted-foreground mt-1">{title}</div>
         </CardContent>
       </Card>
-    </Link>
+    </ClickableCard>
   );
 }

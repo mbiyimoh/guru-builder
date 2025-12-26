@@ -158,7 +158,7 @@ export function SimpleToolbar({
           )}
         </div>
 
-        <div className="flex-shrink-0">
+        <div className="flex-shrink-0" data-tour="generate-button">
           {artifact ? (
             <Button
               onClick={onRegenerate}
@@ -294,7 +294,7 @@ export function SimpleToolbar({
         </div>
       )}
 
-      <div className="mt-4">
+      <div className="mt-4" data-tour="user-notes">
         <ExpandableNotes
           value={userNotes}
           onChange={onUserNotesChange}

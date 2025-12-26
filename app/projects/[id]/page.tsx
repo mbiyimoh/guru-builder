@@ -43,9 +43,12 @@ export default async function ProjectDashboardPage({ params }: PageProps) {
     redirect('/projects');
   }
 
-  // Determine if this is a new project (for Getting Started)
-  const isNewProject = !project.currentProfile &&
-                       project.researchRuns.length === 0;
+  // Determine if this is a new/incomplete project (for Getting Started)
+  // Show Getting Started until ALL three steps are complete: profile, research, artifacts
+  const hasProfile = !!project.currentProfile;
+  const hasResearch = project.researchRuns.length > 0;
+  const hasArtifacts = project.guruArtifacts.length > 0;
+  const isNewProject = !hasProfile || !hasResearch || !hasArtifacts;
 
   return (
     <SimplifiedDashboard
