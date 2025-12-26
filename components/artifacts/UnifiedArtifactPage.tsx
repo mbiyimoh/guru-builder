@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, RefreshCw, WifiOff, Clock, ServerCrash } from 'lucide-react';
+import { AlertCircle, RefreshCw, WifiOff, Clock, ServerCrash, XCircle } from 'lucide-react';
 import { TeachingPageHeader } from './TeachingPageHeader';
 import { ArtifactTabBar } from './ArtifactTabBar';
 import { SimpleToolbar } from './SimpleToolbar';
@@ -145,6 +145,8 @@ export function UnifiedArtifactPage({
   // State
   const [advancedMode, setAdvancedMode] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [generatingArtifactId, setGeneratingArtifactId] = useState<string | null>(null);
   const [generationProgress, setGenerationProgress] = useState<{
     stage: string | null;
     subTask: SubTaskProgress | null;
@@ -190,6 +192,11 @@ export function UnifiedArtifactPage({
 
     if (isCurrentlyGenerating) {
       setIsGenerating(true);
+      // Store the artifact ID for potential cancellation
+      const artifactId = initialArtifact?.id || currentSummary?.id;
+      if (artifactId) {
+        setGeneratingArtifactId(artifactId);
+      }
       // Prefer initialArtifact progress (more recent) over summary
       const progressStage = initialArtifact?.progressStage || currentSummary?.progressStage;
       const subTask = (initialArtifact?.subTaskProgress || currentSummary?.subTaskProgress) as SubTaskProgress | null;
@@ -257,15 +264,23 @@ export function UnifiedArtifactPage({
         // CRITICAL: Race condition check - wait for BOTH completed status AND corpusHash
         if (currentArtifact?.status === 'COMPLETED' && currentArtifact.corpusHash) {
           setIsGenerating(false);
+          setGeneratingArtifactId(null);
           setGenerationProgress({ stage: null, subTask: null });
           router.refresh(); // Reload server data
         } else if (currentArtifact?.status === 'FAILED') {
           setIsGenerating(false);
+          setGeneratingArtifactId(null);
           setGenerationProgress({ stage: null, subTask: null });
           setError({
             type: 'generation',
             message: currentArtifact.errorMessage || 'Generation failed. Please try again.',
           });
+        } else if (currentArtifact?.status === 'CANCELLED') {
+          setIsGenerating(false);
+          setIsCancelling(false);
+          setGeneratingArtifactId(null);
+          setGenerationProgress({ stage: null, subTask: null });
+          router.refresh(); // Reload server data to show clean state
         }
       } catch (err) {
         console.error('Polling error:', err);
@@ -299,12 +314,50 @@ export function UnifiedArtifactPage({
         throw new Error(errorText || 'Generation failed');
       }
 
+      // Extract artifact ID from response for potential cancellation
+      const data = await res.json();
+      if (data.artifactId) {
+        setGeneratingArtifactId(data.artifactId);
+      }
+
       // Success - polling will pick up the progress
     } catch (err) {
       setIsGenerating(false);
+      setGeneratingArtifactId(null);
       setError(classifyError(err));
     }
   }, [projectId, artifactType, userNotes, drillConfig]);
+
+  // Handle cancellation
+  const handleCancel = useCallback(async () => {
+    if (!generatingArtifactId) return;
+
+    setIsCancelling(true);
+
+    try {
+      const res = await fetch(
+        `/api/projects/${projectId}/guru/artifacts/${generatingArtifactId}`,
+        {
+          method: 'DELETE',
+          credentials: 'include',
+        }
+      );
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || 'Failed to cancel');
+      }
+
+      // Success - polling will detect CANCELLED status and clean up
+    } catch (err) {
+      setIsCancelling(false);
+      console.error('Cancel error:', err);
+      setError({
+        type: 'api',
+        message: err instanceof Error ? err.message : 'Failed to cancel generation',
+      });
+    }
+  }, [projectId, generatingArtifactId]);
 
   // Check if we should show full empty state guidance
   const hasNoArtifacts = allArtifactsSummary.artifacts.length === 0;
@@ -336,13 +389,26 @@ export function UnifiedArtifactPage({
 
       <div className="flex-1 overflow-auto">
         {isGenerating ? (
-          <div className="p-6">
+          <div className="p-6 space-y-4">
             <FullWidthProgressTracker
               artifactType={guruArtifactType}
               currentStage={generationProgress.stage}
               subTaskProgress={generationProgress.subTask}
               isComplete={false}
             />
+            {/* Cancel button */}
+            <div className="flex justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCancel}
+                disabled={isCancelling || !generatingArtifactId}
+                className="text-destructive border-destructive/30 hover:bg-destructive/10"
+              >
+                <XCircle className="h-4 w-4 mr-2" />
+                {isCancelling ? 'Cancelling...' : 'Cancel Generation'}
+              </Button>
+            </div>
           </div>
         ) : showEmptyGuidance ? (
           <EmptyStateGuidance

@@ -522,6 +522,7 @@ enum ArtifactStatus {
   GENERATING
   COMPLETED
   FAILED
+  CANCELLED // User cancelled generation
 }
 
 enum DrillTier {

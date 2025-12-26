@@ -6,6 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireProjectOwnership } from "@/lib/auth";
 
@@ -95,7 +96,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
 /**
  * DELETE /api/projects/[id]/guru/artifacts/[artifactId]
- * Delete a specific artifact
+ * Cancel or delete a specific artifact
+ * - If GENERATING: marks as CANCELLED (can't stop Inngest job)
+ * - If COMPLETED/FAILED/CANCELLED: deletes the artifact
  */
 export async function DELETE(request: NextRequest, context: RouteContext) {
   try {
@@ -128,7 +131,27 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       );
     }
 
-    // Check for dependents
+    // If generating, mark as cancelled (we can't actually stop the Inngest job)
+    if (artifact.status === "GENERATING") {
+      await prisma.guruArtifact.update({
+        where: { id: artifactId },
+        data: {
+          status: "CANCELLED",
+          errorMessage: "Cancelled by user",
+          progressStage: null,
+          subTaskProgress: Prisma.DbNull,
+        },
+      });
+
+      console.log(`[Guru Artifact API] Cancelled artifact ${artifactId}`);
+
+      return NextResponse.json({
+        message: "Artifact generation cancelled successfully",
+        cancelled: true,
+      });
+    }
+
+    // Check for dependents before deleting completed/failed artifacts
     if (artifact.dependents.length > 0) {
       return NextResponse.json(
         {
