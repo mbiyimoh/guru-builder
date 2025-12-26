@@ -82,6 +82,15 @@ export const researchJob = inngest.createFunction(
       await updateProgressStage(researchId, PROGRESS_STAGES.STARTING);
     });
 
+    // Check for cancellation before expensive research
+    const cancelledBeforeResearch = await step.run("check-cancelled-before-research", async () => {
+      return await isResearchCancelled(researchId);
+    });
+    if (cancelledBeforeResearch) {
+      console.log(`[Research Job ${researchId}] Job stopped - user cancelled`);
+      return { researchId, cancelled: true };
+    }
+
     // Execute research (can take 5-10 minutes for deep research)
     const result = await step.run("execute-research", async () => {
       console.log(`[Research Job ${researchId}] Starting: "${instructions}" (${depth})`);
@@ -108,8 +117,19 @@ export const researchJob = inngest.createFunction(
       await updateProgressStage(researchId, PROGRESS_STAGES.SAVING_RESEARCH);
     });
 
-    // Save results to database
-    await step.run("save-to-database", async () => {
+    // Save results to database (only if not cancelled)
+    const saved = await step.run("save-to-database", async () => {
+      // Check if user cancelled during research
+      const currentStatus = await prisma.researchRun.findUnique({
+        where: { id: researchId },
+        select: { status: true },
+      });
+
+      if (currentStatus?.status === 'CANCELLED') {
+        console.log(`[Research Job ${researchId}] Skipping save - user cancelled during research`);
+        return false;
+      }
+
       await prisma.researchRun.update({
         where: { id: researchId },
         data: {
@@ -122,21 +142,25 @@ export const researchJob = inngest.createFunction(
       });
 
       console.log(`[Research Job ${researchId}] Database updated: ${result.success ? "COMPLETED" : "FAILED"}`);
+      return true;
     });
 
-    // Send completion event for recommendation generation
-    await step.sendEvent("send-completion-event", {
-      name: "research/completed",
-      data: {
-        researchId,
-        success: result.success,
-        executionTime: result.executionTime || 0,
-      },
-    });
+    // Only send completion event if save succeeded (not cancelled)
+    if (saved && result.success) {
+      await step.sendEvent("send-completion-event", {
+        name: "research/completed",
+        data: {
+          researchId,
+          success: result.success,
+          executionTime: result.executionTime || 0,
+        },
+      });
+    }
 
     return {
       researchId,
-      success: result.success,
+      success: saved && result.success,
+      cancelled: !saved,
       executionTime: result.executionTime,
       summary: result.success
         ? result.data?.summary
@@ -324,6 +348,29 @@ async function updateArtifactProgress(artifactId: string, progressStage: string)
   console.log(`[Artifact Progress] ${artifactId}: ${progressStage}`);
 }
 
+/**
+ * Check if an artifact has been cancelled by the user.
+ * Used to stop long-running jobs early when user cancels.
+ */
+async function isArtifactCancelled(artifactId: string): Promise<boolean> {
+  const artifact = await prisma.guruArtifact.findUnique({
+    where: { id: artifactId },
+    select: { status: true },
+  });
+  return artifact?.status === 'CANCELLED';
+}
+
+/**
+ * Check if a research run has been cancelled by the user.
+ */
+async function isResearchCancelled(researchId: string): Promise<boolean> {
+  const run = await prisma.researchRun.findUnique({
+    where: { id: researchId },
+    select: { status: true },
+  });
+  return run?.status === 'CANCELLED';
+}
+
 import type { SubTaskProgress } from '@/lib/teaching/types';
 
 /**
@@ -473,6 +520,15 @@ export const mentalModelGenerationJob = inngest.createFunction(
       await updateArtifactProgress(artifactId, MENTAL_MODEL_PHASE_KEYS.EXTRACTING_PRINCIPLES);
     });
 
+    // Check for cancellation before expensive generation
+    const cancelledBeforeGeneration = await step.run('check-cancelled-before-generation', async () => {
+      return await isArtifactCancelled(artifactId);
+    });
+    if (cancelledBeforeGeneration) {
+      console.log(`[Mental Model ${artifactId}] Job stopped - user cancelled`);
+      return { artifactId, cancelled: true };
+    }
+
     // Generate mental model
     let result;
     try {
@@ -514,8 +570,19 @@ export const mentalModelGenerationJob = inngest.createFunction(
       await updateArtifactProgress(artifactId, MENTAL_MODEL_PHASE_KEYS.SAVING_ARTIFACT);
     });
 
-    // Save artifact with prompt hashes
-    await step.run('save-artifact', async () => {
+    // Save artifact with prompt hashes (only if not cancelled)
+    const saved = await step.run('save-artifact', async () => {
+      // Check if user cancelled during generation
+      const currentStatus = await prisma.guruArtifact.findUnique({
+        where: { id: artifactId },
+        select: { status: true },
+      });
+
+      if (currentStatus?.status === 'CANCELLED') {
+        console.log(`[Mental Model ${artifactId}] Skipping save - user cancelled during generation`);
+        return false;
+      }
+
       // Hash prompts for versioning (use resolved prompts which may be custom)
       const systemPromptHash = hashPrompt(prompts.systemPrompt);
       const userPromptHash = hashPrompt(result.userPrompt);
@@ -533,9 +600,10 @@ export const mentalModelGenerationJob = inngest.createFunction(
           progressStage: null,  // Clear on completion
         },
       });
+      return true;
     });
 
-    return { artifactId, success: true };
+    return { artifactId, success: saved, cancelled: !saved };
   }
 );
 
@@ -619,6 +687,15 @@ export const curriculumGenerationJob = inngest.createFunction(
     await step.run('progress-designing', async () => {
       await updateArtifactProgress(artifactId, CURRICULUM_PHASE_KEYS.DESIGNING_PATH);
     });
+
+    // Check for cancellation before expensive generation
+    const cancelledBeforeGeneration = await step.run('check-cancelled-before-generation', async () => {
+      return await isArtifactCancelled(artifactId);
+    });
+    if (cancelledBeforeGeneration) {
+      console.log(`[Curriculum ${artifactId}] Job stopped - user cancelled`);
+      return { artifactId, cancelled: true };
+    }
 
     // Generate curriculum
     let result;
@@ -739,8 +816,19 @@ export const curriculumGenerationJob = inngest.createFunction(
       await updateArtifactProgress(artifactId, CURRICULUM_PHASE_KEYS.SAVING_ARTIFACT);
     });
 
-    // Save artifact with prompt hashes and verification results
-    await step.run('save-artifact', async () => {
+    // Save artifact with prompt hashes and verification results (only if not cancelled)
+    const saved = await step.run('save-artifact', async () => {
+      // Check if user cancelled during generation
+      const currentStatus = await prisma.guruArtifact.findUnique({
+        where: { id: artifactId },
+        select: { status: true },
+      });
+
+      if (currentStatus?.status === 'CANCELLED') {
+        console.log(`[Curriculum ${artifactId}] Skipping save - user cancelled during generation`);
+        return false;
+      }
+
       // Hash prompts for versioning (use resolved prompts which may be custom)
       const systemPromptHash = hashPrompt(prompts.systemPrompt);
       const userPromptHash = hashPrompt(result.userPrompt);
@@ -765,9 +853,10 @@ export const curriculumGenerationJob = inngest.createFunction(
           }),
         },
       });
+      return true;
     });
 
-    return { artifactId, success: true };
+    return { artifactId, success: saved, cancelled: !saved };
   }
 );
 
@@ -908,6 +997,15 @@ export const drillSeriesGenerationJob = inngest.createFunction(
     await step.run('progress-generating', async () => {
       await updateArtifactProgress(artifactId, DRILL_SERIES_PHASE_KEYS.GENERATING_CONTENT);
     });
+
+    // Check for cancellation before expensive generation
+    const cancelledBeforeGeneration = await step.run('check-cancelled-before-generation', async () => {
+      return await isArtifactCancelled(artifactId);
+    });
+    if (cancelledBeforeGeneration) {
+      console.log(`[Drill Series ${artifactId}] Job stopped - user cancelled`);
+      return { artifactId, cancelled: true };
+    }
 
     // Initialize sub-task progress for generation phase (shows target drill count to users)
     await step.run('init-generation-progress', async () => {
@@ -1087,8 +1185,19 @@ export const drillSeriesGenerationJob = inngest.createFunction(
       await updateArtifactProgress(artifactId, DRILL_SERIES_PHASE_KEYS.SAVING_ARTIFACT);
     });
 
-    // Save artifact with prompt hashes, positionsUsed, and validation metadata
-    await step.run('save-artifact', async () => {
+    // Save artifact with prompt hashes, positionsUsed, and validation metadata (only if not cancelled)
+    const saved = await step.run('save-artifact', async () => {
+      // Check if user cancelled during generation
+      const currentStatus = await prisma.guruArtifact.findUnique({
+        where: { id: artifactId },
+        select: { status: true },
+      });
+
+      if (currentStatus?.status === 'CANCELLED') {
+        console.log(`[Drill Series ${artifactId}] Skipping save - user cancelled during generation`);
+        return false;
+      }
+
       // Hash prompts for versioning (use resolved prompts which may be custom)
       const systemPromptHash = hashPrompt(prompts.systemPrompt);
       const userPromptHash = hashPrompt(result.userPrompt);
@@ -1113,19 +1222,23 @@ export const drillSeriesGenerationJob = inngest.createFunction(
           progressStage: null,  // Clear on completion
         },
       });
+      return true;
     });
 
-    // Phase 6: Populate Drill Table (two-table architecture sync)
-    await step.run('populate-drill-table', async () => {
-      const { populateDrillsFromArtifact } = await import('./drills/sync');
-      const populateResult = await populateDrillsFromArtifact(artifactId);
-      console.log(`[Drill Series ${artifactId}] Populated ${populateResult.created} drill records (skipped: ${populateResult.skipped})`);
-      if (populateResult.errors.length > 0) {
-        console.warn(`[Drill Series ${artifactId}] Population warnings: ${populateResult.errors.join(', ')}`);
-      }
-    });
+    // Only populate drill table if save succeeded (artifact not cancelled)
+    if (saved) {
+      // Phase 6: Populate Drill Table (two-table architecture sync)
+      await step.run('populate-drill-table', async () => {
+        const { populateDrillsFromArtifact } = await import('./drills/sync');
+        const populateResult = await populateDrillsFromArtifact(artifactId);
+        console.log(`[Drill Series ${artifactId}] Populated ${populateResult.created} drill records (skipped: ${populateResult.skipped})`);
+        if (populateResult.errors.length > 0) {
+          console.warn(`[Drill Series ${artifactId}] Population warnings: ${populateResult.errors.join(', ')}`);
+        }
+      });
+    }
 
-    return { artifactId, success: true };
+    return { artifactId, success: saved, cancelled: !saved };
   }
 );
 
