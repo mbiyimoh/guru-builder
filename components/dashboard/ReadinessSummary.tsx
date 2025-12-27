@@ -102,13 +102,14 @@ export function ReadinessSummary({ projectId }: ReadinessSummaryProps) {
             <div className="text-sm font-medium text-red-700 dark:text-red-400">Critical Gaps</div>
             {score.criticalGaps.slice(0, 3).map(gapKey => {
               const dim = dimensions.find(d => d.dimensionKey === gapKey);
+              const gapName = dim?.dimensionName || gapKey;
               return (
                 <Link
                   key={gapKey}
-                  href={`/projects/${projectId}/research`}
+                  href={`/projects/${projectId}/research?topic=${encodeURIComponent(gapName)}`}
                   className="flex items-center justify-between p-2 rounded border border-red-200 bg-red-50 hover:bg-red-100 dark:bg-red-950/30 dark:hover:bg-red-950/50 dark:border-red-900 transition-colors"
                 >
-                  <span className="text-sm font-medium">{dim?.dimensionName || gapKey}</span>
+                  <span className="text-sm font-medium">{gapName}</span>
                   <Badge variant="destructive" className="text-xs">Research</Badge>
                 </Link>
               );
@@ -122,13 +123,14 @@ export function ReadinessSummary({ projectId }: ReadinessSummaryProps) {
             <div className="text-sm font-medium text-amber-700 dark:text-amber-400">Suggested</div>
             {score.suggestedGaps.slice(0, 2).map(gapKey => {
               const dim = dimensions.find(d => d.dimensionKey === gapKey);
+              const gapName = dim?.dimensionName || gapKey;
               return (
                 <Link
                   key={gapKey}
-                  href={`/projects/${projectId}/research`}
+                  href={`/projects/${projectId}/research?topic=${encodeURIComponent(gapName)}`}
                   className="flex items-center justify-between p-2 rounded border border-amber-200 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/30 dark:hover:bg-amber-950/50 dark:border-amber-900 transition-colors"
                 >
-                  <span className="text-sm">{dim?.dimensionName || gapKey}</span>
+                  <span className="text-sm">{gapName}</span>
                   <Badge variant="outline" className="text-xs">Optional</Badge>
                 </Link>
               );

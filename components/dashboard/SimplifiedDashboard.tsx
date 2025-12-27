@@ -146,13 +146,13 @@ export function SimplifiedDashboard({ project, isNewProject }: SimplifiedDashboa
           href={`/projects/${project.id}/research`}
         />
         <ActivityTile
-          title="Recommendations"
+          title="Knowledge Bits Acquired"
           value={project.researchRuns.reduce((acc, run) => acc + run._count.recommendations, 0)}
           icon={<Lightbulb className="w-5 h-5" />}
           href={`/projects/${project.id}/research`}
         />
         <ActivityTile
-          title="Artifacts"
+          title="Artifacts Generated"
           value={project.guruArtifacts.length}
           icon={<FileText className="w-5 h-5" />}
           href={`/projects/${project.id}/artifacts/teaching`}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, Lightbulb, Search, Loader2 } from 'lucide-react';
@@ -21,6 +21,7 @@ interface Props {
 
 export function ResearchPageContent({ projectId, profile, researchRuns }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const chatRef = useRef<ResearchChatAssistantRef>(null);
   const [readiness, setReadiness] = useState<{
     score: ReadinessScore;
@@ -28,6 +29,7 @@ export function ResearchPageContent({ projectId, profile, researchRuns }: Props)
   } | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
   const [readinessRefreshTrigger, setReadinessRefreshTrigger] = useState(0);
+  const [topicHandled, setTopicHandled] = useState(false);
 
   // Fetch readiness data for suggested topics
   const fetchReadiness = useCallback(async () => {
@@ -49,6 +51,25 @@ export function ResearchPageContent({ projectId, profile, researchRuns }: Props)
   useEffect(() => {
     fetchReadiness();
   }, [fetchReadiness]);
+
+  // Handle topic query parameter from dashboard gap clicks
+  useEffect(() => {
+    const topic = searchParams.get('topic');
+    if (topic && !topicHandled) {
+      // Small delay to ensure chat component is mounted
+      const timeout = setTimeout(() => {
+        if (chatRef.current) {
+          chatRef.current.setInputMessage(`I want to research more about ${topic}`);
+          setTopicHandled(true);
+          // Clear the query param from URL without navigation
+          const url = new URL(window.location.href);
+          url.searchParams.delete('topic');
+          window.history.replaceState({}, '', url.toString());
+        }
+      }, 100);
+      return () => clearTimeout(timeout);
+    }
+  }, [searchParams, topicHandled]);
 
   // Extract GuruProfileData from the profileData JSON field
   const guruProfileData: GuruProfileData | null = profile?.profileData
