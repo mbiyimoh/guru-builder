@@ -5,8 +5,10 @@
  *
  * Displays the synthesized guru profile with editable project name.
  * Uses modern scorecard UI with confidence ring and collapsible sections.
+ * Supports inline refinement via ScorecardRefinementInput when onRefinement is provided.
  */
 
+import { useRef, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,6 +16,8 @@ import { Label } from '@/components/ui/label'
 import { ArrowLeft, Save, Loader2, Brain } from 'lucide-react'
 import { ScorecardConfidenceRing } from '@/components/profile/ScorecardConfidenceRing'
 import { ScorecardSection } from '@/components/profile/ScorecardSection'
+import { ScorecardRefinementInput, type ScorecardRefinementInputRef } from '@/components/profile/ScorecardRefinementInput'
+import { generateProfilePrompt } from '@/lib/promptGeneration/client'
 import type { SynthesisResult } from '@/lib/guruProfile/types'
 import { buildProfileSections } from '@/lib/guruProfile/sectionConfig'
 
@@ -24,6 +28,7 @@ interface ProfilePreviewProps {
   onBack: () => void
   onSave: () => void
   saving: boolean
+  onRefinement?: (newResult: SynthesisResult) => void
 }
 
 export default function ProfilePreview({
@@ -33,17 +38,40 @@ export default function ProfilePreview({
   onBack,
   onSave,
   saving,
+  onRefinement,
 }: ProfilePreviewProps) {
   const { profile, lightAreas, confidence } = result
+  const refinementRef = useRef<ScorecardRefinementInputRef>(null)
+  const [isRefining, setIsRefining] = useState(false)
 
   const canSave = projectName.trim().length > 0
 
   // Build sections with their fields using shared config
   const sections = buildProfileSections(profile, lightAreas)
 
-  // No-op for light area clicks in wizard mode (no refinement input)
-  const handleLightAreaClick = () => {
-    // In wizard mode, light areas are informational only
+  // Handle light area clicks - generate smart prompt and populate refinement input
+  const handleLightAreaClick = async (fieldKey: string, fieldLabel: string) => {
+    if (!refinementRef.current || !onRefinement) return
+
+    // Show placeholder while generating
+    refinementRef.current.setPrompt('Generating suggestion...')
+
+    const prompt = await generateProfilePrompt({
+      fieldKey,
+      fieldLabel,
+      currentValue: profile[fieldKey as keyof typeof profile] as string | string[] | null,
+      lightAreas,
+      domainExpertise: profile.domainExpertise,
+      audienceLevel: profile.audienceLevel,
+    })
+
+    refinementRef.current.setPrompt(prompt)
+  }
+
+  // Handle refinement completion - update parent state
+  const handleRefinementComplete = (newResult: SynthesisResult) => {
+    setIsRefining(false)
+    onRefinement?.(newResult)
   }
 
   return (
@@ -97,8 +125,10 @@ export default function ProfilePreview({
               <div className="flex items-start gap-2">
                 <Brain className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
                 <p className="text-sm text-amber-800 dark:text-amber-200">
-                  Some fields were inferred with lower confidence. You can refine them later
-                  through the research workflow after creating your project.
+                  Some fields were inferred with lower confidence.{' '}
+                  {onRefinement
+                    ? 'Click the highlighted areas below to improve them.'
+                    : 'You can refine them later through the research workflow after creating your project.'}
                 </p>
               </div>
             </div>
@@ -135,14 +165,25 @@ export default function ProfilePreview({
         )}
       </div>
 
+      {/* Refinement Input (only shown when onRefinement is provided) */}
+      {onRefinement && (
+        <ScorecardRefinementInput
+          ref={refinementRef}
+          existingBrainDump={result.rawInput}
+          onRefinementComplete={handleRefinementComplete}
+          onRefinementStart={() => setIsRefining(true)}
+          disabled={saving || isRefining}
+        />
+      )}
+
       {/* Actions */}
       <div className="flex items-center justify-between gap-4">
-        <Button variant="outline" onClick={onBack} disabled={saving}>
+        <Button variant="outline" onClick={onBack} disabled={saving || isRefining}>
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back
         </Button>
 
-        <Button onClick={onSave} disabled={!canSave || saving} size="lg">
+        <Button onClick={onSave} disabled={!canSave || saving || isRefining} size="lg">
           {saving ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />

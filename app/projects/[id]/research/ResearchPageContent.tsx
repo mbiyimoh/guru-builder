@@ -8,6 +8,7 @@ import { AlertTriangle, Lightbulb, Search, Loader2 } from 'lucide-react';
 import { ResearchChatAssistant, type ResearchChatAssistantRef } from '@/components/wizard/research/ResearchChatAssistant';
 import { InlineReadinessIndicator } from '@/components/research/InlineReadinessIndicator';
 import { TourPageButton } from '@/lib/onboarding/TourPageButton';
+import { generateResearchPrompt } from '@/lib/promptGeneration/client';
 import type { GuruProfile, ResearchRun } from '@prisma/client';
 import type { ReadinessScore, DimensionCoverage } from '@/lib/wizard/types';
 import type { ResearchPlan } from '@/lib/research/chat-types';
@@ -55,16 +56,30 @@ export function ResearchPageContent({ projectId, profile, researchRuns }: Props)
   // Handle topic query parameter from dashboard gap clicks
   useEffect(() => {
     const topic = searchParams.get('topic');
+    const isCritical = searchParams.get('critical') === 'true';
     if (topic && !topicHandled) {
       // Small delay to ensure chat component is mounted
-      const timeout = setTimeout(() => {
+      const timeout = setTimeout(async () => {
         if (chatRef.current) {
-          chatRef.current.setInputMessage(`I want to research more about ${topic}`);
+          // Show placeholder while generating
+          chatRef.current.setInputMessage('Generating research suggestion...');
           setTopicHandled(true);
-          // Clear the query param from URL without navigation
+
+          // Clear the query params from URL without navigation
           const url = new URL(window.location.href);
           url.searchParams.delete('topic');
+          url.searchParams.delete('critical');
           window.history.replaceState({}, '', url.toString());
+
+          // Generate smart prompt
+          const prompt = await generateResearchPrompt({
+            gapName: topic,
+            dimensionDescription: getDimensionDescription(topic),
+            isCritical,
+            existingCorpusSummary: getCorpusSummary(),
+          });
+
+          chatRef.current.setInputMessage(prompt);
         }
       }, 100);
       return () => clearTimeout(timeout);
@@ -112,9 +127,43 @@ export function ResearchPageContent({ projectId, profile, researchRuns }: Props)
     }
   };
 
-  // Handle clicking a gap to pre-fill the chat
-  const handleGapClick = (gapName: string) => {
-    chatRef.current?.setInputMessage(`I want to research more about ${gapName}`);
+  // Build dimension description from dimension name
+  const getDimensionDescription = (dimName: string): string => {
+    const descriptions: Record<string, string> = {
+      'Foundations': 'Core concepts, terminology, and fundamental knowledge that forms the basis for understanding the domain',
+      'Progression': 'Learning paths, skill development stages, and how concepts build upon each other',
+      'Common Mistakes': 'Typical errors learners make, misconceptions, and how to avoid or correct them',
+      'Examples': 'Concrete examples, case studies, and real-world applications that illustrate concepts',
+      'Nuance': 'Edge cases, exceptions, advanced considerations, and subtle distinctions',
+      'Practice': 'Exercises, drills, and hands-on activities for skill development',
+    };
+    return descriptions[dimName] || `Knowledge and content related to ${dimName.toLowerCase()}`;
+  };
+
+  // Build corpus summary from dimension data
+  const getCorpusSummary = (): string => {
+    if (!readiness) return 'No corpus content yet';
+    const totalItems = readiness.dimensions.reduce((sum, d) => sum + d.itemCount, 0);
+    if (totalItems === 0) return 'No corpus content yet';
+    const covered = readiness.dimensions.filter(d => d.coveragePercent >= 60);
+    return `${totalItems} items covering ${covered.length}/${readiness.dimensions.length} dimensions`;
+  };
+
+  // Handle clicking a gap to pre-fill the chat with smart prompt
+  const handleGapClick = async (gapName: string, isCritical: boolean) => {
+    if (!chatRef.current) return;
+
+    // Show placeholder while generating
+    chatRef.current.setInputMessage('Generating research suggestion...');
+
+    const prompt = await generateResearchPrompt({
+      gapName,
+      dimensionDescription: getDimensionDescription(gapName),
+      isCritical,
+      existingCorpusSummary: getCorpusSummary(),
+    });
+
+    chatRef.current.setInputMessage(prompt);
   };
 
   return (
@@ -153,7 +202,7 @@ export function ResearchPageContent({ projectId, profile, researchRuns }: Props)
                     return (
                       <button
                         key={gapKey}
-                        onClick={() => handleGapClick(dim?.dimensionName || gapKey)}
+                        onClick={() => handleGapClick(dim?.dimensionName || gapKey, true)}
                         className="text-left"
                       >
                         <Card className="border-red-200 dark:border-red-900 hover:bg-red-50 dark:hover:bg-red-950/50 transition-colors cursor-pointer">
@@ -182,7 +231,7 @@ export function ResearchPageContent({ projectId, profile, researchRuns }: Props)
                     return (
                       <button
                         key={gapKey}
-                        onClick={() => handleGapClick(dim?.dimensionName || gapKey)}
+                        onClick={() => handleGapClick(dim?.dimensionName || gapKey, false)}
                         className="text-left"
                       >
                         <Card className="border-amber-200 dark:border-amber-900 hover:bg-amber-50 dark:hover:bg-amber-950/50 transition-colors cursor-pointer">

@@ -9,6 +9,7 @@ import { ScorecardRefinementInput, type ScorecardRefinementInputRef } from './Sc
 import { User, Brain } from 'lucide-react';
 import type { GuruProfileData, SynthesisResult } from '@/lib/guruProfile/types';
 import { buildProfileSections } from '@/lib/guruProfile/sectionConfig';
+import { generateProfilePrompt } from '@/lib/promptGeneration/client';
 
 interface ProfileScorecardProps {
   profile: GuruProfileData;
@@ -34,11 +35,23 @@ export function ProfileScorecard({
   const refinementRef = useRef<ScorecardRefinementInputRef>(null);
   const [isRefining, setIsRefining] = useState(false);
 
-  // Handle clicking a light area badge
-  const handleLightAreaClick = (fieldKey: string, fieldLabel: string) => {
-    if (refinementRef.current) {
-      refinementRef.current.setPrompt(`I want to provide more details about ${fieldLabel.toLowerCase()}. `);
-    }
+  // Handle clicking a light area badge - generate smart prompt
+  const handleLightAreaClick = async (fieldKey: string, fieldLabel: string) => {
+    if (!refinementRef.current) return;
+
+    // Show placeholder while generating
+    refinementRef.current.setPrompt('Generating suggestion...');
+
+    const prompt = await generateProfilePrompt({
+      fieldKey,
+      fieldLabel,
+      currentValue: profile[fieldKey as keyof typeof profile] as string | string[] | null,
+      lightAreas,
+      domainExpertise: profile.domainExpertise,
+      audienceLevel: profile.audienceLevel,
+    });
+
+    refinementRef.current.setPrompt(prompt);
   };
 
   // Handle refinement completion
