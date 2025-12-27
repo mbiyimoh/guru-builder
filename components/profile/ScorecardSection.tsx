@@ -47,6 +47,8 @@ export function ScorecardSection({
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors"
+        aria-expanded={isExpanded}
+        aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${title} section`}
       >
         <div className="flex items-center gap-3 flex-1">
           <span className="font-semibold text-sm">{title}</span>
@@ -92,14 +94,23 @@ export function ScorecardSection({
                       {field.label}
                     </span>
                     {field.isLight && (
-                      <button
+                      <div
                         onClick={(e) => {
                           e.stopPropagation();
                           if (!disabled) {
                             onLightAreaClick(field.fieldKey, field.label);
                           }
                         }}
-                        disabled={disabled}
+                        onKeyDown={(e) => {
+                          if ((e.key === 'Enter' || e.key === ' ') && !disabled) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onLightAreaClick(field.fieldKey, field.label);
+                          }
+                        }}
+                        role="button"
+                        tabIndex={disabled ? -1 : 0}
+                        aria-label={`Improve ${field.label}`}
                         className={cn('group', disabled && 'opacity-50 cursor-not-allowed')}
                       >
                         <Badge
@@ -111,7 +122,7 @@ export function ScorecardSection({
                         >
                           {disabled ? 'Updating...' : 'Lower Confidence - Click to improve'}
                         </Badge>
-                      </button>
+                      </div>
                     )}
                   </div>
                   <p className="text-sm whitespace-pre-wrap break-words">

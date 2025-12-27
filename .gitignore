@@ -60,4 +60,7 @@ backups/
 
 # Quick checks (ephemeral tests)
 .quick-checks/
+
+# Screenshots (ignore all PNGs except dedicated screenshots directory)
 *.png
+!screenshots/*.png

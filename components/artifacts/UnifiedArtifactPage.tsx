@@ -384,7 +384,7 @@ export function UnifiedArtifactPage({
     <div className="h-full flex flex-col">
       {/* Header with Tour Button */}
       <div className="flex items-center justify-between px-6 pt-4">
-        <div data-tour="mode-toggle" className="flex-1">
+        <div className="flex-1">
           <TeachingPageHeader
             projectId={projectId}
             advancedMode={advancedMode}

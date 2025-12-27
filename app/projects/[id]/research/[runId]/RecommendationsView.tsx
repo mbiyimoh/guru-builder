@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { TrendingUp, AlertCircle } from 'lucide-react';
 import { DiffViewer } from '@/components/recommendations/DiffViewer';
 
@@ -174,10 +175,13 @@ export function RecommendationsView({ recommendations, projectId, runId }: Recom
               )}
             </div>
             {readinessResult.criticalGaps.length > 0 && (
-              <span className="flex items-center text-sm text-amber-600">
+              <Link
+                href={`/projects/${projectId}/research`}
+                className="flex items-center text-sm text-amber-600 hover:text-amber-700 hover:underline transition-colors"
+              >
                 <AlertCircle className="w-4 h-4 mr-1" />
-                {readinessResult.criticalGaps.length} critical gap{readinessResult.criticalGaps.length !== 1 ? 's' : ''} remaining
-              </span>
+                {readinessResult.criticalGaps.length} gap{readinessResult.criticalGaps.length !== 1 ? 's' : ''} remaining →
+              </Link>
             )}
           </div>
         </div>

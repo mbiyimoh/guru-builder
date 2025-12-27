@@ -33,7 +33,11 @@ function getPhases(projectId?: string | null): PhaseConfig[] {
   ];
 }
 
-export function WizardNavigation() {
+interface WizardNavigationProps {
+  hidePhases?: boolean;
+}
+
+export function WizardNavigation({ hidePhases = false }: WizardNavigationProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const projectId = searchParams.get('projectId');
@@ -49,7 +53,7 @@ export function WizardNavigation() {
     <nav className="bg-white border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
         {/* Back to Projects Link - Stack above phases on mobile */}
-        <div className="mb-4 sm:mb-6">
+        <div className={cn("mb-4 sm:mb-6", hidePhases && "mb-0")}>
           <Link
             href="/projects"
             className="text-sm text-gray-600 hover:text-gray-900 transition-colors inline-block min-h-[44px] flex items-center"
@@ -58,8 +62,8 @@ export function WizardNavigation() {
           </Link>
         </div>
 
-        {/* Phase Navigation */}
-        <div className="flex items-center justify-between">
+        {/* Phase Navigation - conditionally hidden */}
+        {!hidePhases && <div className="flex items-center justify-between">
           {PHASES.map((phase, index) => {
             const isActive = index === activePhaseIndex;
             const isCompleted = index < activePhaseIndex;
@@ -146,7 +150,7 @@ export function WizardNavigation() {
               </div>
             );
           })}
-        </div>
+        </div>}
       </div>
     </nav>
   );

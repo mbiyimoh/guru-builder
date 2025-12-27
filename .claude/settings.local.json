@@ -37,7 +37,11 @@
       "WebFetch(domain:www.hardyhuebener.de)",
       "WebFetch(domain:localhost)",
       "WebFetch(domain:cloudscape.design)",
-      "WebFetch(domain:www.eleken.co)"
+      "WebFetch(domain:www.eleken.co)",
+      "WebFetch(domain:bundlephobia.com)",
+      "WebFetch(domain:railway.app)",
+      "WebFetch(domain:railway.com)",
+      "SlashCommand(/deploy:push-and-check-railway)"
     ],
     "deny": [],
     "ask": []

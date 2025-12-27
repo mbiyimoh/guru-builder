@@ -8,49 +8,7 @@ import { ScorecardSection } from './ScorecardSection';
 import { ScorecardRefinementInput, type ScorecardRefinementInputRef } from './ScorecardRefinementInput';
 import { User, Brain } from 'lucide-react';
 import type { GuruProfileData, SynthesisResult } from '@/lib/guruProfile/types';
-
-// Section field mappings for score calculation
-const SECTION_CONFIG = {
-  'Domain & Expertise': {
-    fields: ['domainExpertise', 'specificTopics', 'yearsOfExperience'],
-    labels: {
-      domainExpertise: 'Domain Expertise',
-      specificTopics: 'Specific Topics',
-      yearsOfExperience: 'Years of Experience',
-    },
-  },
-  'Target Audience': {
-    fields: ['audienceLevel', 'audienceDescription'],
-    labels: {
-      audienceLevel: 'Audience Level',
-      audienceDescription: 'Audience Description',
-    },
-  },
-  'Teaching Style': {
-    fields: ['pedagogicalApproach', 'tone', 'communicationStyle'],
-    labels: {
-      pedagogicalApproach: 'Pedagogical Approach',
-      tone: 'Tone',
-      communicationStyle: 'Communication Style',
-    },
-  },
-  'Content Preferences': {
-    fields: ['emphasizedConcepts', 'avoidedTopics', 'examplePreferences'],
-    labels: {
-      emphasizedConcepts: 'Emphasized Concepts',
-      avoidedTopics: 'Avoided Topics',
-      examplePreferences: 'Example Preferences',
-    },
-  },
-  'Unique Characteristics': {
-    fields: ['uniquePerspective', 'commonMisconceptions', 'successMetrics'],
-    labels: {
-      uniquePerspective: 'Unique Perspective',
-      commonMisconceptions: 'Common Misconceptions',
-      successMetrics: 'Success Metrics',
-    },
-  },
-} as const;
+import { buildProfileSections } from '@/lib/guruProfile/sectionConfig';
 
 interface ProfileScorecardProps {
   profile: GuruProfileData;
@@ -91,23 +49,8 @@ export function ProfileScorecard({
     }
   };
 
-  // Build sections with their fields
-  const sections = Object.entries(SECTION_CONFIG).map(([sectionName, config]) => {
-    const fields = config.fields.map((fieldKey) => {
-      const key = fieldKey as keyof GuruProfileData;
-      return {
-        label: config.labels[key as keyof typeof config.labels],
-        value: profile[key] as string | string[] | number | null,
-        fieldKey: key,
-        isLight: lightAreas.includes(key),
-      };
-    });
-
-    return {
-      title: sectionName,
-      fields,
-    };
-  });
+  // Build sections with their fields using shared config
+  const sections = buildProfileSections(profile, lightAreas);
 
   // Check if additional context exists
   const hasAdditionalContext = profile.additionalContext && profile.additionalContext.trim().length > 0;

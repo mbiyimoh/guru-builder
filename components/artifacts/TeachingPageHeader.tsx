@@ -26,7 +26,7 @@ export function TeachingPageHeader({
         <span>Back to Project</span>
       </Link>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2" data-tour="mode-toggle">
         <Switch
           id="advanced-mode"
           checked={advancedMode}

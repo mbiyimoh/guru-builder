@@ -48,8 +48,7 @@ export function usePageTour(tourId: TourId) {
       // Driver.js automatically skips steps where the target element doesn't exist
       // (e.g., "Getting Started" card hidden for non-new projects)
       const driverObj = driver({
-        showProgress: true,
-        progressText: '{{current}} of {{total}}',
+        showProgress: false,
         nextBtnText: 'Next',
         prevBtnText: 'Back',
         doneBtnText: 'Done',

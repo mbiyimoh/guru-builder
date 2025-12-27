@@ -289,6 +289,122 @@ try {
 }
 ```
 
+### Onboarding Tooltips (Driver.js)
+
+Interactive product tours using Driver.js library for user onboarding.
+
+**Key Files:**
+- `lib/onboarding/usePageTour.ts` - Hook for managing tour state and auto-start
+- `lib/onboarding/tours.ts` - Tour step definitions by page
+- `components/TourPageButton.tsx` - Manual tour trigger button
+
+**How it works:**
+1. Tours auto-start on first visit (localStorage tracking per tour ID)
+2. Mobile detection skips tours (< 768px width)
+3. Hydration-safe: localStorage only accessed after mount
+4. Driver.js automatically skips steps where target elements don't exist
+
+**Tour Configuration:**
+```typescript
+const driverObj = driver({
+  showProgress: false,           // Hide "X of Y" text (redundant with buttons)
+  nextBtnText: 'Next',
+  prevBtnText: 'Back',
+  doneBtnText: 'Done',
+  allowKeyboardControl: true,     // ESC to close, arrows to navigate
+  onDestroyed: markSeen,          // Save completion to localStorage
+  steps: [/* tour steps */],
+});
+```
+
+**Targeting Elements:**
+Use `data-tour="step-id"` attributes on elements to highlight:
+```tsx
+<div className="flex items-center gap-2" data-tour="mode-toggle">
+  <Switch ... />
+</div>
+```
+
+**Gotchas:**
+- Tours only run on desktop (mobile users won't see them)
+- `data-tour` attributes should target specific interactive elements, not wrapper divs
+- LocalStorage failures (private browsing) default to "tour seen" to avoid errors
+- 500ms delay before auto-start ensures DOM elements are rendered
+
+### Profile Scorecard Enhancement
+
+Modern collapsible scorecard for guru profile with confidence-based highlighting.
+
+**Key Components:**
+- `components/profile/ProfileScorecard.tsx` - Main orchestrator
+- `components/profile/ScorecardSection.tsx` - Collapsible section with progress
+- `components/profile/ScorecardConfidenceRing.tsx` - Visual confidence indicator
+- `components/profile/ScorecardRefinementInput.tsx` - Text/voice input for improvements
+- `lib/guruProfile/sectionConfig.ts` - Shared section definitions
+
+**Architecture:**
+- **Confidence ring**: SVG-based circular progress (green ≥80%, amber <80%)
+- **Light areas**: Fields with confidence <0.8 highlighted in amber with "Click to improve" badges
+- **Collapsible sections**: Expand/collapse with smooth animations, show "X areas to improve" badges
+- **Section scoring**: `(fields.length - lightCount) / fields.length * 100`
+
+**Refinement Workflow:**
+1. User clicks "Click to improve" badge on light area
+2. Modal opens with `ScorecardRefinementInput` (text or voice)
+3. Input sent to `/api/projects/[id]/guru-profile` with field context
+4. AI refines specific field based on user guidance
+5. Profile updates, scorecard re-renders with new scores
+
+**Voice Input:**
+- Chrome/Edge only (uses Web Speech API)
+- Microphone permission required
+- Real-time transcription display
+- Auto-submit on silence detection
+
+**Gotchas:**
+- Section config must match profile structure exactly
+- Confidence threshold 0.8 (not 0.6 like dimension tags)
+- Voice not available in Firefox/Safari - gracefully degrades to text-only
+- Use `disabled` prop during refinement to prevent duplicate requests
+
+### Cancellation Pattern
+
+User-initiated cancellation for long-running operations (research, artifact generation).
+
+**Key Files:**
+- `app/api/projects/[id]/research/[runId]/cancel/route.ts` - Research cancellation
+- `app/api/artifacts/[id]/cancel/route.ts` - Artifact generation cancellation
+- `lib/inngest-functions.ts` - Inngest job cancellation checks
+
+**Pattern:**
+```typescript
+// 1. API Route - Set status to CANCELLED
+await prisma.researchRun.update({
+  where: { id: runId },
+  data: { status: 'CANCELLED', cancelledAt: new Date() }
+});
+
+// 2. Inngest Job - Check for cancellation before each step
+const run = await prisma.researchRun.findUnique({ where: { id: runId } });
+if (run.status === 'CANCELLED') {
+  return { cancelled: true };
+}
+
+// 3. UI - Cancel button with optimistic update
+const handleCancel = async () => {
+  setIsCancelling(true);
+  await fetch(`/api/.../cancel`, { method: 'POST' });
+  router.refresh();
+};
+```
+
+**Gotchas:**
+- Cancellation is cooperative - jobs must check status periodically
+- Add checks BEFORE expensive operations (API calls, DB queries)
+- Set `cancelledAt` timestamp for audit trail
+- UI should disable cancel button during cancellation (loading state)
+- Use `router.refresh()` to update UI after cancellation
+
 ---
 
 ## SOPs
@@ -413,6 +529,9 @@ npx tsc --noEmit                   # Type check
 | Auto-tagging fails silently | Check server logs - likely auth issue from HTTP calls |
 | Readiness score not updating | Use "Re-assess Readiness" button to re-tag corpus |
 | Re-assessment timeout | Normal for 50+ items - partial results returned |
+| Tours not showing | Check: (1) Mobile <768px skips tours, (2) LocalStorage `tour-seen-{id}` = true, (3) Target elements exist |
+| Voice input not working | Chrome/Edge only - Firefox/Safari don't support Web Speech API |
+| Cancellation not stopping job | Add `status === 'CANCELLED'` checks before expensive operations in Inngest jobs |
 
 ---
 
