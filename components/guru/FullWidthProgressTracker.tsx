@@ -145,12 +145,18 @@ export function FullWidthProgressTracker({
               {subTaskProgress.currentClaimText || `Generating ${subTaskProgress.total} drills (this may take 30-60s)...`}
             </span>
           </div>
-          {/* Mini progress bar for drills */}
+          {/* Mini progress bar for drills - indeterminate when current=0, determinate otherwise */}
           <div className="mt-2 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-blue-600 transition-all duration-300"
-              style={{ width: `${subTaskProgress.total > 0 ? (subTaskProgress.current / subTaskProgress.total) * 100 : 0}%` }}
-            />
+            {subTaskProgress.current === 0 && subTaskProgress.total > 0 ? (
+              // Indeterminate shimmer animation while waiting for first progress update
+              <div className="h-full w-1/3 bg-gradient-to-r from-transparent via-blue-600 to-transparent animate-shimmer" />
+            ) : (
+              // Determinate progress bar
+              <div
+                className="h-full bg-blue-600 transition-all duration-300"
+                style={{ width: `${subTaskProgress.total > 0 ? (subTaskProgress.current / subTaskProgress.total) * 100 : 0}%` }}
+              />
+            )}
           </div>
         </div>
       )}
@@ -165,12 +171,18 @@ export function FullWidthProgressTracker({
               {subTaskProgress.currentClaimText || 'Processing...'}
             </span>
           </div>
-          {/* Mini progress bar for claims */}
+          {/* Mini progress bar for claims - indeterminate when current=0, determinate otherwise */}
           <div className="mt-2 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-blue-600 transition-all duration-300"
-              style={{ width: `${subTaskProgress.total > 0 ? (subTaskProgress.current / subTaskProgress.total) * 100 : 0}%` }}
-            />
+            {subTaskProgress.current === 0 && subTaskProgress.total > 0 ? (
+              // Indeterminate shimmer animation while waiting for first progress update
+              <div className="h-full w-1/3 bg-gradient-to-r from-transparent via-blue-600 to-transparent animate-shimmer" />
+            ) : (
+              // Determinate progress bar
+              <div
+                className="h-full bg-blue-600 transition-all duration-300"
+                style={{ width: `${subTaskProgress.total > 0 ? (subTaskProgress.current / subTaskProgress.total) * 100 : 0}%` }}
+              />
+            )}
           </div>
         </div>
       )}
