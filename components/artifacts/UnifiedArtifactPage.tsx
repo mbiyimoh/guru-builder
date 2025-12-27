@@ -263,10 +263,24 @@ export function UnifiedArtifactPage({
 
         // CRITICAL: Race condition check - wait for BOTH completed status AND corpusHash
         if (currentArtifact?.status === 'COMPLETED' && currentArtifact.corpusHash) {
+          // Fetch the full artifact detail to update the display immediately
+          try {
+            const artifactRes = await fetch(
+              `/api/projects/${projectId}/guru/artifacts/${currentArtifact.id}`,
+              { credentials: 'include', cache: 'no-store' }
+            );
+            if (artifactRes.ok) {
+              const artifactData = await artifactRes.json();
+              setArtifact(artifactData.artifact);
+            }
+          } catch (fetchErr) {
+            console.error('Failed to fetch completed artifact:', fetchErr);
+          }
+
           setIsGenerating(false);
           setGeneratingArtifactId(null);
           setGenerationProgress({ stage: null, subTask: null });
-          router.refresh(); // Reload server data
+          router.refresh(); // Also refresh server data for sidebar/header updates
         } else if (currentArtifact?.status === 'FAILED') {
           setIsGenerating(false);
           setGeneratingArtifactId(null);
