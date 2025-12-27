@@ -1,12 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MessageSquare, Mic, FileText, ArrowLeft } from 'lucide-react';
-import ProfileChatMode from '@/components/wizard/profile/ProfileChatMode';
+import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ProfileScorecard } from '@/components/profile';
 import type { GuruProfile } from '@prisma/client';
 import type { SynthesisResult, GuruProfileData } from '@/lib/guruProfile/types';
 
@@ -17,17 +15,33 @@ interface Props {
 
 export function ProfilePageContent({ projectId, existingProfile }: Props) {
   const router = useRouter();
-  const [inputMode, setInputMode] = useState<'chat' | 'voice' | 'document'>('chat');
+  const [isSaving, setIsSaving] = useState(false);
+  const [currentProfile, setCurrentProfile] = useState(existingProfile);
 
   // Extract GuruProfileData from the profileData JSON field
-  const profileData: GuruProfileData | null = existingProfile?.profileData
-    ? (existingProfile.profileData as GuruProfileData)
+  const profileData: GuruProfileData | null = currentProfile?.profileData
+    ? (currentProfile.profileData as GuruProfileData)
     : null;
 
-  const handleProfileComplete = async (result: SynthesisResult) => {
+  // Extract light areas (default to empty array)
+  const lightAreas: string[] = (currentProfile?.lightAreas as string[]) || [];
+
+  // Extract raw brain dump for refinement merge
+  const rawBrainDump: string = (currentProfile?.rawBrainDump as string) || '';
+
+  // Calculate confidence from light areas if not stored
+  // (lower confidence = more light areas)
+  const calculateConfidence = useCallback(() => {
+    if (!profileData) return 0;
+    const totalFields = 15; // Approximate number of profile fields
+    const lightCount = lightAreas.length;
+    return Math.max(0.5, 1 - (lightCount / totalFields) * 0.5);
+  }, [profileData, lightAreas]);
+
+  const handleProfileUpdated = async (result: SynthesisResult) => {
+    setIsSaving(true);
     try {
-      // Save the profile to the project
-      // Map SynthesisResult fields to API expected format
+      // Save the updated profile
       const response = await fetch(`/api/projects/${projectId}/guru-profile`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -43,87 +57,65 @@ export function ProfilePageContent({ projectId, existingProfile }: Props) {
         throw new Error('Failed to save profile');
       }
 
-      // Navigate back to dashboard
-      router.push(`/projects/${projectId}`);
+      // Fetch the updated profile to get the full data
+      const updatedRes = await fetch(`/api/projects/${projectId}/guru-profile`);
+      if (updatedRes.ok) {
+        const data = await updatedRes.json();
+        if (data.hasProfile && data.profile) {
+          setCurrentProfile(data.profile);
+        }
+      }
+
+      // Refresh the page data
       router.refresh();
     } catch (error) {
       console.error('Failed to save profile:', error);
       alert('Failed to save profile. Please try again.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
+  // No profile exists - show creation prompt
+  if (!profileData) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center py-12">
+          <h2 className="text-xl font-semibold mb-2">No Guru Profile Yet</h2>
+          <p className="text-muted-foreground mb-6">
+            Create your guru profile to define your teaching style and approach.
+          </p>
+          <Button onClick={() => router.push(`/projects/${projectId}`)}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Dashboard
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* Existing Profile Summary */}
-      {profileData && (
-        <Card className="border-blue-200 dark:border-blue-900">
-          <CardHeader>
-            <CardTitle className="text-lg">Current Profile</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <div className="font-medium text-muted-foreground">Domain Expertise</div>
-                <div>{profileData.domainExpertise}</div>
-              </div>
-              <div>
-                <div className="font-medium text-muted-foreground">Target Audience</div>
-                <div>{profileData.audienceDescription}</div>
-              </div>
-              <div className="md:col-span-2">
-                <div className="font-medium text-muted-foreground">Pedagogical Approach</div>
-                <div>{profileData.pedagogicalApproach}</div>
-              </div>
-            </div>
-            <p className="text-sm text-muted-foreground mt-4">
-              Continue the conversation below to update or refine your profile.
-            </p>
-          </CardContent>
-        </Card>
+      {/* Saving Overlay */}
+      {isSaving && (
+        <div className="fixed inset-0 bg-background/80 flex items-center justify-center z-50">
+          <div className="flex items-center gap-3 bg-card p-4 rounded-lg shadow-lg border">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span>Saving profile changes...</span>
+          </div>
+        </div>
       )}
 
-      {/* Input Mode Selection */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">
-            {existingProfile ? 'Refine Your Profile' : 'Create Your Profile'}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Tabs value={inputMode} onValueChange={(v) => setInputMode(v as typeof inputMode)}>
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="chat" className="flex items-center gap-2">
-                <MessageSquare className="w-4 h-4" />
-                Chat Interview
-              </TabsTrigger>
-              <TabsTrigger value="voice" className="flex items-center gap-2">
-                <Mic className="w-4 h-4" />
-                Voice Input
-              </TabsTrigger>
-              <TabsTrigger value="document" className="flex items-center gap-2">
-                <FileText className="w-4 h-4" />
-                Document Upload
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="chat" className="mt-6">
-              <ProfileChatMode onComplete={handleProfileComplete} />
-            </TabsContent>
-
-            <TabsContent value="voice" className="mt-6">
-              <div className="text-center py-12 text-muted-foreground">
-                Voice input coming soon
-              </div>
-            </TabsContent>
-
-            <TabsContent value="document" className="mt-6">
-              <div className="text-center py-12 text-muted-foreground">
-                Document upload coming soon
-              </div>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+      {/* Profile Scorecard */}
+      <ProfileScorecard
+        profile={profileData}
+        lightAreas={lightAreas}
+        confidence={calculateConfidence()}
+        rawBrainDump={rawBrainDump}
+        projectId={projectId}
+        onProfileUpdated={handleProfileUpdated}
+        showRefinementInput={true}
+      />
 
       {/* Back Button */}
       <div className="flex justify-start">

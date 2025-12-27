@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { GuruProfileOnboardingModal } from './GuruProfileOnboardingModal'
 import type { GuruProfileData, SynthesisResult } from '@/lib/guruProfile/types'
-import { User, Sparkles, Edit2, ChevronDown, ChevronUp } from 'lucide-react'
+import { User, Sparkles, Edit2, ChevronDown, ChevronUp, ArrowRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface GuruProfileSectionProps {
@@ -27,6 +29,7 @@ interface ProfileResponse {
 }
 
 export function GuruProfileSection({ projectId, autoPrompt = true }: GuruProfileSectionProps) {
+  const router = useRouter()
   const [profileData, setProfileData] = useState<ProfileResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -174,13 +177,13 @@ export function GuruProfileSection({ projectId, autoPrompt = true }: GuruProfile
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setIsModalOpen(true)}
+              <Link
+                href={`/projects/${projectId}/profile`}
                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
                 title="Edit profile"
               >
                 <Edit2 className="w-4 h-4" />
-              </button>
+              </Link>
               <button
                 onClick={() => setIsExpanded(!isExpanded)}
                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
@@ -273,20 +276,30 @@ export function GuruProfileSection({ projectId, autoPrompt = true }: GuruProfile
               )}
             </div>
 
-            {/* Metadata */}
-            <div className="mt-4 pt-4 border-t text-xs text-gray-500">
-              Created {new Date(profile.createdAt).toLocaleDateString()} •
-              Last updated {new Date(profile.updatedAt).toLocaleDateString()}
-              {profile.lightAreas.length > 0 && (
-                <span className="ml-2 text-amber-600">
-                  ({profile.lightAreas.length} inferred fields)
-                </span>
-              )}
+            {/* Metadata and View Full Link */}
+            <div className="mt-4 pt-4 border-t flex items-center justify-between">
+              <div className="text-xs text-gray-500">
+                Created {new Date(profile.createdAt).toLocaleDateString()} •
+                Last updated {new Date(profile.updatedAt).toLocaleDateString()}
+                {profile.lightAreas.length > 0 && (
+                  <span className="ml-2 text-amber-600">
+                    ({profile.lightAreas.length} area{profile.lightAreas.length > 1 ? 's' : ''} to improve)
+                  </span>
+                )}
+              </div>
+              <Link
+                href={`/projects/${projectId}/profile`}
+                className="inline-flex items-center text-sm font-medium text-primary hover:underline"
+              >
+                View & Improve Profile
+                <ArrowRight className="w-3 h-3 ml-1" />
+              </Link>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Modal only for creating new profiles (no profile exists) - keep for auto-prompt */}
       <GuruProfileOnboardingModal
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
