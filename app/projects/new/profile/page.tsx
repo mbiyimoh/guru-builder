@@ -46,6 +46,13 @@ export default function ProfileCreationPage() {
   }
 
   /**
+   * Handle profile refinement - update synthesisResult with refined profile
+   */
+  const handleRefinement = (newResult: SynthesisResult) => {
+    setSynthesisResult(newResult)
+  }
+
+  /**
    * Return to input step (allow re-synthesis)
    */
   const handleBack = () => {
@@ -207,6 +214,7 @@ export default function ProfileCreationPage() {
           onBack={handleBack}
           onSave={handleSave}
           saving={saving}
+          onRefinement={handleRefinement}
         />
       )}
 
