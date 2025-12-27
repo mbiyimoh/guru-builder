@@ -38,7 +38,9 @@ export function GuruProfileSection({ projectId, autoPrompt = true }: GuruProfile
 
   const fetchProfile = useCallback(async () => {
     try {
-      const res = await fetch(`/api/projects/${projectId}/guru-profile`)
+      const res = await fetch(`/api/projects/${projectId}/guru-profile`, {
+        cache: 'no-store',
+      })
       if (res.ok) {
         const data = await res.json()
         setProfileData(data)

@@ -31,7 +31,6 @@ export const ScorecardRefinementInput = forwardRef<
   const [inputText, setInputText] = useState('');
   const [inputMode, setInputMode] = useState<'text' | 'voice'>('text');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const speech = useSpeechRecognition();
@@ -74,7 +73,6 @@ export const ScorecardRefinementInput = forwardRef<
     if (!inputText.trim() || isProcessing || disabled) return;
 
     setIsProcessing(true);
-    setError(null);
     onRefinementStart?.();
 
     try {
@@ -96,10 +94,12 @@ export const ScorecardRefinementInput = forwardRef<
         speech.resetTranscript();
         onRefinementComplete(data.profile);
       } else {
-        setError(data.error?.message || 'Failed to refine profile');
+        // Use alert() per codebase convention for critical errors
+        alert(data.error?.message || 'Failed to refine profile. Please try again.');
       }
     } catch (e) {
-      setError('Network error. Please try again.');
+      console.error('Refinement error:', e);
+      alert('Network error. Please try again.');
     } finally {
       setIsProcessing(false);
     }
@@ -200,12 +200,6 @@ export const ScorecardRefinementInput = forwardRef<
               <span className="text-destructive flex items-center gap-1">
                 <AlertCircle className="w-3 h-3" />
                 {speech.error}
-              </span>
-            )}
-            {error && (
-              <span className="text-destructive flex items-center gap-1">
-                <AlertCircle className="w-3 h-3" />
-                {error}
               </span>
             )}
           </div>

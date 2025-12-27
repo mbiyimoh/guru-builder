@@ -170,6 +170,7 @@ export function ProfileScorecard({
             fields={section.fields}
             onLightAreaClick={handleLightAreaClick}
             defaultExpanded={index === 0} // Expand first section by default
+            disabled={isRefining}
           />
         ))}
 
@@ -186,6 +187,7 @@ export function ProfileScorecard({
               },
             ]}
             onLightAreaClick={handleLightAreaClick}
+            disabled={isRefining}
           />
         )}
       </div>

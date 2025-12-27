@@ -18,6 +18,7 @@ interface ScorecardSectionProps {
   fields: ScorecardField[];
   onLightAreaClick: (fieldKey: string, fieldLabel: string) => void;
   defaultExpanded?: boolean;
+  disabled?: boolean;
 }
 
 export function ScorecardSection({
@@ -25,6 +26,7 @@ export function ScorecardSection({
   fields,
   onLightAreaClick,
   defaultExpanded = false,
+  disabled = false,
 }: ScorecardSectionProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
@@ -93,15 +95,21 @@ export function ScorecardSection({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          onLightAreaClick(field.fieldKey, field.label);
+                          if (!disabled) {
+                            onLightAreaClick(field.fieldKey, field.label);
+                          }
                         }}
-                        className="group"
+                        disabled={disabled}
+                        className={cn('group', disabled && 'opacity-50 cursor-not-allowed')}
                       >
                         <Badge
                           variant="secondary"
-                          className="bg-amber-200 text-amber-900 dark:bg-amber-800 dark:text-amber-100 text-xs cursor-pointer hover:bg-amber-300 dark:hover:bg-amber-700 transition-colors"
+                          className={cn(
+                            'bg-amber-200 text-amber-900 dark:bg-amber-800 dark:text-amber-100 text-xs transition-colors',
+                            disabled ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-amber-300 dark:hover:bg-amber-700'
+                          )}
                         >
-                          Lower Confidence - Click to improve
+                          {disabled ? 'Updating...' : 'Lower Confidence - Click to improve'}
                         </Badge>
                       </button>
                     )}

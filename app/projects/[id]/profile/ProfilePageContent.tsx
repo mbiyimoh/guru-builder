@@ -54,19 +54,25 @@ export function ProfilePageContent({ projectId, existingProfile }: Props) {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to save profile');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to save profile');
       }
 
-      // Fetch the updated profile to get the full data
-      const updatedRes = await fetch(`/api/projects/${projectId}/guru-profile`);
-      if (updatedRes.ok) {
-        const data = await updatedRes.json();
-        if (data.hasProfile && data.profile) {
-          setCurrentProfile(data.profile);
-        }
-      }
+      // Optimistically update local state from the result
+      // This avoids a redundant fetch since we have all the data
+      setCurrentProfile({
+        ...currentProfile,
+        id: currentProfile?.id || '',
+        profileData: result.profile,
+        rawBrainDump: result.rawInput,
+        synthesisMode: result.synthesisMode,
+        lightAreas: result.lightAreas,
+        version: ((currentProfile as { version?: number })?.version || 0) + 1,
+        createdAt: currentProfile?.createdAt || new Date(),
+        updatedAt: new Date(),
+      } as typeof currentProfile);
 
-      // Refresh the page data
+      // Refresh router cache for server components
       router.refresh();
     } catch (error) {
       console.error('Failed to save profile:', error);
