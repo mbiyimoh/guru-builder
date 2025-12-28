@@ -50,13 +50,13 @@ export function WizardNavigation({ hidePhases = false }: WizardNavigationProps) 
   const activePhaseIndex = currentPhaseIndex >= 0 ? currentPhaseIndex : 0;
 
   return (
-    <nav className="bg-white border-b border-gray-200">
+    <nav className="bg-background border-b border-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
         {/* Back to Projects Link - Stack above phases on mobile */}
         <div className={cn("mb-4 sm:mb-6", hidePhases && "mb-0")}>
           <Link
             href="/projects"
-            className="text-sm text-gray-600 hover:text-gray-900 transition-colors inline-block min-h-[44px] flex items-center"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors inline-block min-h-[44px] flex items-center"
           >
             ← Back to Projects
           </Link>
@@ -87,11 +87,11 @@ export function WizardNavigation({ hidePhases = false }: WizardNavigationProps) 
                         className={cn(
                           'w-10 h-10 sm:w-10 sm:h-10 rounded-full flex items-center justify-center border-2 transition-all flex-shrink-0',
                           isCompleted &&
-                            'bg-blue-600 border-blue-600 text-white',
+                            'bg-primary border-primary text-primary-foreground',
                           isActive &&
-                            'bg-blue-600 border-blue-600 text-white',
+                            'bg-primary border-primary text-primary-foreground shadow-md',
                           isFuture &&
-                            'bg-gray-100 border-gray-300 text-gray-400'
+                            'bg-muted border-border text-muted-foreground'
                         )}
                       >
                         {isCompleted ? (
@@ -110,9 +110,9 @@ export function WizardNavigation({ hidePhases = false }: WizardNavigationProps) 
                       <span
                         className={cn(
                           'hidden md:inline text-sm font-medium transition-colors',
-                          isActive && 'text-blue-600',
-                          isCompleted && 'text-gray-900 hover:text-blue-600',
-                          isFuture && 'text-gray-400'
+                          isActive && 'text-primary',
+                          isCompleted && 'text-foreground hover:text-primary',
+                          isFuture && 'text-muted-foreground'
                         )}
                       >
                         {phase.label}
@@ -124,14 +124,14 @@ export function WizardNavigation({ hidePhases = false }: WizardNavigationProps) 
                       <div
                         className={cn(
                           'w-10 h-10 sm:w-10 sm:h-10 rounded-full flex items-center justify-center border-2 transition-all flex-shrink-0',
-                          'bg-gray-100 border-gray-300 text-gray-400'
+                          'bg-muted border-border text-muted-foreground'
                         )}
                       >
                         <Circle className="w-4 h-4 sm:w-5 sm:h-5" />
                       </div>
 
                       {/* Label - Hidden on mobile */}
-                      <span className="hidden md:inline text-sm font-medium text-gray-400">
+                      <span className="hidden md:inline text-sm font-medium text-muted-foreground">
                         {phase.label}
                       </span>
                     </div>
@@ -143,7 +143,7 @@ export function WizardNavigation({ hidePhases = false }: WizardNavigationProps) 
                   <div
                     className={cn(
                       'flex-1 h-0.5 mx-2 sm:mx-4 transition-colors',
-                      isCompleted ? 'bg-blue-600' : 'bg-gray-300'
+                      isCompleted ? 'bg-primary' : 'bg-border'
                     )}
                   />
                 )}

@@ -60,7 +60,7 @@ export function SimplifiedDashboard({ project, isNewProject }: SimplifiedDashboa
   const completionPercentage = Math.round((completedSteps / 3) * 100);
 
   return (
-    <div className="container max-w-7xl mx-auto py-6 px-4 space-y-6">
+    <div className="container max-w-7xl mx-auto py-8 px-4 lg:px-8 space-y-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
@@ -138,7 +138,7 @@ export function SimplifiedDashboard({ project, isNewProject }: SimplifiedDashboa
       )}
 
       {/* Activity Tiles */}
-      <div data-tour="activity-tiles" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div data-tour="activity-tiles" className="grid grid-cols-2 lg:grid-cols-4 gap-6">
         <ActivityTile
           title="Research Runs"
           value={project.researchRuns.length}

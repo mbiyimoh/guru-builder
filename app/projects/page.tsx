@@ -3,6 +3,8 @@ import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { CreateProjectButton } from './CreateProjectButton';
 import { ClickableCard } from '@/components/ui/clickable-card';
+import { EmptyState } from '@/components/ui/empty-state';
+import { FolderOpen } from 'lucide-react';
 
 // Force dynamic rendering to ensure fresh data
 export const dynamic = 'force-dynamic';
@@ -41,23 +43,13 @@ export default async function ProjectsPage() {
       </div>
 
       {projects.length === 0 ? (
-        <div className="text-center py-12 bg-card rounded-lg border">
-          <svg
-            className="mx-auto h-12 w-12 text-muted-foreground"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"
-            />
-          </svg>
-          <h3 className="mt-2 text-sm font-medium">No projects</h3>
-          <p className="mt-1 text-sm text-muted-foreground">Get started by creating a new project.</p>
-          <div className="mt-6">
+        <div className="bg-card rounded-xl border shadow-md">
+          <EmptyState
+            icon={<FolderOpen className="w-full h-full" />}
+            title="No projects yet"
+            description="Create your first guru project to get started building your AI teaching assistant."
+          />
+          <div className="pb-8 flex justify-center">
             <CreateProjectButton />
           </div>
         </div>

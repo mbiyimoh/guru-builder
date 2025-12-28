@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { ChevronRight, CheckCircle2 } from 'lucide-react';
+import { ChevronRight, Check } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface GettingStartedStepProps {
   completed: boolean;
@@ -16,17 +17,25 @@ export function GettingStartedStep({ completed, title, description, href, icon, 
   return (
     <Link
       href={disabled ? '#' : href}
-      className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+      className={cn(
+        "flex items-center gap-4 p-4 rounded-lg transition-all duration-300",
         completed
-          ? 'bg-green-50 border-green-200 dark:bg-green-950/20'
+          ? "bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800"
           : disabled
-          ? 'bg-gray-50 border-gray-200 opacity-50 cursor-not-allowed dark:bg-gray-900'
-          : 'bg-white border-gray-200 hover:bg-gray-50 dark:bg-gray-900 dark:hover:bg-gray-800'
-      }`}
+          ? "bg-muted/50 border border-transparent opacity-50 cursor-not-allowed"
+          : "bg-muted/50 border border-transparent hover:border-border"
+      )}
       onClick={(e) => disabled && e.preventDefault()}
     >
-      <div className={`p-2 rounded-full ${completed ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-600'}`}>
-        {completed ? <CheckCircle2 className="w-4 h-4" /> : icon}
+      <div className={cn(
+        "w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300",
+        completed
+          ? "bg-emerald-500 text-white shadow-md"
+          : disabled
+            ? "bg-muted text-muted-foreground"
+            : "bg-primary/10 text-primary"
+      )}>
+        {completed ? <Check className="w-4 h-4" /> : icon}
       </div>
       <div className="flex-1">
         <div className="font-medium text-sm">{title}</div>

@@ -15,10 +15,12 @@ interface ActivityTileProps {
 export function ActivityTile({ title, value, icon, href, isStatus }: ActivityTileProps) {
   return (
     <ClickableCard href={href}>
-      <Card className="hover:bg-accent/50 transition-colors cursor-pointer h-full">
-        <CardContent className="pt-4 pb-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-muted-foreground">{icon}</div>
+      <Card className="hover:shadow-lg transition-all duration-300 cursor-pointer h-full">
+        <CardContent className="pt-5 pb-5">
+          <div className="flex items-start justify-between mb-2">
+            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+              {icon}
+            </div>
           </div>
           <div className={`text-2xl font-bold ${isStatus ? 'text-base' : ''}`}>
             {isStatus ? (
@@ -27,7 +29,7 @@ export function ActivityTile({ title, value, icon, href, isStatus }: ActivityTil
               value
             )}
           </div>
-          <div className="text-xs text-muted-foreground mt-1">{title}</div>
+          <div className="text-sm text-muted-foreground mt-1">{title}</div>
         </CardContent>
       </Card>
     </ClickableCard>
