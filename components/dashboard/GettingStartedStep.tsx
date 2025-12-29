@@ -18,12 +18,12 @@ export function GettingStartedStep({ completed, title, description, href, icon, 
     <Link
       href={disabled ? '#' : href}
       className={cn(
-        "flex items-center gap-4 p-4 rounded-lg transition-all duration-300",
+        "flex items-center gap-4 p-4 rounded-xl transition-all duration-300",
         completed
-          ? "bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800"
+          ? "bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40 border border-emerald-200/60 dark:border-emerald-800/60"
           : disabled
-          ? "bg-muted/50 border border-transparent opacity-50 cursor-not-allowed"
-          : "bg-muted/50 border border-transparent hover:border-border"
+          ? "bg-muted/30 border border-transparent opacity-50 cursor-not-allowed"
+          : "bg-white dark:bg-card border border-border/50 hover:border-indigo-200 dark:hover:border-indigo-800/60 hover:shadow-md hover:shadow-indigo-500/5"
       )}
       onClick={(e) => disabled && e.preventDefault()}
     >

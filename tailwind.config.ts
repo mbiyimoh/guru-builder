@@ -56,14 +56,28 @@ const config: Config = {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      backgroundImage: {
+        'gradient-primary': 'linear-gradient(135deg, hsl(var(--gradient-start)), hsl(var(--gradient-mid)), hsl(var(--gradient-end)))',
+        'gradient-subtle': 'linear-gradient(135deg, hsl(var(--gradient-start) / 0.1), hsl(var(--gradient-end) / 0.1))',
+      },
+      boxShadow: {
+        'glow': '0 0 20px -5px hsl(var(--glow-blue) / 0.4)',
+        'elevated': '0 4px 20px -5px rgba(0,0,0,0.15), 0 0 0 1px rgba(59,130,246,0.05)',
+        'elevated-hover': '0 8px 30px -5px rgba(0,0,0,0.2), 0 0 0 1px rgba(59,130,246,0.1)',
+      },
       keyframes: {
         shimmer: {
           '0%': { transform: 'translateX(-100%)' },
           '100%': { transform: 'translateX(400%)' },
         },
+        'gradient-shift': {
+          '0%, 100%': { backgroundPosition: '0% 50%' },
+          '50%': { backgroundPosition: '100% 50%' },
+        },
       },
       animation: {
         shimmer: 'shimmer 1.5s ease-in-out infinite',
+        'gradient-shift': 'gradient-shift 3s ease infinite',
       },
     },
   },

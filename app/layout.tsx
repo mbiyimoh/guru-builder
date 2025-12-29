@@ -32,7 +32,7 @@ export default async function RootLayout({
       <body className={inter.className}>
         <div className="min-h-screen flex flex-col">
           {/* Navigation */}
-          <nav className="border-b bg-card">
+          <nav className="relative border-b bg-card">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex justify-between h-16">
                 <div className="flex">
@@ -79,6 +79,8 @@ export default async function RootLayout({
                 </div>
               </div>
             </div>
+            {/* Refined gradient border - subtle but visible */}
+            <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-indigo-400/40 to-transparent" />
           </nav>
 
           {/* Main content */}

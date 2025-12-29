@@ -140,24 +140,28 @@ export function SimplifiedDashboard({ project, isNewProject }: SimplifiedDashboa
       {/* Activity Tiles */}
       <div data-tour="activity-tiles" className="grid grid-cols-2 lg:grid-cols-4 gap-6">
         <ActivityTile
+          colorScheme="blue"
           title="Research Runs"
           value={project.researchRuns.length}
           icon={<Search className="w-5 h-5" />}
           href={`/projects/${project.id}/research`}
         />
         <ActivityTile
+          colorScheme="amber"
           title="Knowledge Bits Acquired"
           value={project.researchRuns.reduce((acc, run) => acc + run._count.recommendations, 0)}
           icon={<Lightbulb className="w-5 h-5" />}
           href={`/projects/${project.id}/research`}
         />
         <ActivityTile
+          colorScheme="purple"
           title="Artifacts Generated"
           value={project.guruArtifacts.length}
           icon={<FileText className="w-5 h-5" />}
           href={`/projects/${project.id}/artifacts/teaching`}
         />
         <ActivityTile
+          colorScheme="green"
           title="Profile"
           value={hasProfile ? 'Active' : 'Not Set'}
           icon={<Brain className="w-5 h-5" />}

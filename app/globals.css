@@ -4,13 +4,13 @@
 
 @layer base {
   :root {
-    /* Background & Foreground */
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
+    /* Background & Foreground - subtle warm gray for depth */
+    --background: 220 14% 96%;
+    --foreground: 224 10% 10%;
 
-    /* Card - slight elevation from background */
+    /* Card - pure white to pop against background */
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
+    --card-foreground: 224 10% 10%;
 
     /* Popover - solid for overlays */
     --popover: 0 0% 100%;
@@ -50,14 +50,24 @@
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
+
+    /* Gradient stops for reuse */
+    --gradient-start: 221.2 83.2% 53.3%;   /* blue */
+    --gradient-mid: 250 83.2% 53.3%;       /* purple */
+    --gradient-end: 280 83.2% 53.3%;       /* pink */
+
+    /* Glow color (for shadows) */
+    --glow-blue: 217 91% 60%;
   }
 
   .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
+    /* Dark mode - deeper background for card contrast */
+    --background: 224 15% 6%;
+    --foreground: 210 20% 98%;
 
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
+    /* Card - slightly elevated from background */
+    --card: 224 15% 10%;
+    --card-foreground: 210 20% 98%;
 
     --popover: 240 10% 3.9%;
     --popover-foreground: 0 0% 98%;
@@ -86,6 +96,11 @@
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
+
+    /* Dark mode gradient stops - more saturated for visibility */
+    --gradient-start: 217 91% 50%;
+    --gradient-mid: 250 91% 50%;
+    --gradient-end: 280 91% 50%;
   }
 }
 

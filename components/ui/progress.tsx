@@ -28,21 +28,25 @@ export function Progress({
 }: ProgressProps) {
   const percentage = Math.min(100, Math.max(0, (value / max) * 100));
 
-  // Color based on percentage (or primary if specified)
+  // Refined pastel color palette - intentional, soft tones
   const getBarColor = () => {
-    if (usePrimary) return 'bg-primary';
-    if (percentage >= 80) return 'bg-emerald-600';
-    if (percentage >= 60) return 'bg-primary';
-    if (percentage >= 40) return 'bg-amber-600';
-    return 'bg-red-600';
+    if (usePrimary) return 'bg-gradient-to-r from-indigo-400 via-violet-400 to-purple-400';
+    // Soft sage/teal for excellent (80%+)
+    if (percentage >= 80) return 'bg-gradient-to-r from-emerald-400 to-teal-400';
+    // Soft blue/indigo for good (60-79%)
+    if (percentage >= 60) return 'bg-gradient-to-r from-sky-400 to-indigo-400';
+    // Soft amber/peach for needs attention (40-59%)
+    if (percentage >= 40) return 'bg-gradient-to-r from-amber-300 to-orange-300';
+    // Soft rose/coral for low (<40%)
+    return 'bg-gradient-to-r from-rose-300 to-pink-400';
   };
 
   return (
     <div className={cn('w-full', className)}>
-      <div className="relative w-full h-2 bg-secondary rounded-full overflow-hidden">
+      <div className="relative w-full h-2.5 bg-secondary rounded-full overflow-hidden">
         <div
           className={cn(
-            'h-full transition-all duration-500 ease-out relative overflow-hidden',
+            'h-full rounded-full transition-all duration-500 ease-out relative overflow-hidden',
             getBarColor(),
             barClassName
           )}
