@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { FullReportModal } from './FullReportModal';
+import { Button } from '@/components/ui/button';
+import { ArrowRight, FileText } from 'lucide-react';
 import type { ResearchFindings } from '@/lib/types';
 
 interface ResearchFindingsViewProps {
@@ -9,21 +11,68 @@ interface ResearchFindingsViewProps {
   recommendationCount: number;
 }
 
+/**
+ * Extract key takeaways from a summary text.
+ * Tries to find existing bullet points first, falls back to sentences.
+ */
+function extractKeyTakeaways(summary: string, maxPoints: number = 4): string[] {
+  // Handle empty or very short summaries
+  if (!summary?.trim() || summary.length < 50) {
+    return summary?.trim() ? [summary.trim()] : ['Research completed. See full report for details.'];
+  }
+
+  // Try to find existing bullet points (-, •, *, or numbered)
+  const bulletMatch = summary.match(/^[\s]*[-•*]\s+.+$/gm);
+  if (bulletMatch && bulletMatch.length >= 2) {
+    return bulletMatch
+      .slice(0, maxPoints)
+      .map(b => b.replace(/^[\s]*[-•*]\s+/, '').trim())
+      .filter(b => b.length > 0);
+  }
+
+  // Try numbered lists (1., 2., etc.)
+  const numberedMatch = summary.match(/^[\s]*\d+[.)]\s+.+$/gm);
+  if (numberedMatch && numberedMatch.length >= 2) {
+    return numberedMatch
+      .slice(0, maxPoints)
+      .map(b => b.replace(/^[\s]*\d+[.)]\s+/, '').trim())
+      .filter(b => b.length > 0);
+  }
+
+  // Fall back to extracting sentences
+  const sentences = summary
+    .split(/(?<=[.!?])\s+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 20 && s.length < 300) // Filter reasonable length sentences
+    .slice(0, maxPoints);
+
+  // If we got sentences, return them
+  if (sentences.length >= 2) {
+    return sentences;
+  }
+
+  // Last resort: split by newlines or return truncated summary
+  const lines = summary.split(/\n+/).filter(l => l.trim().length > 20);
+  if (lines.length >= 2) {
+    return lines.slice(0, maxPoints).map(l => l.trim());
+  }
+
+  // Absolute fallback
+  return [summary.substring(0, 250) + (summary.length > 250 ? '...' : '')];
+}
+
 export function ResearchFindingsView({ researchData, recommendationCount }: ResearchFindingsViewProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
   const [showModal, setShowModal] = useState(false);
 
-  // Calculate preview (first ~400 characters or ~5 lines)
-  const PREVIEW_LENGTH = 400;
-  const needsTruncation = researchData.summary.length > PREVIEW_LENGTH;
-  const previewText = needsTruncation
-    ? researchData.summary.substring(0, PREVIEW_LENGTH).trim() + '...'
-    : researchData.summary;
+  const keyTakeaways = extractKeyTakeaways(researchData.summary);
 
   return (
     <>
       <div className="bg-white rounded-lg border p-6 mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Research Summary</h2>
+        <div className="flex items-center gap-2 mb-4">
+          <FileText className="h-5 w-5 text-blue-600" />
+          <h2 className="text-lg font-semibold text-gray-900">Research Summary</h2>
+        </div>
 
         {/* No Recommendations Warning (if applicable) */}
         {recommendationCount === 0 && (
@@ -54,59 +103,34 @@ export function ResearchFindingsView({ researchData, recommendationCount }: Rese
           </div>
         )}
 
-        {/* Summary Text */}
-        <div className="mb-4">
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <div className="whitespace-pre-wrap font-sans text-sm text-gray-700 leading-relaxed">
-              {isExpanded ? researchData.summary : previewText}
-            </div>
-          </div>
+        {/* Key Takeaways - Bulleted List */}
+        <div className="mb-5">
+          <h3 className="text-sm font-medium text-gray-700 mb-3">Key Findings</h3>
+          <ul className="space-y-2.5">
+            {keyTakeaways.map((point, i) => (
+              <li key={i} className="flex items-start gap-3 text-sm text-gray-700">
+                <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-blue-500 mt-2" />
+                <span className="leading-relaxed">{point}</span>
+              </li>
+            ))}
+          </ul>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center space-x-3">
-          {needsTruncation && (
-            <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-            >
-              {isExpanded ? (
-                <>
-                  Show less
-                  <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                  </svg>
-                </>
-              ) : (
-                <>
-                  Show more
-                  <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </>
-              )}
-            </button>
-          )}
-
-          <button
-            onClick={() => setShowModal(true)}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-          >
-            Read full report
-            <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Metadata (optional) */}
+        {/* Sources Count */}
         {researchData.sourcesAnalyzed > 0 && (
-          <div className="mt-4 pt-4 border-t">
-            <p className="text-sm text-gray-500">
-              {researchData.sourcesAnalyzed} sources analyzed
-            </p>
-          </div>
+          <p className="text-sm text-gray-500 mb-4">
+            Based on {researchData.sourcesAnalyzed} sources analyzed
+          </p>
         )}
+
+        {/* Read Full Report CTA */}
+        <Button
+          onClick={() => setShowModal(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white"
+        >
+          Read full report
+          <ArrowRight className="ml-2 h-4 w-4" />
+        </Button>
       </div>
 
       {/* Full Report Modal */}

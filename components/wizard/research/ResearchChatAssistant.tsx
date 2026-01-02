@@ -64,6 +64,22 @@ What should we research?`,
     textareaRef.current?.focus();
   }, []);
 
+  // Auto-resize textarea based on content
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    // Reset height to auto to get accurate scrollHeight
+    textarea.style.height = 'auto';
+
+    // Calculate new height (min 44px, max ~136px for ~5 lines)
+    const minHeight = 44;
+    const maxHeight = 136; // ~5 lines at text-sm
+    const newHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight);
+
+    textarea.style.height = `${newHeight}px`;
+  }, [inputMessage]);
+
   // Handle sending message
   const handleSendMessage = async () => {
     const trimmedMessage = inputMessage.trim();
@@ -218,7 +234,7 @@ What should we research?`,
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Type your message... (Enter to send, Shift+Enter for new line)"
-              className="resize-none min-h-[60px] sm:min-h-[80px] text-sm"
+              className="resize-none text-sm overflow-y-auto"
               disabled={isRefining}
             />
             <Button
