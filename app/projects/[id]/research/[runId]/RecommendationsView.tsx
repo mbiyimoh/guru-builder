@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { TrendingUp, AlertCircle, ChevronRight } from 'lucide-react';
 import { DiffViewer } from '@/components/recommendations/DiffViewer';
+import { RefinementInput } from '@/components/recommendations/RefinementInput';
+import { InlineContentDiff } from '@/components/recommendations/InlineContentDiff';
 
 interface Recommendation {
   id: string;
@@ -41,8 +43,19 @@ export function RecommendationsView({ recommendations, projectId, runId }: Recom
   const [expandedDiffs, setExpandedDiffs] = useState<Set<string>>(new Set());
   const [readinessResult, setReadinessResult] = useState<ReadinessResult | null>(null);
 
+  // Track which recommendation has content auto-expanded for refinement
+  const [refinementExpandedId, setRefinementExpandedId] = useState<string | null>(null);
+
+  // Track pre-refinement content for diff display
+  const [preRefinementContent, setPreRefinementContent] = useState<{
+    id: string;
+    fullContent: string;
+  } | null>(null);
+
   const handleApprove = async (id: string) => {
     setLoadingId(id);
+    setPreRefinementContent(null);  // Clear diff
+    setRefinementExpandedId(null);
     try {
       const res = await fetch(`/api/recommendations/${id}/approve`, {
         method: 'POST',
@@ -63,6 +76,8 @@ export function RecommendationsView({ recommendations, projectId, runId }: Recom
 
   const handleReject = async (id: string) => {
     setLoadingId(id);
+    setPreRefinementContent(null);  // Clear diff
+    setRefinementExpandedId(null);
     try {
       const res = await fetch(`/api/recommendations/${id}/reject`, {
         method: 'POST',
@@ -238,10 +253,11 @@ export function RecommendationsView({ recommendations, projectId, runId }: Recom
                 {/* Description - always visible */}
                 <p className="text-gray-700 mb-3">{rec.description}</p>
 
-                {/* Full Content Preview - expandable */}
+                {/* Full Content Preview - expandable, auto-opens when refining */}
                 {rec.action === 'EDIT' && (rec.contextLayerId || rec.knowledgeFileId) ? (
                   <details
                     className="mb-3"
+                    open={refinementExpandedId === rec.id || expandedDiffs.has(rec.id)}
                     onToggle={(e) => {
                       const isOpen = (e.target as HTMLDetailsElement).open;
                       setExpandedDiffs(prev => {
@@ -256,24 +272,45 @@ export function RecommendationsView({ recommendations, projectId, runId }: Recom
                       View Changes ({Math.ceil(rec.fullContent.length / 1000)}k characters)
                     </summary>
                     <div className="mt-3">
-                      <DiffViewer
-                        targetType={rec.targetType as 'LAYER' | 'KNOWLEDGE_FILE'}
-                        targetId={(rec.contextLayerId || rec.knowledgeFileId)!}
-                        proposedContent={rec.fullContent}
-                        isExpanded={expandedDiffs.has(rec.id)}
-                      />
+                      {/* Show inline diff if we have pre-refinement content for this rec */}
+                      {preRefinementContent?.id === rec.id ? (
+                        <InlineContentDiff
+                          originalContent={preRefinementContent.fullContent}
+                          newContent={rec.fullContent}
+                        />
+                      ) : (
+                        <DiffViewer
+                          targetType={rec.targetType as 'LAYER' | 'KNOWLEDGE_FILE'}
+                          targetId={(rec.contextLayerId || rec.knowledgeFileId)!}
+                          proposedContent={rec.fullContent}
+                          isExpanded={expandedDiffs.has(rec.id)}
+                        />
+                      )}
                     </div>
                   </details>
                 ) : (
-                  <details className="mb-3">
+                  <details
+                    className="mb-3"
+                    open={refinementExpandedId === rec.id}
+                  >
                     <summary className="cursor-pointer text-blue-600 hover:text-blue-800 font-medium text-sm">
                       View Full {rec.action === 'ADD' ? 'Proposed' : rec.action === 'DELETE' ? 'Content to Delete' : 'Content'}
                       {' '}({Math.ceil(rec.fullContent.length / 1000)}k characters)
                     </summary>
-                    <div className="mt-3 p-4 bg-gray-50 rounded-md border border-gray-200 max-h-96 overflow-y-auto">
-                      <pre className="whitespace-pre-wrap text-sm text-gray-800 font-mono">
-                        {rec.fullContent}
-                      </pre>
+                    <div className="mt-3">
+                      {/* Show inline diff if we have pre-refinement content for this rec */}
+                      {preRefinementContent?.id === rec.id ? (
+                        <InlineContentDiff
+                          originalContent={preRefinementContent.fullContent}
+                          newContent={rec.fullContent}
+                        />
+                      ) : (
+                        <div className="p-4 bg-gray-50 rounded-md border border-gray-200 max-h-96 overflow-y-auto">
+                          <pre className="whitespace-pre-wrap text-sm text-gray-800 font-mono">
+                            {rec.fullContent}
+                          </pre>
+                        </div>
+                      )}
                     </div>
                   </details>
                 )}
@@ -286,6 +323,25 @@ export function RecommendationsView({ recommendations, projectId, runId }: Recom
                 </div>
               </div>
             </div>
+
+            {/* Refinement Input - only show for PENDING */}
+            {rec.status === 'PENDING' && (
+              <div className="mb-4">
+                <RefinementInput
+                  recommendationId={rec.id}
+                  currentContent={rec.fullContent}
+                  disabled={loadingId === rec.id}
+                  onRefinementStart={(content) => {
+                    setRefinementExpandedId(rec.id);
+                    setPreRefinementContent({ id: rec.id, fullContent: content });
+                  }}
+                  onRefinementComplete={() => {
+                    router.refresh();
+                    // Keep preRefinementContent to show diff after refresh
+                  }}
+                />
+              </div>
+            )}
 
             {rec.status === 'PENDING' && (
               <div className="flex gap-2">

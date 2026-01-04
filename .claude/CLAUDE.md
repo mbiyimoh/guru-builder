@@ -405,6 +405,112 @@ const handleCancel = async () => {
 - UI should disable cancel button during cancellation (loading state)
 - Use `router.refresh()` to update UI after cancellation
 
+### Recommendation Refinement & Inline Diff
+
+AI-powered refinement of pending recommendations with visual diff display.
+
+**Key Files:**
+- `app/api/recommendations/[id]/refine/route.ts` - Refinement endpoint (POST)
+- `lib/recommendations/refineRecommendation.ts` - Core refinement logic with GPT
+- `components/recommendations/RefinementInput.tsx` - User input component with examples
+- `components/recommendations/InlineContentDiff.tsx` - Inline diff visualization
+- `app/projects/[id]/research/[runId]/RecommendationsView.tsx` - Parent orchestrator
+
+**Architecture:**
+- Auto-expansion: When user clicks "Refine", content preview auto-opens
+- Inline diff: After refinement, shows red strikethrough (deletions) and green highlight (additions)
+- Ephemeral diff: Clears on approve/reject/refresh
+- Character limits: 2000 max, 500 recommended (matches API validation)
+
+**Critical Patterns:**
+```typescript
+// 1. Cache Control for Mutation Endpoints (REQUIRED)
+export const dynamic = 'force-dynamic';  // Top of route file
+
+return NextResponse.json(data, {
+  headers: {
+    'Cache-Control': 'no-store, no-cache, must-revalidate',
+  }
+});
+
+// 2. Stable React Keys (NOT index)
+const stableKey = `${index}-${type}-${content.slice(0, 20).replace(/\s/g, '_')}`;
+
+// 3. Memoized Diff Computation
+const segments = useMemo(
+  () => computeDiff(originalContent, newContent),
+  [originalContent, newContent]
+);
+
+// 4. State Management Pattern
+const [refinementExpandedId, setRefinementExpandedId] = useState<string | null>(null);
+const [preRefinementContent, setPreRefinementContent] = useState<{
+  id: string;
+  fullContent: string;
+} | null>(null);
+```
+
+**Gotchas:**
+- MUST use stable keys in diff rendering (not array index) - prevents React rendering glitches
+- MUST add `export const dynamic = 'force-dynamic'` to mutation endpoints - prevents Next.js cache issues
+- MUST clear diff state on approve/reject - prevents stale diffs showing for wrong recommendation
+- Character count should match API sanitization logic (trim + collapse whitespace)
+- RefinementError class provides structured error handling with retry hints
+
+### Research Summary Generation
+
+GPT-powered standalone summaries instead of truncation.
+
+**Key Files:**
+- `lib/researchOrchestrator.ts` - `generateSummary()` function
+- `components/research/ResearchFindingsView.tsx` - Summary display with bullet extraction
+- `components/research/FullReportModal.tsx` - Full report with ReactMarkdown
+
+**How it works:**
+1. After full research report generation, GPT creates a standalone summary
+2. Format: Intro sentence (max 100 chars) + 3-4 bullet points (60-100 chars each)
+3. Total under 500 chars, plain text (no markdown formatting)
+4. Full report renders with ReactMarkdown in modal
+
+**Critical Pattern:**
+```typescript
+async function generateSummary(fullReport: string, query: string): Promise<string> {
+  if (!fullReport || fullReport.length < 100) {
+    console.warn(`[Research] Summary generation skipped - report too short`);
+    return "Research completed. See full report for details.";
+  }
+
+  const completion = await getOpenAI().chat.completions.create({
+    model: RESEARCH_MODEL,
+    messages: [
+      {
+        role: "system",
+        content: `Create a brief, scannable summary.
+- Start with ONE introductory sentence (max 100 chars)
+- Follow with 3-4 bullet points (start with "• ")
+- Each bullet 60-100 chars
+- Total under 500 characters
+- Plain text only - NO markdown formatting`
+      },
+      {
+        role: "user",
+        content: `Summarize: "${query}"\n\n${fullReport.slice(0, 3000)}`
+      }
+    ],
+    temperature: 0.5,
+    max_tokens: 300,
+  });
+
+  return completion.choices[0]?.message?.content?.trim() || "Research completed.";
+}
+```
+
+**Gotchas:**
+- Don't truncate the full report - generate a proper summary
+- GPT doesn't always follow exact char limits - add buffer and enforce max length
+- Log warnings when summaries can't be generated (helps debugging)
+- Use ReactMarkdown for full report display, but keep summary as plain text
+
 ---
 
 ## SOPs
@@ -532,6 +638,8 @@ npx tsc --noEmit                   # Type check
 | Tours not showing | Check: (1) Mobile <768px skips tours, (2) LocalStorage `tour-seen-{id}` = true, (3) Target elements exist |
 | Voice input not working | Chrome/Edge only - Firefox/Safari don't support Web Speech API |
 | Cancellation not stopping job | Add `status === 'CANCELLED'` checks before expensive operations in Inngest jobs |
+| Refinement not showing changes | Check: (1) Add `export const dynamic = 'force-dynamic'` to endpoint, (2) Add cache control headers to response, (3) Use stable React keys (not index) |
+| Diff view shows stale content | Clear `preRefinementContent` state on approve/reject actions |
 
 ---
 

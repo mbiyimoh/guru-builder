@@ -1,5 +1,6 @@
 'use client';
 
+import ReactMarkdown from 'react-markdown';
 import { useModalAccessibility } from '@/hooks/useModalAccessibility';
 
 interface FullReportModalProps {
@@ -73,9 +74,9 @@ export function FullReportModal({
           {/* Full Report Section */}
           <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-3">Full Report</h3>
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
-              <div className="whitespace-pre-wrap font-sans text-sm text-gray-700 leading-relaxed">
-                {fullReport}
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 max-h-[60vh] overflow-y-auto">
+              <div className="prose prose-sm max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-li:text-gray-700">
+                <ReactMarkdown>{fullReport}</ReactMarkdown>
               </div>
             </div>
           </div>

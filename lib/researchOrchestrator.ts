@@ -117,6 +117,56 @@ Rules:
 }
 
 /**
+ * Generate a concise, scannable summary from the full research report
+ * Returns formatted intro sentence + bullet points (no raw markdown symbols)
+ */
+async function generateSummary(fullReport: string, query: string): Promise<string> {
+  if (!fullReport || fullReport.length < 100) {
+    console.warn(`[Research] Summary generation skipped - report too short (${fullReport?.length || 0} chars)`);
+    return "Research completed. See full report for details.";
+  }
+
+  try {
+    const completion = await getOpenAI().chat.completions.create({
+      model: RESEARCH_MODEL,
+      messages: [
+        {
+          role: "system",
+          content: `You are a research summarizer. Create a brief, scannable summary of research findings.
+
+Format Requirements:
+- Start with ONE introductory sentence (max 100 chars)
+- Follow with 3-4 bullet points of key findings
+- Each bullet should start with "• " (bullet character)
+- Each bullet should be 60-100 characters
+- Total output MUST be under 500 characters
+- Use plain text only - NO markdown formatting (no #, ##, **, etc.)
+- Write for quick scanning, not deep reading`
+        },
+        {
+          role: "user",
+          content: `Summarize this research report about "${query}":\n\n${fullReport.slice(0, 3000)}`
+        }
+      ],
+      temperature: 0.5,
+      max_tokens: 300,
+    });
+
+    const summary = completion.choices[0]?.message?.content?.trim();
+    if (!summary) {
+      return "Research completed. See full report for details.";
+    }
+
+    // Ensure we don't exceed 600 chars (with some buffer)
+    return summary.length > 600 ? summary.slice(0, 597) + "..." : summary;
+  } catch (error) {
+    console.error("[Research] Failed to generate summary:", error);
+    // Fallback to simple truncation if GPT call fails
+    return fullReport.slice(0, 500) + (fullReport.length > 500 ? "..." : "");
+  }
+}
+
+/**
  * Execute research using Tavily search and GPT-4o synthesis
  */
 export async function executeResearch(
@@ -192,7 +242,10 @@ Use markdown formatting for clarity. Include specific findings from the sources 
     ]); // Synthesis gets more time since it's the most important step
 
     const fullReport = completion.choices[0]?.message?.content || "";
-    const summary = fullReport.slice(0, 500) + (fullReport.length > 500 ? "..." : "");
+
+    // Generate a proper standalone summary (not truncation)
+    await onProgress?.("Generating summary...");
+    const summary = await generateSummary(fullReport, instructions);
 
     const executionTime = Date.now() - startTime;
     console.log(`[Research] Completed in ${executionTime}ms`);
