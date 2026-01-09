@@ -25,6 +25,10 @@ model User {
   projects              Project[]
   assessmentDefinitions AssessmentDefinition[]
 
+  // Feedback relations
+  feedbackSubmissions Feedback[]     @relation("UserFeedback")
+  feedbackVotes       FeedbackVote[] @relation("UserFeedbackVotes")
+
   @@index([email])
 }
 
@@ -679,6 +683,36 @@ enum VerificationStatus {
 }
 
 // ============================================================================
+// USER FEEDBACK SYSTEM ENUMS
+// ============================================================================
+
+enum FeedbackArea {
+  PROJECTS      // Project management
+  RESEARCH      // Research runs and recommendations
+  ARTIFACTS     // Teaching artifact generation
+  PROFILE       // Guru profile creation
+  READINESS     // Readiness assessment
+  UI_UX         // General interface feedback
+  OTHER         // Catch-all
+}
+
+enum FeedbackType {
+  BUG           // Something is broken
+  ENHANCEMENT   // Improvement to existing feature
+  IDEA          // New feature suggestion
+  QUESTION      // General question or confusion
+}
+
+enum FeedbackStatus {
+  OPEN          // New, visible to all users
+  IN_REVIEW     // Being evaluated by team
+  PLANNED       // Accepted, will be implemented
+  IN_PROGRESS   // Currently being worked on
+  COMPLETED     // Done/shipped
+  CLOSED        // Won't do / duplicate / invalid
+}
+
+// ============================================================================
 // POSITION LIBRARY ENUMS
 // ============================================================================
 
@@ -933,4 +967,54 @@ model PublishedGuru {
 
   @@index([shortId])
   @@index([isPublished])
+}
+
+// ============================================================================
+// USER FEEDBACK SYSTEM
+// ============================================================================
+
+model Feedback {
+  id          String         @id @default(cuid())
+  userId      String
+
+  // Content
+  title       String         @db.VarChar(200)
+  description String         @db.Text
+
+  // Categorization
+  area        FeedbackArea
+  type        FeedbackType
+  status      FeedbackStatus @default(OPEN)
+
+  // Metrics - denormalized for sorting performance
+  upvoteCount Int            @default(0)
+
+  // Timestamps
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  // Relations
+  user        User           @relation("UserFeedback", fields: [userId], references: [id], onDelete: Cascade)
+  votes       FeedbackVote[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([area])
+  @@index([type])
+  @@index([createdAt])
+  @@index([upvoteCount])
+}
+
+model FeedbackVote {
+  id         String   @id @default(cuid())
+  feedbackId String
+  userId     String
+  createdAt  DateTime @default(now())
+
+  feedback   Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+  user       User     @relation("UserFeedbackVotes", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([feedbackId, userId])  // One vote per user per feedback
+  @@index([feedbackId])
+  @@index([userId])
 }

@@ -511,6 +511,56 @@ async function generateSummary(fullReport: string, query: string): Promise<strin
 - Log warnings when summaries can't be generated (helps debugging)
 - Use ReactMarkdown for full report display, but keep summary as plain text
 
+### User Feedback System
+
+Platform-wide feedback collection with upvoting capability.
+
+**Key Files:**
+- `lib/feedback/validation.ts` - Zod schemas and display labels
+- `app/api/feedback/route.ts` - POST (create), GET (list with filters)
+- `app/api/feedback/[id]/route.ts` - GET (single item)
+- `app/api/feedback/[id]/vote/route.ts` - POST (upvote/remove)
+- `components/feedback/` - FeedbackButton, FeedbackCard, FeedbackList, FeedbackForm, FeedbackDialog, UpvoteButton
+- `app/feedback/page.tsx` - Feedback portal page
+
+**Database Models:**
+```prisma
+model Feedback {
+  id          String         @id @default(cuid())
+  userId      String
+  title       String         @db.VarChar(200)
+  description String         @db.Text
+  area        FeedbackArea   // PROJECTS, RESEARCH, ARTIFACTS, PROFILE, READINESS, UI_UX, OTHER
+  type        FeedbackType   // BUG, ENHANCEMENT, IDEA, QUESTION
+  status      FeedbackStatus @default(OPEN)
+  upvoteCount Int            @default(0)  // Denormalized for sorting
+  user        User           @relation("UserFeedback")
+  votes       FeedbackVote[]
+}
+
+model FeedbackVote {
+  feedbackId String
+  userId     String
+  @@unique([feedbackId, userId])  // One vote per user
+}
+```
+
+**Architecture:**
+- Sticky button (bottom-left, `z-50`) navigates to `/feedback`
+- All operations require authentication (no public viewing)
+- Optimistic UI for voting with rollback on error
+- Atomic `$transaction` for vote + count updates
+- Cursor-based pagination with filtering by area/type/status
+
+**Integration:**
+- FeedbackButton added to `app/layout.tsx` (shows when authenticated)
+- Uses `alert()` for user feedback (codebase convention)
+
+**Gotchas:**
+- Admin status management is deferred (PATCH endpoint not implemented)
+- Default filter excludes CLOSED status
+- `upvoteCount` is denormalized - always use transactions when modifying votes
+
 ---
 
 ## SOPs
@@ -640,6 +690,8 @@ npx tsc --noEmit                   # Type check
 | Cancellation not stopping job | Add `status === 'CANCELLED'` checks before expensive operations in Inngest jobs |
 | Refinement not showing changes | Check: (1) Add `export const dynamic = 'force-dynamic'` to endpoint, (2) Add cache control headers to response, (3) Use stable React keys (not index) |
 | Diff view shows stale content | Clear `preRefinementContent` state on approve/reject actions |
+| Feedback vote not updating | Ensure `$transaction` wraps both vote creation and `upvoteCount` update |
+| Feedback button not showing | Check user is authenticated in `app/layout.tsx` |
 
 ---
 

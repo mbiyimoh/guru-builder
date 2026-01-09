@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { getCurrentUser, signOut } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { FeedbackButton } from '@/components/feedback'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -87,6 +88,9 @@ export default async function RootLayout({
           <main className="flex-1 bg-background">
             {children}
           </main>
+
+          {/* Feedback Button - only show when authenticated */}
+          {user && <FeedbackButton />}
 
           {/* Footer */}
           <footer className="border-t bg-card">
